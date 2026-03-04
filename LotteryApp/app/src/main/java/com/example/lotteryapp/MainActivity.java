@@ -1,7 +1,8 @@
 package com.example.lotteryapp;
 
+import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
+import android.widget.Button;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
@@ -18,13 +19,19 @@ import com.google.firebase.auth.FirebaseAuth;
 public class MainActivity extends AppCompatActivity {
     // Init Firestore database
     FirebaseService db = new FirebaseService();
-    EntrantStorage entrantStorage = new EntrantStorage(db.getDb());
+    UserStorage ustore = new UserStorage(db.getDb());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+        Button profileButton = findViewById(R.id.btnProfile);
+        profileButton.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, UserProfileActivity.class);
+            startActivity(intent);
+        });
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -40,16 +47,16 @@ public class MainActivity extends AppCompatActivity {
         // returning user
         if (auth.getCurrentUser() != null) {
             String uuid = auth.getCurrentUser().getUid();
-            entrantStorage.setNewEntrant(new Entrant(uuid));
+            ustore.setNewUser(new User(uuid));
             return;
         }
 
         // new user
-        auth.signInAnonymously().addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+        auth.signInAnonymously().addOnCompleteListener(new OnCompleteListener<>() {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
                 String uid = auth.getCurrentUser().getUid();
-                entrantStorage.setNewEntrant(new Entrant(uid));
+                ustore.setNewUser(new User(uid));
             }
         });
     }
