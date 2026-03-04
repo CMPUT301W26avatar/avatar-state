@@ -1,0 +1,29 @@
+name: run tests
+
+on:
+    pull_request:
+        branches:
+            - main
+    push: 
+        branches:
+            - feat/**
+
+jobs:
+    unit-tests:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Set up Java
+              uses: actions/setup-java@v4
+              with:
+                distribution: temurin
+                java-version: 17
+            
+            - name: Grant execute permission for gradlew
+              run: chmod +x gradlew
+
+            - name: Run tests
+              run: ./gradlew connectedDebugAndroidTest
