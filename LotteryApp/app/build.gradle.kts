@@ -50,6 +50,7 @@ dependencies {
 
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("org.mockito:mockito-android:5.11.0")
 
     // Import the Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
