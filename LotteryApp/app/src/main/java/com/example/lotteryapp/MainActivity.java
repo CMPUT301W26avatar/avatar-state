@@ -28,7 +28,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
-        
+
         // Set default fragment
         if (savedInstanceState == null) {
             getSupportFragmentManager().beginTransaction()
@@ -43,13 +43,13 @@ public class MainActivity extends AppCompatActivity {
             if (itemId == R.id.nav_home) {
                 selectedFragment = new HomeFragment();
             } else if (itemId == R.id.nav_search) {
-                // selectedFragment = new SearchFragment();
+                selectedFragment = new SearchFragment();
             } else if (itemId == R.id.nav_joined) {
-                // selectedFragment = new JoinedFragment();
+                selectedFragment = new JoinedFragment();
             } else if (itemId == R.id.nav_manage) {
-                // selectedFragment = new ManageFragment();
+                selectedFragment = new ManageFragment();
             } else if (itemId == R.id.nav_profile) {
-                // selectedFragment = new ProfileFragment();
+                selectedFragment = new ProfileFragment();
             }
 
             if (selectedFragment != null) {
