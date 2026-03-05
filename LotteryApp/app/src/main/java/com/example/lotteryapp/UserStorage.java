@@ -1,4 +1,5 @@
 package com.example.lotteryapp;
+
 import androidx.annotation.NonNull;
 
 import com.google.android.gms.tasks.OnFailureListener;
@@ -11,24 +12,24 @@ import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.Transaction;
 
-import org.w3c.dom.Document;
-
 import java.util.HashMap;
 import java.util.Map;
 
 public class UserStorage {
     private final FirebaseFirestore db;
+
     public UserStorage(FirebaseFirestore db) {
         this.db = db;
     }
 
     private DocumentReference userDoc(String uuid) {
-        return db.collection("entrants").document(uuid);
+        return db.collection("users").document(uuid);
     }
 
     public void setNewUser(User user) {
         final String uuid = user.getUUID();
-        final DocumentReference ref = db.collection("entrants").document(uuid);
+        final DocumentReference ref = db.collection("users").document(uuid);
+
         // Transaction so createdAt is only set once.
         db.runTransaction(new Transaction.Function<Void>() {
             @Override
@@ -48,37 +49,39 @@ public class UserStorage {
         });
     }
 
+    // Firebase connector: user profile getter with failure listener to alert bad user requests
     public void getUserProfile(final String uuid,
-            final OnSuccessListener<User> ok, OnFailureListener fail) {
+            final OnSuccessListener<User> ok,
+            OnFailureListener fail) {
         userDoc(uuid)
                 .get()
-                .addOnSuccessListener(new OnSuccessListener<com.google.firebase.firestore.DocumentSnapshot>() {
-                    @Override
-                    public void onSuccess(com.google.firebase.firestore.DocumentSnapshot snapshot) {
-                        User user = new User(uuid);
-                        if (snapshot.exists()) {
-                            user.setName(snapshot.getString("name"));
-                            user.setEmail(snapshot.getString("email"));
-                            user.setPhoneNumber(snapshot.getString("phoneNumber"));
-                        }
-                        ok.onSuccess(user);
+                .addOnSuccessListener(snapshot -> {
+                    User user = new User(uuid);
+                    if (snapshot.exists()) {
+                        user.setName(snapshot.getString("name"));
+                        user.setEmail(snapshot.getString("email"));
+                        user.setPhoneNumber(snapshot.getString("phoneNumber"));
                     }
-                }).addOnFailureListener(fail);
+                    ok.onSuccess(user);
+                })
+                .addOnFailureListener(fail);
     }
 
-    public void updateUserProfile(String uuid, String name, String email, String phoneNumber,
-                                  OnSuccessListener<Void> ok, OnFailureListener fail) {
+    // Firebase connector: sets the updated values for the user in Firebase
+    public void updateUserProfile(
+            String uuid,
+            String name,
+            String email,
+            String phoneNumber,
+            OnSuccessListener<Void> ok,
+            OnFailureListener fail
+    ) {
         Map<String, Object> update = new HashMap<>();
 
-        if (name != null) {
-            update.put("name", name);
-        }
-        if (email != null) {
-            update.put("email", email);
-        }
-        if (phoneNumber != null) {
-            update.put("phoneNumber", phoneNumber);
-        }
+        if (name != null) update.put("name", name);
+        if (email != null) update.put("email", email);
+        if (phoneNumber != null) update.put("phoneNumber", phoneNumber);
+
         update.put("updatedAt", FieldValue.serverTimestamp());
         update.put("deviceID", uuid);
 
@@ -88,19 +91,15 @@ public class UserStorage {
                 .addOnFailureListener(fail);
     }
 
-    public void updateName(String uuid, String name,
-            OnSuccessListener<Void> ok, OnFailureListener fail) {
+    public void updateName(String uuid, String name, OnSuccessListener<Void> ok, OnFailureListener fail) {
         updateUserProfile(uuid, name, null, null, ok, fail);
     }
 
-    public void updateEmail(String uuid, String email,
-            OnSuccessListener<Void> ok, OnFailureListener fail) {
+    public void updateEmail(String uuid, String email, OnSuccessListener<Void> ok, OnFailureListener fail) {
         updateUserProfile(uuid, null, email, null, ok, fail);
     }
 
-    public void updatePhoneNumber(String uuid, String phone,
-            OnSuccessListener<Void> ok, OnFailureListener fail) {
+    public void updatePhoneNumber(String uuid, String phone, OnSuccessListener<Void> ok, OnFailureListener fail) {
         updateUserProfile(uuid, null, null, phone, ok, fail);
     }
 }
-

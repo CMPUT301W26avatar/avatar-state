@@ -2,7 +2,7 @@ package com.example.lotteryapp;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.widget.Button;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
@@ -26,16 +26,26 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
-        Button profileButton = findViewById(R.id.btnProfile);
-        profileButton.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, UserProfileActivity.class);
-            startActivity(intent);
-        });
-
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
+        });
+
+        findViewById(R.id.btnProfile).setOnClickListener(v ->
+                startActivity(new Intent(this, UserProfileActivity.class)));
+        findViewById(R.id.btnBrowseEvents).setOnClickListener(v ->
+                startActivity(new Intent(this, ListEventsActivity.class)));
+        findViewById(R.id.btnCreateEvent).setOnClickListener(v -> {
+            String uid = db.getAuth().getCurrentUser() != null
+                    ? db.getAuth().getCurrentUser().getUid() : null;
+            if (uid == null) {
+                Toast.makeText(this, "Not signed in yet", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Intent intent = new Intent(this, CreateEventsActivity.class);
+            intent.putExtra("organizerId", uid);
+            startActivity(intent);
         });
 
         appSignIn(); // on open

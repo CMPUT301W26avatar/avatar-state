@@ -25,10 +25,16 @@ public class UserProfileActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_user_profile);
 
-        db = new FirebaseService();
-        userStorage = new UserStorage(db.getDb());
+        // get UserStorage via ServiceLocator
+        userStorage = ServiceLocator.userStorage();
 
-        uuid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        // get uuid from ServiceLocator
+        uuid = ServiceLocator.uid();
+        if (uuid == null || uuid.isEmpty()) {
+            Toast.makeText(this, "Not signed in", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
 
         nameField = findViewById(R.id.editName);
         emailField = findViewById(R.id.editEmail);
@@ -42,6 +48,7 @@ public class UserProfileActivity extends AppCompatActivity {
         backButton.setOnClickListener(v -> finish());
     }
 
+    // loads a user profile before updating
     private void loadUserProfile() {
         userStorage.getUserProfile(uuid, user -> {
             nameField.setText(user.getName());
@@ -50,6 +57,7 @@ public class UserProfileActivity extends AppCompatActivity {
         }, e -> Toast.makeText(this, "Failed to load profile", Toast.LENGTH_SHORT).show());
     }
 
+    // set new, or update existing profile
     private void saveProfile() {
         String name = nameField.getText().toString().trim();
         String email = emailField.getText().toString().trim();

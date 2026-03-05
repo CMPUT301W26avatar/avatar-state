@@ -36,27 +36,34 @@ android {
 }
 
 dependencies {
+
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
+
     testImplementation(libs.junit)
+
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+
     androidTestImplementation("androidx.test:runner:1.5.2")
     androidTestImplementation("androidx.test:rules:1.5.0")
 
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("androidx.test.espresso:espresso-contrib:3.5.1")
+    androidTestImplementation("androidx.test.espresso:espresso-intents:3.5.1")
 
     androidTestImplementation("org.mockito:mockito-android:5.11.0")
-    // Import the Firebase BoM
+
+    // Firebase BOM
     implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
+    androidTestImplementation(platform("com.google.firebase:firebase-bom:34.3.0"))
 
-
-    // TODO: Add the dependencies for Firebase products you want to use
-    // When using the BoM, don't specify versions in Firebase dependencies
-    implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-auth")
 
+    androidTestImplementation("com.google.firebase:firebase-firestore")
+    androidTestImplementation("com.google.firebase:firebase-auth")
 }
