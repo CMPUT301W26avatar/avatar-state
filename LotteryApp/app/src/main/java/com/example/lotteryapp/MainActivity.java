@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.fragment.app.Fragment;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -27,22 +28,34 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        
+        // Set default fragment
+        if (savedInstanceState == null) {
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, new HomeFragment())
+                    .commit();
+        }
+
         bottomNav.setOnItemSelectedListener(item -> {
+            Fragment selectedFragment = null;
             int itemId = item.getItemId();
+            
             if (itemId == R.id.nav_home) {
-                // TODO: Show Home Fragment
-                return true;
+                selectedFragment = new HomeFragment();
             } else if (itemId == R.id.nav_search) {
-                // TODO: Show Search Fragment
-                return true;
+                // selectedFragment = new SearchFragment();
             } else if (itemId == R.id.nav_joined) {
-                // TODO: Show Joined Fragment
-                return true;
+                // selectedFragment = new JoinedFragment();
             } else if (itemId == R.id.nav_manage) {
-                // TODO: Show Manage Fragment
-                return true;
+                // selectedFragment = new ManageFragment();
             } else if (itemId == R.id.nav_profile) {
-                // TODO: Show Profile Fragment
+                // selectedFragment = new ProfileFragment();
+            }
+
+            if (selectedFragment != null) {
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, selectedFragment)
+                        .commit();
                 return true;
             }
             return false;
@@ -50,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0); // Keep bottom padding 0 for nav bar
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0);
             return insets;
         });
 
