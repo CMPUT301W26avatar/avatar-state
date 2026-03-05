@@ -23,9 +23,6 @@
             </intent-filter>
         </activity>
         <activity android:name=".UserProfileActivity"/>
-        <activity android:name=".CreateEventsActivity"/>
-        <activity android:name=".ListEventsActivity"/>
-        <activity android:name=".EventDetailActivity"/>
     </application>
 
 </manifest>
