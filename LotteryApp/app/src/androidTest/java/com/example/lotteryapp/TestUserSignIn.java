@@ -39,7 +39,7 @@ public class TestUserSignIn {
     }
 
     @Test
-    public void userIsSignedIn_uuidIsNotNull() {
+    public void uuidIsNotNull() {
         assertNotNull("uuid should be set by @Before sign-in", uuid);
     }
 }

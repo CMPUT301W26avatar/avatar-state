@@ -2,7 +2,11 @@ package com.example.lotteryapp;
 
 import android.content.Intent;
 import android.os.Bundle;
+<<<<<<< HEAD
 import android.widget.Toast;
+=======
+import android.widget.Button;
+>>>>>>> main
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
@@ -26,6 +30,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+        Button profileButton = findViewById(R.id.btnProfile);
+
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
