@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FAFAFA">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvEventTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Event Details"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:paddingTop="12dp"
+            android:paddingLeft="12dp"
+            android:paddingBottom="12dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="#E8F5E9"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="4dp"
+                android:textColor="#2E7D32"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp"/>
+
+            <!-- Capacity -->
+            <TextView
+                android:id="@+id/tvCapacity"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:layout_marginBottom="4dp"/>
+
+            <!-- Waitlist capacity -->
+            <TextView
+                android:id="@+id/tvWaitlistCapacity"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone"/>
+
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#E0E0E0"
+                android:layout_marginBottom="16dp"/>
+
+            <!-- Registration period -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="REGISTRATION"
+                android:textSize="11sp"
+                android:textColor="@android:color/darker_gray"
+                android:textStyle="bold"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="6dp"/>
+
+            <TextView
+                android:id="@+id/tvRegStart"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:id="@+id/tvRegEnd"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:layout_marginBottom="16dp"/>
+
+            <!-- Draw date -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="LOTTERY DRAW"
+                android:textSize="11sp"
+                android:textColor="@android:color/darker_gray"
+                android:textStyle="bold"
+                android:letterSpacing="0.1"
+                android:layout_marginBottom="6dp"/>
+
+            <TextView
+                android:id="@+id/tvDrawDate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:layout_marginBottom="24dp"/>
+
+            <!-- Registration closed notice -->
+            <TextView
+                android:id="@+id/tvRegClosed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Registration is not currently open."
+                android:textColor="#B00020"
+                android:textSize="14sp"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"/>
+
+            <!-- Enroll -->
+            <Button
+                android:id="@+id/btnEnroll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Enroll in Event"
+                android:layout_marginBottom="8dp"
+                android:visibility="gone"/>
+
+            <!-- Join waitlist -->
+            <Button
+                android:id="@+id/btnJoinWaitlist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Join Waitlist"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone"/>
+
+            <!-- Back -->
+            <Button
+                android:id="@+id/btnBack"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Back"
+                style="?attr/materialButtonOutlinedStyle"/>
+
+        </LinearLayout>
+    </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>
