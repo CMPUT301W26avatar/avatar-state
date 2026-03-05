@@ -3,11 +3,53 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F8F9FA">
+    android:background="?attr/colorSurface">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorSurface"
+        app:elevation="0dp">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            app:title="Manage Events"
+            app:titleCentered="false"
+            app:titleTextAppearance="?attr/textAppearanceTitleLarge">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginEnd="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sort"
+                    app:icon="@drawable/ic_filter"
+                    app:iconPadding="4dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:icon="@drawable/ic_sort"
+                    app:iconTint="?attr/colorPrimary" />
+            </LinearLayout>
+
+        </com.google.android.material.appbar.MaterialToolbar>
+
+    </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -15,87 +57,20 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Manage Events"
-                    android:textColor="#000000"
-                    android:textSize="24sp"
-                    android:textStyle="bold" />
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.card.MaterialCardView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        app:cardCornerRadius="8dp"
-                        app:cardElevation="0dp"
-                        app:strokeColor="#DDDDDD"
-                        app:strokeWidth="1dp">
-
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:paddingHorizontal="12dp"
-                            android:paddingVertical="4dp">
-
-                            <ImageView
-                                android:layout_width="16dp"
-                                android:layout_height="16dp"
-                                android:src="@drawable/ic_filter"
-                                app:tint="#49454F" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="4dp"
-                                android:text="Sort"
-                                android:textColor="#49454F" />
-
-                            <ImageView
-                                android:layout_width="16dp"
-                                android:layout_height="16dp"
-                                android:layout_marginStart="4dp"
-                                android:src="@drawable/ic_arrow_down"
-                                app:tint="#49454F" />
-                        </LinearLayout>
-                    </com.google.android.material.card.MaterialCardView>
-
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginStart="12dp"
-                        android:src="@drawable/ic_sort"
-                        app:tint="#007AFF" />
-                </LinearLayout>
-            </RelativeLayout>
-
-            <TextView
+            <com.google.android.material.textview.MaterialTextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 android:text="Checking In"
-                android:textColor="#000000"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
                 android:textStyle="bold" />
 
             <!-- Large Event Card -->
             <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Material3.CardView.Elevated"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
-                app:cardBackgroundColor="#FFFFFF"
                 app:cardCornerRadius="16dp"
                 app:strokeWidth="0dp">
 
@@ -107,7 +82,7 @@
                     <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="match_parent"
                         android:layout_height="180dp"
-                        android:background="#E9F1FF">
+                        android:background="?attr/colorTertiaryContainer">
 
                         <ImageView
                             android:layout_width="64dp"
@@ -117,9 +92,9 @@
                             app:layout_constraintEnd_toEndOf="parent"
                             app:layout_constraintStart_toStartOf="parent"
                             app:layout_constraintTop_toTopOf="parent"
-                            app:tint="#D1E4FF" />
+                            app:tint="?attr/colorOnTertiaryContainer" />
 
-                        <TextView
+                        <com.google.android.material.textview.MaterialTextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_margin="12dp"
@@ -127,7 +102,7 @@
                             android:paddingHorizontal="12dp"
                             android:paddingVertical="4dp"
                             android:text="TAG"
-                            android:textColor="#FFFFFF"
+                            android:textColor="?attr/colorOnPrimary"
                             android:textSize="10sp"
                             android:textStyle="bold"
                             app:layout_constraintEnd_toEndOf="parent"
@@ -141,28 +116,25 @@
                         android:orientation="vertical"
                         android:padding="16dp">
 
-                        <TextView
+                        <com.google.android.material.textview.MaterialTextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Title"
-                            android:textColor="#1C1B1F"
-                            android:textSize="18sp"
+                            android:textAppearance="?attr/textAppearanceTitleMedium"
                             android:textStyle="bold" />
 
-                        <TextView
+                        <com.google.android.material.textview.MaterialTextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Subtitle"
-                            android:textColor="#49454F"
-                            android:textSize="14sp" />
+                            android:textAppearance="?attr/textAppearanceBodySmall" />
 
-                        <TextView
+                        <com.google.android.material.textview.MaterialTextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="12dp"
                             android:text="Description. Lorem ipsum dolor sit amet consectetur adipiscing elit, sed do"
-                            android:textColor="#49454F"
-                            android:textSize="14sp" />
+                            android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                         <com.google.android.material.button.MaterialButton
                             style="@style/Widget.Material3.Button.OutlinedButton"
@@ -170,29 +142,26 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="16dp"
                             android:text="View Invitee List"
-                            android:textAllCaps="false"
-                            android:textColor="#007AFF"
-                            app:cornerRadius="8dp"
-                            app:strokeColor="#007AFF" />
+                            android:textAllCaps="false" />
 
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <TextView
+            <com.google.android.material.textview.MaterialTextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
                 android:text="Upcoming"
-                android:textColor="#000000"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
                 android:textStyle="bold" />
 
             <!-- Row Event Item -->
             <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Material3.CardView.Elevated"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                app:cardBackgroundColor="#FFFFFF"
                 app:cardCornerRadius="12dp"
                 app:strokeWidth="0dp">
 
@@ -206,7 +175,7 @@
                     <com.google.android.material.card.MaterialCardView
                         android:layout_width="60dp"
                         android:layout_height="60dp"
-                        app:cardBackgroundColor="#E9F1FF"
+                        app:cardBackgroundColor="?attr/colorSecondaryContainer"
                         app:cardCornerRadius="8dp"
                         app:strokeWidth="0dp">
 
@@ -215,7 +184,7 @@
                             android:layout_height="24dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_image_placeholder"
-                            app:tint="#D1E4FF" />
+                            app:tint="?attr/colorOnSecondaryContainer" />
                     </com.google.android.material.card.MaterialCardView>
 
                     <LinearLayout
@@ -225,19 +194,18 @@
                         android:layout_weight="1"
                         android:orientation="vertical">
 
-                        <TextView
+                        <com.google.android.material.textview.MaterialTextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Title"
-                            android:textColor="#1C1B1F"
+                            android:textAppearance="?attr/textAppearanceTitleSmall"
                             android:textStyle="bold" />
 
-                        <TextView
+                        <com.google.android.material.textview.MaterialTextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Subtitle"
-                            android:textColor="#49454F"
-                            android:textSize="12sp" />
+                            android:textAppearance="?attr/textAppearanceBodySmall" />
                     </LinearLayout>
 
                     <com.google.android.material.button.MaterialButton
@@ -247,18 +215,14 @@
                         android:paddingHorizontal="16dp"
                         android:text="Details"
                         android:textAllCaps="false"
-                        android:textColor="#007AFF"
-                        android:textSize="12sp"
-                        app:cornerRadius="8dp"
-                        app:strokeColor="#007AFF" />
+                        android:textSize="12sp" />
 
-                    <ImageView
-                        android:layout_width="24dp"
-                        android:layout_height="24dp"
-                        android:layout_marginStart="12dp"
-                        android:layout_marginEnd="8dp"
-                        android:src="@drawable/ic_edit"
-                        app:tint="#007AFF" />
+                    <com.google.android.material.button.MaterialButton
+                        style="@style/Widget.Material3.Button.IconButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:icon="@drawable/ic_edit"
+                        app:iconTint="?attr/colorPrimary" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -272,9 +236,9 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="24dp"
         android:src="@drawable/ic_add"
-        app:backgroundTint="#FFFFFF"
+        app:backgroundTint="?attr/colorPrimaryContainer"
         app:fabSize="normal"
         app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
-        app:tint="#007AFF" />
+        app:tint="?attr/colorOnPrimaryContainer" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
