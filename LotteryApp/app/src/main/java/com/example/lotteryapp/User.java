@@ -5,6 +5,10 @@ public class User {
     public String email;
     public String phoneNumber;
 
+<<<<<<< HEAD
+
+=======
+>>>>>>> main
     public User(String deviceID) {
         if (deviceID == null || deviceID.trim().isEmpty()) {
             throw new IllegalArgumentException("userId required");
