@@ -16,19 +16,16 @@ jobs:
         cache: gradle
 
     - name: Grant execute permission for gradlew
-      run: chmod +x ./LotteryApp/gradlew
-
-    - name: Change directory 
-      run: cd LotteryApp
+      run: cd LotteryApp && chmod +x ./gradlew
 
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Run unit tests
-        run: ./gradlew clean testDebugUnitTest
+        run: cd LotteryApp && ./gradlew clean testDebugUnitTest
 
       - name: Run Instrumentation Tests
-        run: ./gradlew clean AndroidTest
+        run: cd LotteryApp && ./gradlew clean AndroidTest
 
   # NOTE: This only builds if branch is main
   build:
@@ -40,5 +37,5 @@ jobs:
 
     steps:
       - name: Run
-        run: ./gradlew clean build
+        run: cd LotteryApp && ./gradlew clean build
 
