@@ -1,7 +1,10 @@
 name: Android CI
 
-# TODO: Change rules when merging INTO main
-on: [push]
+on: 
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   setup:
