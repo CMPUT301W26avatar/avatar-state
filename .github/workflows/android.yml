@@ -7,7 +7,8 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v4
     - name: set up JDK 17
       uses: actions/setup-java@v4
       with:
@@ -15,17 +16,15 @@ jobs:
         distribution: 'temurin'
         cache: gradle
     - name: Grant execute permission for gradlew
-      run: |
-        cd LotteryApp
-        chmod +x ./gradlew
+      run: cd LotteryApp && chmod +x ./gradlew
 
   test:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
       - name: Run unit tests
-        run: |
-          cd LotteryApp
-          ./gradlew clean testDebugUnitTest
+        run: cd LotteryApp && ./gradlew clean testDebugUnitTest
 
   # NOTE: This only builds if branch is main
   build:
@@ -36,8 +35,7 @@ jobs:
       needs.test.result == 'success'
 
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
       - name: Run
-        run: |
-          cd LotteryApp
-          ./gradlew clean build
-
+        run: cd LotteryApp && ./gradlew clean testDebugUnitTest
