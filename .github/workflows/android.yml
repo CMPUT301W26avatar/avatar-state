@@ -19,6 +19,7 @@ jobs:
       run: chmod +x ./LotteryApp/gradlew 
 
   test:
+    runs-on: ubuntu-latest
     - name: Run Unit Tests
       run: ./LotteryApp/gradlew clean testDebugUnitTest
 
@@ -27,6 +28,7 @@ jobs:
   
   # NOTE: This only builds if branch is main
   build:
+    runs-on: ubuntu-latest
     needs: test
     if: |
       github.ref == 'refs/heads/main' &&
