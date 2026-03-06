@@ -15,14 +15,14 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         cache: gradle
-    - name: Grant execute permission for gradlew
-      run: cd LotteryApp && chmod +x ./gradlew
 
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+      - name: Grant execute permission for gradlew
+        run: cd LotteryApp && chmod +x ./gradlew
       - name: Run unit tests
         run: cd LotteryApp && ./gradlew clean testDebugUnitTest
 
@@ -37,5 +37,7 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+      - name: Grant execute permission for gradlew
+        run: cd LotteryApp && chmod +x ./gradlew
       - name: Run
         run: cd LotteryApp && ./gradlew clean testDebugUnitTest
