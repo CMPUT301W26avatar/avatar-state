@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./LotteryApp
+        working-directory: LotteryApp/
     steps:
       - name: Run unit tests
         run: ./gradlew clean testDebugUnitTest
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./LotteryApp
+        working-directory: LotteryApp/
     needs: test
     if: |
       github.ref == 'refs/heads/main' && 
