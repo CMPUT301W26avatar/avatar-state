@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./LotteryApp
+        working-directory: LotteryApp/
     steps:
     - uses: actions/checkout@v4
     - name: set up JDK 17
