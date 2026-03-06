@@ -18,6 +18,8 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x ./LotteryApp/gradlew
 
+    - name: List currnet dir content
+      run: ls . 
   test:
     runs-on: ubuntu-latest
     steps:
