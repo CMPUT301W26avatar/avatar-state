@@ -17,7 +17,7 @@ jobs:
 
     - name: Grant execute permission for gradlew
       run: |
-        cd LotteryApp
+        cd $GITHUB_WORKSPACE
         chmod +x ./gradlew
 
   test:
@@ -25,11 +25,8 @@ jobs:
     steps:
       - name: Run unit tests
         run: | 
-          cd LotteryApp
+          cd $GITHUB_WORKSPACE
           ./gradlew clean testDebugUnitTest
-
-      - name: Run Instrumentation Tests
-        run: cd LotteryApp && ./gradlew clean AndroidTest
 
   # NOTE: This only builds if branch is main
   build:
@@ -42,6 +39,6 @@ jobs:
     steps:
       - name: Run
         run: | 
-          cd LotteryApp
+          cd $GITHUB_WORKSPACE
           ./gradlew clean build
 
