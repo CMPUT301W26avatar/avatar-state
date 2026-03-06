@@ -1,5 +1,6 @@
 name: Android CI
 
+# TODO: Change rules when merging INTO main
 on: [push]
 
 jobs:
@@ -15,21 +16,21 @@ jobs:
         cache: gradle
 
     - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      run: chmod +x ./LotteryApp/gradlew 
 
   test:
     - name: Run Unit Tests
-      run: ./gradlew clean testDebugUnitTest
+      run: ./LotteryApp/gradlew clean testDebugUnitTest
 
     - name: Run Instrumentation Tests
-      run: ./gradlew clean AndroidTest
+      run: ./LotteryApp/gradlew clean AndroidTest
   
-  # Only builds if branch is main
+  # NOTE: This only builds if branch is main
   build:
     needs: test
     if: |
       github.ref == 'refs/heads/main' &&
       needs.test.result == 'success'
     - name: Build with Gradle
-      run: ./gradlew build
+      run: ./LotteryApp/gradlew clean build
 
