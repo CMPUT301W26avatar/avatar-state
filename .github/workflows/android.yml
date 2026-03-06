@@ -16,23 +16,26 @@ jobs:
         cache: gradle
 
     - name: Grant execute permission for gradlew
-      run: chmod +x ./LotteryApp/gradlew 
+      run: chmod +x ./LotteryApp/gradlew
 
   test:
     runs-on: ubuntu-latest
-    - name: Run Unit Tests
-      run: ./LotteryApp/gradlew clean testDebugUnitTest
+    steps:
+      - name: Run unit tests
+        run: ./LotteryApp/gradlew clean testDebugUnitTest
 
-    - name: Run Instrumentation Tests
-      run: ./LotteryApp/gradlew clean AndroidTest
-  
+      - name: Run Instrumentation Tests
+        run: ./LotteryApp/gradlew clean AndroidTest
+
   # NOTE: This only builds if branch is main
   build:
     runs-on: ubuntu-latest
     needs: test
     if: |
-      github.ref == 'refs/heads/main' &&
+      github.ref == 'refs/heads/main' && 
       needs.test.result == 'success'
-    - name: Build with Gradle
-      run: ./LotteryApp/gradlew clean build
+
+    steps:
+      - name: Run
+        run: ./LotteryApp/gradlew clean build
 
