@@ -5,7 +5,7 @@ on: [push]
 
 defaults:
     run:
-      working-directory: ./LotteryApp
+      working-directory: LotteryApp/
 
 jobs:
   setup:
