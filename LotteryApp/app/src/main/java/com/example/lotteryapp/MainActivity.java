@@ -1,6 +1,7 @@
 package com.example.lotteryapp;
 
 import android.os.Bundle;
+import android.widget.Button;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
