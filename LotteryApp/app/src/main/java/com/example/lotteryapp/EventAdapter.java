@@ -1,5 +1,6 @@
 package com.example.lotteryapp;
 
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,6 +31,15 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
         holder.tvSubtitle.setText(event.subtitle);
         holder.tvDesc.setText(event.description);
         holder.tvTag.setText(event.tag);
+
+        holder.itemView.setOnClickListener(v -> {
+            Intent intent = new Intent(v.getContext(), EventDetailsActivity.class);
+            intent.putExtra("event_name", event.title);
+            intent.putExtra("event_location", event.subtitle);
+            intent.putExtra("event_description", event.description);
+            intent.putExtra("event_tag", event.tag);
+            v.getContext().startActivity(intent);
+        });
     }
 
     @Override
