@@ -18,16 +18,17 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x ./LotteryApp/gradlew
 
-    - name: List currnet dir content
-      run: ls . 
+    - name: Change directory 
+      run: cd LotteryApp
+
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Run unit tests
-        run: ./LotteryApp/gradlew clean testDebugUnitTest
+        run: ./gradlew clean testDebugUnitTest
 
       - name: Run Instrumentation Tests
-        run: ./LotteryApp/gradlew clean AndroidTest
+        run: ./gradlew clean AndroidTest
 
   # NOTE: This only builds if branch is main
   build:
@@ -39,5 +40,5 @@ jobs:
 
     steps:
       - name: Run
-        run: ./LotteryApp/gradlew clean build
+        run: ./gradlew clean build
 
