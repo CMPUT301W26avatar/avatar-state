@@ -18,9 +18,6 @@ import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 
 public class MainActivity extends AppCompatActivity {
-    // Init Firestore database
-    FirebaseService db = new FirebaseService();
-    UserStorage ustore = new UserStorage(db.getDb());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,28 +65,6 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        appSignIn(); // on open
     }
 
-    private void appSignIn() {
-        final FirebaseAuth auth = db.getAuth();
-
-        // returning user
-        if (auth.getCurrentUser() != null) {
-            String uuid = auth.getCurrentUser().getUid();
-            ustore.setNewUser(new User(uuid));
-            return;
-        }
-
-        // new user
-        auth.signInAnonymously().addOnCompleteListener(new OnCompleteListener<AuthResult>() {
-            @Override
-            public void onComplete(@NonNull Task<AuthResult> task) {
-                if (task.isSuccessful() && auth.getCurrentUser() != null) {
-                    String uid = auth.getCurrentUser().getUid();
-                    ustore.setNewUser(new User(uid));
-                }
-            }
-        });
-    }
 }
