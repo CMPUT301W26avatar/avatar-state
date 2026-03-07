@@ -369,7 +369,6 @@ public class ManageFragment extends Fragment {
                 return;
             }
 
-
             Integer waitlistCapacity = null;
             if (waitlistEnabled) {
                 String waitlistText = etWaitlistCapacity.getText().toString().trim();
@@ -378,14 +377,12 @@ public class ManageFragment extends Fragment {
                     Toast.makeText(requireContext(), "Waitlist capacity is required when waitlist is enabled", Toast.LENGTH_SHORT).show();
                     return;
                 }
-
                 try {
                     waitlistCapacity = Integer.parseInt(waitlistText);
                 } catch (NumberFormatException e) {
                     Toast.makeText(requireContext(), "Waitlist capacity must be a valid number", Toast.LENGTH_SHORT).show();
                     return;
                 }
-
                 if (waitlistCapacity < 0) {
                     Toast.makeText(requireContext(), "Waitlist capacity must be 0 or greater", Toast.LENGTH_SHORT).show();
                     return;
@@ -404,33 +401,32 @@ public class ManageFragment extends Fragment {
             event.setTitle(title);
             event.setEventCapacity(eventCapacity);
             event.setWaitlistCapacity(waitlistCapacity);
-
             if (!description.isEmpty()) {
                 setOptionalString(event, "setDescription", description);
             } else {
                 setOptionalString(event, "setDescription", "");
             }
-
             if (!location.isEmpty()) {
                 setOptionalString(event, "setLocation", location);
             } else {
                 setOptionalString(event, "setLocation", "");
             }
 
+            // upsert to database
             eventStorage.upsertEvent(event);
 
             Toast.makeText(requireContext(), "Event updated!", Toast.LENGTH_SHORT).show();
             dialog.dismiss();
         });
-
         dialog.show();
     }
 
-        private void setOptionalString(Event event, String methodName, String value) {
-            try {
-                java.lang.reflect.Method method = event.getClass().getMethod(methodName, String.class);
-                method.invoke(event, value);
-            } catch (Exception ignored) {
-            }
+    // optional Field helper
+    private void setOptionalString(Event event, String methodName, String value) {
+        try {
+            java.lang.reflect.Method method = event.getClass().getMethod(methodName, String.class);
+            method.invoke(event, value);
+        } catch (Exception ignored) {
         }
+    }
 }

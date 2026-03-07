@@ -21,6 +21,9 @@ public class HomeFragment extends Fragment {
 
     private MaterialCardView invitationCard;
     private MaterialButton closeInvitation;
+    private EventStorage estore = ServiceLocator.eventStorage();
+    private EventAdapter adapter;
+    private List<HomeFragment.DisplayGridEvent> displayGridEvents;
 
     @Nullable
     @Override
@@ -35,29 +38,35 @@ public class HomeFragment extends Fragment {
         RecyclerView recyclerView = view.findViewById(R.id.recycler_view);
         recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
 
-        List<HomeFragment.DisplayGridEvent> displayGridEvents = new ArrayList<>();
-        EventAdapter adapter = new EventAdapter(displayGridEvents);
+        displayGridEvents = new ArrayList<>();
+        adapter = new EventAdapter(displayGridEvents);
         recyclerView.setAdapter(adapter);
 
-        EventStorage estore = ServiceLocator.eventStorage();
+        loadEvents();
+
+        return view;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        loadEvents();
+    }
+
+    private void loadEvents() {
+        if (estore == null || adapter == null) return;
 
         estore.listOpenEvents(
                 4,
                 fetchedEvents -> {
                     displayGridEvents.clear();
-
                     for (Event e : fetchedEvents) {
-                        displayGridEvents.add(EventToDisplayEvent(e));
+                        displayGridEvents.add(eventToDisplayEvent(e));
                     }
-
                     adapter.notifyDataSetChanged();
                 },
-                error -> {
-                    error.printStackTrace();
-                }
+                Throwable::printStackTrace
         );
-
-        return view;
     }
 
     // Simple Event model for the UI
@@ -73,8 +82,8 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    private DisplayGridEvent EventToDisplayEvent(Event event) {
-        return new DisplayGridEvent(
+    private HomeFragment.DisplayGridEvent eventToDisplayEvent(Event event) {
+        return new HomeFragment.DisplayGridEvent(
                 event.getEventId(),
                 event.getTitle(),
                 buildSubtitle(event),
@@ -82,17 +91,17 @@ public class HomeFragment extends Fragment {
                 event.getTag()
         );
     }
-    private String buildSubtitle(com.example.lotteryapp.Event event) {
-        String status = event.getStatus().toString();
-        StringBuilder sb = new StringBuilder(status);
-        if (status.equals("OPEN")) {
-            sb.append(" | Capacity: ").append(event.getEventCapacity());
-        } else if (status.equals("CLOSED")) {
-            int waitlistCap = event.getWaitlistCapacity();
-            if (waitlistCap > 0) {
-                sb.append(" | Waitlist: ").append(event.getWaitlistCapacity());
-            }
+
+    private String buildSubtitle(Event event) {
+        int enrolledCount = event.getEnrolledCount();
+        int waitlistCount = event.getWaitlistCount();
+        int eventCapacity = event.getEventCapacity();
+        int waitlistCapacity = event.getWaitlistCapacity();
+
+        if (enrolledCount < eventCapacity) {
+            return "OPEN | Enrolled: " + enrolledCount + "/" + eventCapacity;
+        } else {
+            return "CLOSED | Waitlist: " + waitlistCount + "/" + waitlistCapacity;
         }
-        return sb.toString();
     }
 }

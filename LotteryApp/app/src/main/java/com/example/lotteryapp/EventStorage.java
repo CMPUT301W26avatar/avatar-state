@@ -68,6 +68,8 @@ public class EventStorage {
         data.put("location", event.getLocation());
         data.put("eventCapacity", event.getEventCapacity());
         data.put("waitlistCapacity", event.getWaitlistCapacity());
+        data.put("enrolledCount", event.getEnrolledCount());
+        data.put("waitlistCount", event.getWaitlistCount());
         data.put("posterUrl", event.getPosterUrl());
         data.put("description", event.getDescription());
         data.put("eventDateMs", event.getEventDateMs());
@@ -121,6 +123,12 @@ public class EventStorage {
 
         Long waitlistCap = doc.getLong("waitlistCapacity");
         event.setWaitlistCapacity(waitlistCap == null ? null : waitlistCap.intValue());
+
+        Long enrolledCount = doc.getLong("enrolledCount");
+        event.setEnrolledCount(enrolledCount == null ? 0 : enrolledCount.intValue());
+
+        Long waitlistCount = doc.getLong("waitlistCount");
+        event.setWaitlistCount(waitlistCount == null ? 0 : waitlistCount.intValue());
 
         event.setDescription(doc.getString("description"));
 

@@ -1,5 +1,8 @@
 package com.example.lotteryapp;
 
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+
 import java.sql.Timestamp;
 import java.util.UUID;
 
@@ -21,6 +24,8 @@ public class Event {
     public int eventCapacity;
 
     public Integer waitlistCapacity;
+    private int enrolledCount;
+    private int waitlistCount;
     public Long eventDateMs; // milliseconds
     public Long regStartMs; // milliseconds
     public Long regEndMs; // milliseconds
@@ -44,6 +49,28 @@ public class Event {
 
     public boolean isRegistrationOpen() {
         return status == EventStatus.OPEN;
+    }
+
+    // async call for enrolled counts and waitlist counts
+
+    public void setEnrolledCount(int enrolledCount) {
+        this.enrolledCount = enrolledCount;
+    }
+
+    public int getEnrolledCount() {
+        return enrolledCount;
+    }
+
+    public int getWaitlistCount() {
+        return waitlistCount;
+    }
+
+    public void setWaitlistCount(int waitlistCount) {
+        this.waitlistCount = waitlistCount;
+    }
+
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
     }
 
     public String getEventId() {
@@ -137,4 +164,6 @@ public class Event {
     public void setLocation(String location) {
         this.location = location;
     }
+
+
 }

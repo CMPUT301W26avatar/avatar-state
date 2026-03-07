@@ -14,8 +14,6 @@ import java.util.Locale;
 public class EventDetailsActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
-    public static final String EXTRA_ORGANIZER_ID = "organizerId";
-
     private MaterialTextView tvName;
     private MaterialTextView tvLocation;
     private MaterialTextView tvDescription;
@@ -175,12 +173,6 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
     private void configureActions(Event event) {
-        if (event == null) {
-            btnJoin.setEnabled(false);
-            btnJoin.setText("Event unavailable");
-            return;
-        }
-
         if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
             btnJoin.setEnabled(false);
             btnJoin.setText("Registration Unavailable");
@@ -237,6 +229,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                     Toast.makeText(this, "Enrolled!", Toast.LENGTH_SHORT).show();
                     isEnrolled = true;
                     updateJoinButton();
+                    loadEvent();
                 },
                 e -> {
                     Toast.makeText(this, "Failed to enroll", Toast.LENGTH_SHORT).show();
@@ -255,6 +248,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                     Toast.makeText(this, "Unenrolled!", Toast.LENGTH_SHORT).show();
                     isEnrolled = false;
                     updateJoinButton();
+                    loadEvent();
                 },
                 e -> {
                     Toast.makeText(this, "Failed to unenroll", Toast.LENGTH_SHORT).show();
