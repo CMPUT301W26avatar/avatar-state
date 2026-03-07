@@ -43,17 +43,17 @@ public class SearchFragment extends Fragment {
 
     private List<HomeFragment.DisplayGridEvent> getPopularEvents() {
         List<HomeFragment.DisplayGridEvent> events = new ArrayList<>();
-        events.add(new HomeFragment.DisplayGridEvent("Tech Expo", "Innovation Hub", "Explore the latest in technology.", "TECH"));
-        events.add(new HomeFragment.DisplayGridEvent("Sports Meet", "City Stadium", "Annual sports competition.", "SPORTS"));
-        events.add(new HomeFragment.DisplayGridEvent("Music Fest", "Downtown Plaza", "Live music performances.", "MUSIC"));
-        events.add(new HomeFragment.DisplayGridEvent("Food Carnival", "Central Park", "Taste cuisines from around the world.", "FOOD"));
+        events.add(new HomeFragment.DisplayGridEvent( "test","Tech Expo", "Innovation Hub", "Explore the latest in technology.", "TECH"));
+        events.add(new HomeFragment.DisplayGridEvent("test","Sports Meet", "City Stadium", "Annual sports competition.", "SPORTS"));
+        events.add(new HomeFragment.DisplayGridEvent("test","Music Fest", "Downtown Plaza", "Live music performances.", "MUSIC"));
+        events.add(new HomeFragment.DisplayGridEvent("test","Food Carnival", "Central Park", "Taste cuisines from around the world.", "FOOD"));
         return events;
     }
 
     private List<HomeFragment.DisplayGridEvent> getSuggestedEvents() {
         List<HomeFragment.DisplayGridEvent> events = new ArrayList<>();
-        events.add(new HomeFragment.DisplayGridEvent("Art Workshop", "Creative Studio", "Learn painting and sketching.", "ART"));
-        events.add(new HomeFragment.DisplayGridEvent("Coding Bootcamp", "Online", "Intensive web development training.", "TECH"));
+        events.add(new HomeFragment.DisplayGridEvent("test","Art Workshop", "Creative Studio", "Learn painting and sketching.", "ART"));
+        events.add(new HomeFragment.DisplayGridEvent("test","Coding Bootcamp", "Online", "Intensive web development training.", "TECH"));
         return events;
     }
 }

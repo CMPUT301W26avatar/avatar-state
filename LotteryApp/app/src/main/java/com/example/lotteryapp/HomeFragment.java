@@ -62,8 +62,10 @@ public class HomeFragment extends Fragment {
 
     // Simple Event model for the UI
     public static class DisplayGridEvent {
-        public String title, subtitle, description, tag;
-        public DisplayGridEvent(String title, String subtitle, String description, String tag) {
+        public String eventId, title, subtitle, description, tag;
+
+        public DisplayGridEvent(String eventId, String title, String subtitle, String description, String tag) {
+            this.eventId = eventId;
             this.title = title;
             this.subtitle = subtitle;
             this.description = description;
@@ -72,14 +74,13 @@ public class HomeFragment extends Fragment {
     }
 
     private DisplayGridEvent EventToDisplayEvent(Event event) {
-        DisplayGridEvent dpge =  new DisplayGridEvent(
+        return new DisplayGridEvent(
+                event.getEventId(),
                 event.getTitle(),
                 buildSubtitle(event),
                 event.getDescription(),
                 event.getTag()
         );
-        return dpge;
-
     }
     private String buildSubtitle(com.example.lotteryapp.Event event) {
         String status = event.getStatus().toString();
