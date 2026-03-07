@@ -116,10 +116,22 @@ public class EventDetailsActivity extends AppCompatActivity {
         eventStorage.getEvent(
                 eventId,
                 event -> {
+                    android.util.Log.d("EventDetailsActivity",
+                            "Event loaded: id=" + event.getEventId()
+                                    + ", title=" + event.getTitle()
+                                    + ", eventDateMs=" + event.getEventDateMs()
+                                    + ", regStartMs=" + event.getRegStartMs()
+                                    + ", regEndMs=" + event.getRegEndMs()
+                                    + ", capacity=" + event.getEventCapacity());
+
                     populateInfo(event);
                     configureActions(event);
                 },
-                e -> Toast.makeText(this, "Failed to load event", Toast.LENGTH_SHORT).show()
+                e -> {
+                    android.util.Log.e("EventDetailsActivity",
+                            "Failed to load event: " + e.getMessage(), e);
+                    e.printStackTrace();
+                }
         );
     }
 
@@ -148,9 +160,15 @@ public class EventDetailsActivity extends AppCompatActivity {
             tvDescription.setText("No description provided.");
         }
 
-        // Use registration end in the bottom metadata field
+        if (event.getEventDateMs() != null) {
+            tvDate.setText(sdf.format(new java.util.Date(event.getEventDateMs())));
+        } else {
+            tvDate.setText("Date unavailable");
+        }
+
         if (event.getRegEndMs() != null) {
-            tvRegEndDate.setText("Registration Ends: " + sdf.format(event.getRegEndMs()));
+            tvRegEndDate.setText("Registration Ends: " +
+                    sdf.format(new java.util.Date(event.getRegEndMs())));
         } else {
             tvRegEndDate.setText("Registration end unavailable");
         }
@@ -160,6 +178,12 @@ public class EventDetailsActivity extends AppCompatActivity {
         if (event == null) {
             btnJoin.setEnabled(false);
             btnJoin.setText("Event unavailable");
+            return;
+        }
+
+        if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
+            btnJoin.setEnabled(false);
+            btnJoin.setText("Registration Unavailable");
             return;
         }
 
@@ -188,8 +212,6 @@ public class EventDetailsActivity extends AppCompatActivity {
                 }
         );
     }
-
-
     private void updateJoinButton() {
         btnJoin.setEnabled(true);
         btnJoin.setText(isEnrolled ? "Unenroll" : "Join Event Waitlist");

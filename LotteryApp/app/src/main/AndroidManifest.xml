@@ -22,10 +22,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".UserProfileActivity"/>
-        <activity android:name=".CreateEventsActivity"/>
-        <activity android:name=".ListEventsActivity"/>
-        <activity android:name=".EventDetailActivity"/>
+        <activity android:name=".LoginActivity"/>
+        <activity android:name=".SignupActivity"/>
+        <activity android:name=".EventDetailsActivity"/>
     </application>
 
 </manifest>

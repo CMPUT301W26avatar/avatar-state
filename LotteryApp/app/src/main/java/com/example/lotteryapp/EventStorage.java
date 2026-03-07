@@ -42,10 +42,14 @@ public class EventStorage {
             @Override
             public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
                 DocumentSnapshot snapshot = transaction.get(ref);
+                Map<String, Object> data = eventToMap(event);
+
                 if (!snapshot.exists()) {
-                    transaction.set(ref, eventToMap(event));
+                    transaction.set(ref, data);
                 } else {
-                    transaction.update(ref, "updatedAt", FieldValue.serverTimestamp());
+                    data.remove("createdAt");
+                    data.put("updatedAt", FieldValue.serverTimestamp());
+                    transaction.update(ref, data);
                 }
                 return null;
             }
@@ -102,7 +106,8 @@ public class EventStorage {
             catch (IllegalArgumentException ignored) {}
         }
 
-        int cap = doc.getLong("eventCapacity").intValue();
+        Long capLong = doc.getLong("eventCapacity");
+        int cap = capLong != null ? capLong.intValue() : 1;
 
         Event event = new Event(organizerId, status, cap);
 

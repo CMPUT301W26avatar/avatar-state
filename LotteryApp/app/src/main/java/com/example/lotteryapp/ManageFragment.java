@@ -120,6 +120,11 @@ public class ManageFragment extends Fragment {
 
     // launches EventDetailsActivity on details button press
     private void openEventDetails(Event event) {
+        if (event == null || event.getEventId() == null || event.getEventId().trim().isEmpty()) {
+            Toast.makeText(requireContext(), "Missing event ID", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         Intent intent = new Intent(requireContext(), EventDetailsActivity.class);
         intent.putExtra(EventDetailsActivity.EXTRA_EVENT_ID, event.getEventId());
         startActivity(intent);
