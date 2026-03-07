@@ -33,6 +33,20 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    
+    testOptions {
+        managedDevices {
+      localDevices {
+        create("pixel2api30") {
+          device = "Pixel 2"
+          // Use only API levels 27 and higher.
+          apiLevel = 36
+          // To include Google services, use "google/aosp/aosp-atd".
+          systemImageSource = "aosp"
+        }
+      }
+    }
+   }
 }
 
 dependencies {
@@ -69,6 +83,4 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
 
-    androidTestImplementation("com.google.firebase:firebase-firestore")
-    androidTestImplementation("com.google.firebase:firebase-auth")
 }
