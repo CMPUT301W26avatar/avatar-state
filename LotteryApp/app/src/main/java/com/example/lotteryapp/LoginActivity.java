@@ -14,10 +14,17 @@ public class LoginActivity extends AppCompatActivity {
         setContentView(R.layout.activity_login);
 
         MaterialButton btnLogin = findViewById(R.id.btn_login);
+        MaterialButton btnGuestLogin = findViewById(R.id.btn_guest_login);
         TextView tvRegister = findViewById(R.id.tv_register);
 
         btnLogin.setOnClickListener(v -> {
             // After successful login, go to MainActivity
+            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+            finish();
+        });
+
+        btnGuestLogin.setOnClickListener(v -> {
+            // Login as guest logic
             startActivity(new Intent(LoginActivity.this, MainActivity.class));
             finish();
         });

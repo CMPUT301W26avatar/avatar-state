@@ -66,6 +66,17 @@
         android:textAllCaps="false"
         app:cornerRadius="12dp" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_guest_login"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:paddingVertical="12dp"
+        android:text="Login as Guest"
+        android:textAllCaps="false"
+        app:cornerRadius="12dp" />
+
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
