@@ -149,12 +149,8 @@ public class WaitlistStorage {
         e.eventId = doc.getId();
         e.setTitle(doc.getString("title"));
         e.setPosterUrl(doc.getString("posterUrl"));
-        e.setRegStart(doc.getTimestamp("regStart") != null
-                ? new java.sql.Timestamp(doc.getTimestamp("regStart").toDate().getTime()) : null);
-        e.setRegEnd(doc.getTimestamp("regEnd") != null
-                ? new java.sql.Timestamp(doc.getTimestamp("regEnd").toDate().getTime()) : null);
-        e.setDrawTime(doc.getTimestamp("drawTime") != null
-                ? new java.sql.Timestamp(doc.getTimestamp("drawTime").toDate().getTime()) : null);
+        e.setRegStartMs(doc.getLong("regStartMs"));
+        e.setRegEndMs(doc.getLong("regEndMs"));
 
         Long wlCap = doc.getLong("waitlistCapacity");
         e.setWaitlistCapacity(wlCap != null ? wlCap.intValue() : null);

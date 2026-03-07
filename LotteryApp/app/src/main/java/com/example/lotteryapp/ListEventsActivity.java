@@ -1,4 +1,4 @@
-package com.example.lotteryapp;
+/*package com.example.lotteryapp;
 
 import android.content.Context;
 import android.content.Intent;
@@ -133,4 +133,4 @@ public class ListEventsActivity extends AppCompatActivity {
             return convertView;
         }
     }
-}
+}*/

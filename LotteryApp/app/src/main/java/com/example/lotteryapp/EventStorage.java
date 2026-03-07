@@ -9,12 +9,16 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
-import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.Transaction;
 
 import java.util.HashMap;
 import java.util.Map;
 
+/*
+    Connection between activities and database (FirebaseService).
+        Call via ServiceLocator
+        Handles read/writes into the Firebase database for Event items.
+ */
 public class EventStorage {
 
     private final FirebaseFirestore db;
@@ -27,10 +31,9 @@ public class EventStorage {
         return db.collection("events").document(eventId);
     }
 
-
-
-    // Transaction ensures createdAt is only set once
-    public void createEvent(Event event) {
+    // create/update Events
+    //      Transaction ensures createdAt is only set once
+    public void upsertEvent(Event event) {
         final DocumentReference ref = eventDoc(event.getEventId());
         db.runTransaction(new Transaction.Function<Void>() {
             @Override
@@ -45,6 +48,26 @@ public class EventStorage {
             }
         });
     }
+
+    // upsertsEvent: helper - maps document fields into a dict.
+    private Map<String, Object> eventToMap(Event event) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("eventId", event.getEventId());
+        data.put("organizerId", event.getOrganizerId());
+        data.put("title", event.getTitle());
+        data.put("status", event.getStatus() != null ? event.getStatus().name() : Event.EventStatus.OPEN.name());
+        data.put("eventCapacity", event.getEventCapacity());
+        data.put("waitlistCapacity", event.getWaitlistCapacity());
+        data.put("posterUrl", event.getPosterUrl());
+        data.put("description", event.getDescription());
+        data.put("eventDateMs", event.getEventDateMs());
+        data.put("regStartMs", event.getRegStartMs());
+        data.put("regEndMs", event.getRegEndMs());
+        data.put("createdAt", FieldValue.serverTimestamp());
+        data.put("updatedAt", FieldValue.serverTimestamp());
+        return data;
+    }
+
 
     // read event from Firebase
     public void getEvent(
@@ -64,54 +87,7 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // updateEvent in Firebase
-
-    public void updateEvent(
-            String eventId,
-            Event.EventStatus status,
-            Integer capacity,
-            Integer waitlistCapacity,
-            String posterUrl
-    ) {
-        Map<String, Object> update = new HashMap<>();
-
-        if (status != null) update.put("status", status.name());
-        if (capacity != null) update.put("capacity", capacity);
-        if (posterUrl != null) update.put("posterUrl", posterUrl);
-
-        // null is valid — disables waitlist
-        update.put("waitlistCapacity", waitlistCapacity);
-        update.put("updatedAt", FieldValue.serverTimestamp());
-
-        eventDoc(eventId).set(update, SetOptions.merge());
-    }
-
-    // delete event from Firebase
-
-    public void deleteEvent(String eventId) {
-        eventDoc(eventId).delete();
-    }
-
-    // helper - maps document fields into a dict.
-
-    private Map<String, Object> eventToMap(Event event) {
-        Map<String, Object> data = new HashMap<>();
-        data.put("eventId", event.getEventId());
-        data.put("organizerId", event.getOrganizerId());
-        data.put("title", event.getTitle());
-        data.put("status", event.getStatus() != null ? event.getStatus().name() : Event.EventStatus.OPEN.name());
-        data.put("capacity", event.getCapacity());
-        data.put("waitlistCapacity", event.getWaitlistCapacity());
-        data.put("posterUrl", event.getPosterUrl());
-        data.put("regStart", timestampToFirebase(event.getRegStart()));
-        data.put("regEnd", timestampToFirebase(event.getRegEnd()));
-        data.put("drawTime", timestampToFirebase(event.getDrawTime()));
-        data.put("createdAt", FieldValue.serverTimestamp());
-        data.put("updatedAt", FieldValue.serverTimestamp());
-        return data;
-    }
-
-    // helper - converts a Firebase document into an Event object
+    // getEvent: helper - converts a Firebase document into an Event object
     private Event documentToEvent(DocumentSnapshot doc) {
         String organizerId = doc.getString("organizerId");
         Long cap = doc.getLong("capacity");
@@ -128,21 +104,38 @@ public class EventStorage {
         event.eventId = doc.getId();
         event.setTitle(doc.getString("title"));
         event.setPosterUrl(doc.getString("posterUrl"));
-        event.setWaitlistCapacity(doc.getLong("waitlistCapacity") != null
-                ? doc.getLong("waitlistCapacity").intValue() : null);
-        event.setRegStart(doc.getTimestamp("regStart") != null
-                ? new java.sql.Timestamp(doc.getTimestamp("regStart").toDate().getTime()) : null);
-        event.setRegEnd(doc.getTimestamp("regEnd") != null
-                ? new java.sql.Timestamp(doc.getTimestamp("regEnd").toDate().getTime()) : null);
-        event.setDrawTime(doc.getTimestamp("drawTime") != null
-                ? new java.sql.Timestamp(doc.getTimestamp("drawTime").toDate().getTime()) : null);
+
+        Long waitlistCap = doc.getLong("waitlistCapacity");
+        event.setWaitlistCapacity(waitlistCap == null ? null : waitlistCap.intValue());
+
+        Long eventCapacity = doc.getLong("eventCapacity");
+        if (eventCapacity != null) {
+            event.setEventCapacity(eventCapacity.intValue());
+        }
+
+        event.setDescription(doc.getString("description"));
+
+        Long eventDateMs = doc.getLong("eventDateMs");
+        if (eventDateMs != null) {
+            event.setEventDateMs(eventDateMs);
+        }
+
+        Long regStartMs = doc.getLong("regStartMs");
+        if (regStartMs != null) {
+            event.setRegStartMs(regStartMs);
+        }
+
+        Long regEndMs = doc.getLong("regEndMs");
+        if (regEndMs != null) {
+            event.setRegEndMs(regEndMs);
+        }
 
         return event;
     }
 
-    // converts a timestamp into the proper type that Firebase expects
-    private com.google.firebase.Timestamp timestampToFirebase(java.sql.Timestamp ts) {
-        if (ts == null) return null;
-        return new com.google.firebase.Timestamp(new java.util.Date(ts.getTime()));
+    // delete event from Firebase
+
+    public void deleteEvent(String eventId) {
+        eventDoc(eventId).delete();
     }
 }

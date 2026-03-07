@@ -50,14 +50,9 @@ public class EventPoolStorage {
 
         event.setTitle(doc.getString("title"));
 
-        Timestamp regStart = doc.getTimestamp("regStart");
-        if (regStart != null) event.setRegStart((java.sql.Timestamp) regStart.toDate());
+        Long regStart = doc.getLong("regStart");
 
-        Timestamp regEnd = doc.getTimestamp("regEnd");
-        if (regEnd != null) event.setRegEnd((java.sql.Timestamp) regEnd.toDate());
-
-        Timestamp drawTime = doc.getTimestamp("drawTime");
-        if (drawTime != null) event.setDrawTime((java.sql.Timestamp) drawTime.toDate());
+        Long regEnd = doc.getLong("regEnd");
 
         Boolean waitlist = doc.getBoolean("waitlistEnabled");
         /* set waitlist here */

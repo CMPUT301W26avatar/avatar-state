@@ -1,4 +1,4 @@
-package com.example.lotteryapp;
+/*package com.example.lotteryapp;
 
 import android.os.Bundle;
 import android.widget.Button;
@@ -67,4 +67,4 @@ public class UserProfileActivity extends AppCompatActivity {
                 unused -> Toast.makeText(this, "Profile Updated", Toast.LENGTH_SHORT).show(),
                 e -> Toast.makeText(this, "Update Failed", Toast.LENGTH_SHORT).show());
     }
-}
+}*/

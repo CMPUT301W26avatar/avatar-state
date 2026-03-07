@@ -14,25 +14,27 @@ public class Event {
     - Criteria / Guidelines
     - geolocational data?
      */
+    private String description;
     private String posterUrl; // US 02.04.01 + 02.04.02
 
-    public int capacity;
-    public Integer waitlistCapacity;
-    public Timestamp regStart;
-    public Timestamp regEnd;
-    public Timestamp drawTime;
+    public int eventCapacity;
 
+    public Integer waitlistCapacity;
+    public Long eventDateMs; // milliseconds
+    public Long regStartMs; // milliseconds
+    public Long regEndMs; // milliseconds
+    private String location;
     public enum EventStatus {
         OPEN, // reg. open
         CLOSED, // reg. closed
         ENDED, // event finished
     }
 
-    public Event(String organizerId, EventStatus status, int capacity) {
+    public Event(String organizerId, EventStatus status, int eventCapacity) {
         this.eventId = UUID.randomUUID().toString();
         this.organizerId = organizerId;
         this.status = status;
-        this.capacity = capacity;
+        this.eventCapacity = eventCapacity;
     }
 
     public boolean hasWaitlist() {
@@ -71,12 +73,12 @@ public class Event {
         this.posterUrl = posterUrl;
     }
 
-    public int getCapacity() {
-        return capacity;
+    public int getEventCapacity() {
+        return eventCapacity;
     }
 
-    public void setCapacity(int capacity) {
-        this.capacity = capacity;
+    public void setEventCapacity(int eventCapacity) {
+        this.eventCapacity = eventCapacity;
     }
 
     public Integer getWaitlistCapacity() {
@@ -87,27 +89,43 @@ public class Event {
         this.waitlistCapacity = waitlistCapacity;
     }
 
-    public Timestamp getRegStart() {
-        return regStart;
+    public Long getEventDateMs() {
+        return eventDateMs;
     }
 
-    public void setRegStart(Timestamp regStart) {
-        this.regStart = regStart;
+    public void setEventDateMs(Long eventDateMs) {
+        this.eventDateMs = eventDateMs;
     }
 
-    public Timestamp getRegEnd() {
-        return regEnd;
+    public Long getRegStartMs() {
+        return regStartMs;
     }
 
-    public void setRegEnd(Timestamp regEnd) {
-        this.regEnd = regEnd;
+    public void setRegStartMs(Long regStartMs) {
+        this.regStartMs = regStartMs;
     }
 
-    public Timestamp getDrawTime() {
-        return drawTime;
+    public Long getRegEndMs() {
+        return regEndMs;
     }
 
-    public void setDrawTime(Timestamp drawTime) {
-        this.drawTime = drawTime;
+    public void setRegEndMs(Long regEndMs) {
+        this.regEndMs = regEndMs;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
     }
 }
