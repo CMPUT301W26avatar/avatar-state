@@ -7,25 +7,30 @@ on:
     branches: [ main ]
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-    - name: set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
-
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+        # Set up JDK inside of each runner so that
+        #  we are guranteed to have the right environment
+      - name: set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Recreate google-services.json
+        run: |
+          cat > LotteryApp/app/google-services.json <<'EOF'
+          ${{ secrets.GOOGLE_SERVICES_JSON }}
+          EOF
+          
       - name: Grant execute permission for gradlew
         run: cd LotteryApp && chmod +x ./gradlew
+        
       - name: Run unit tests
         run: cd LotteryApp && ./gradlew clean testDebugUnitTest
 
@@ -38,9 +43,26 @@ jobs:
       needs.test.result == 'success'
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-      - name: Grant execute permission for gradlew
-        run: cd LotteryApp && chmod +x ./gradlew
-      - name: Run
-        run: cd LotteryApp && ./gradlew clean testDebugUnitTest
+       - name: Checkout Code
+         uses: actions/checkout@v4
+        
+        # Set up JDK inside of each runner so that
+        #  we are guranteed to have the right environment
+       - name: set up JDK 17
+         uses: actions/setup-java@v4
+         with:
+           java-version: '17'
+           distribution: 'temurin'
+           cache: gradle
+
+       - name: Recreate google-services.json 
+         run: |
+           cat > LotteryApp/app/google-services.json <<'EOF'
+           ${{ secrets.GOOGLE_SERVICES_JSON }}
+           EOF
+          
+       - name: Grant execute permission for gradlew
+         run: cd LotteryApp && chmod +x ./gradlew
+         
+       - name: Build debug APK
+         run: cd LotteryApp && ./gradlew clean assembleDebug
