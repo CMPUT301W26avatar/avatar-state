@@ -15,6 +15,7 @@ public class Event {
     - geolocational data?
      */
     private String description;
+    private String tag;
     private String posterUrl; // US 02.04.01 + 02.04.02
 
     public int eventCapacity;
@@ -119,6 +120,14 @@ public class Event {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getTag() {
+        return tag;
+    }
+
+    public void setTag(String tag) {
+        this.tag = tag;
     }
 
     public String getLocation() {

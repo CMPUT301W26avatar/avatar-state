@@ -41,19 +41,19 @@ public class SearchFragment extends Fragment {
         return view;
     }
 
-    private List<HomeFragment.Event> getPopularEvents() {
-        List<HomeFragment.Event> events = new ArrayList<>();
-        events.add(new HomeFragment.Event("Tech Expo", "Innovation Hub", "Explore the latest in technology.", "TECH"));
-        events.add(new HomeFragment.Event("Sports Meet", "City Stadium", "Annual sports competition.", "SPORTS"));
-        events.add(new HomeFragment.Event("Music Fest", "Downtown Plaza", "Live music performances.", "MUSIC"));
-        events.add(new HomeFragment.Event("Food Carnival", "Central Park", "Taste cuisines from around the world.", "FOOD"));
+    private List<HomeFragment.DisplayGridEvent> getPopularEvents() {
+        List<HomeFragment.DisplayGridEvent> events = new ArrayList<>();
+        events.add(new HomeFragment.DisplayGridEvent("Tech Expo", "Innovation Hub", "Explore the latest in technology.", "TECH"));
+        events.add(new HomeFragment.DisplayGridEvent("Sports Meet", "City Stadium", "Annual sports competition.", "SPORTS"));
+        events.add(new HomeFragment.DisplayGridEvent("Music Fest", "Downtown Plaza", "Live music performances.", "MUSIC"));
+        events.add(new HomeFragment.DisplayGridEvent("Food Carnival", "Central Park", "Taste cuisines from around the world.", "FOOD"));
         return events;
     }
 
-    private List<HomeFragment.Event> getSuggestedEvents() {
-        List<HomeFragment.Event> events = new ArrayList<>();
-        events.add(new HomeFragment.Event("Art Workshop", "Creative Studio", "Learn painting and sketching.", "ART"));
-        events.add(new HomeFragment.Event("Coding Bootcamp", "Online", "Intensive web development training.", "TECH"));
+    private List<HomeFragment.DisplayGridEvent> getSuggestedEvents() {
+        List<HomeFragment.DisplayGridEvent> events = new ArrayList<>();
+        events.add(new HomeFragment.DisplayGridEvent("Art Workshop", "Creative Studio", "Learn painting and sketching.", "ART"));
+        events.add(new HomeFragment.DisplayGridEvent("Coding Bootcamp", "Online", "Intensive web development training.", "TECH"));
         return events;
     }
 }

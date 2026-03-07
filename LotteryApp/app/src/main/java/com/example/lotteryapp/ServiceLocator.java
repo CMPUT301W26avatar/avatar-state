@@ -84,7 +84,7 @@ public final class ServiceLocator {
         overrideUserIdProvider = p;
     }
 
-    /** Call in @After to avoid leaks across tests */
+    // Call in @After to avoid leaks across tests
     public static void reset() {
         overrideFirebaseService = null;
         overrideEventStorage = null;

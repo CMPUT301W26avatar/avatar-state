@@ -11,9 +11,9 @@ import java.util.List;
 
 public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {
 
-    private List<HomeFragment.Event> events;
+    private List<HomeFragment.DisplayGridEvent> events;
 
-    public EventAdapter(List<HomeFragment.Event> events) {
+    public EventAdapter(List<HomeFragment.DisplayGridEvent> events) {
         this.events = events;
     }
 
@@ -26,7 +26,7 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
     @Override
     public void onBindViewHolder(@NonNull EventViewHolder holder, int position) {
-        HomeFragment.Event event = events.get(position);
+        HomeFragment.DisplayGridEvent event = events.get(position);
         holder.tvTitle.setText(event.title);
         holder.tvSubtitle.setText(event.subtitle);
         holder.tvDesc.setText(event.description);

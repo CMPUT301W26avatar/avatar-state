@@ -9,6 +9,7 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
 
@@ -22,6 +23,7 @@ import java.util.Map;
         Call via ServiceLocator
         Handles read/writes into the Firebase database for Event items.
  */
+
 public class EventStorage {
 
     private final FirebaseFirestore db;
@@ -147,16 +149,9 @@ public class EventStorage {
     }
 
     // return all events from Firebase hosted by organizerId
-    public void getEventsByOrganizer(
-            String organizerId,
-            OnSuccessListener<List<Event>> onSuccess,
-            OnFailureListener onFailure
-    ) {
-        db.collection("events")
-                .whereEqualTo("organizerId", organizerId)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    List<Event> events = new ArrayList<>();
+    public void getEventsByOrganizer(String organizerId, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+        db.collection("events").whereEqualTo("organizerId", organizerId).get()
+                .addOnSuccessListener(querySnapshot -> {List<Event> events = new ArrayList<>();
                     for (QueryDocumentSnapshot doc : querySnapshot) {
                         events.add(documentToEvent(doc));
                     }
@@ -165,5 +160,24 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    public void listOpenEvents(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+        // define query
+        Query query = db.collection("events")
+                .whereEqualTo("status", Event.EventStatus.OPEN.name());
+
+        // optional limit to how many events to return
+        if (limit != null && limit > 0) {
+            query = query.limit(limit);
+        }
+
+        // run the query and return the results on success
+        query.get().addOnSuccessListener(qs -> {
+            List<Event> events = new ArrayList<>();
+            for (QueryDocumentSnapshot doc : qs) {
+                events.add(documentToEvent(doc));
+            }
+            onSuccess.onSuccess(events);
+        }).addOnFailureListener(onFailure);
+    }
 
 }

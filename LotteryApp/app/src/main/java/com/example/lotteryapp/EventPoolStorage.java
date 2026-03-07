@@ -21,6 +21,7 @@ import java.util.Map;
  * US 02.06.03 - organizer views all entrants
  * US 02.01.01 - organizer sets registration period
  */
+
 public class EventPoolStorage {
 
     private final FirebaseFirestore db;
@@ -35,40 +36,9 @@ public class EventPoolStorage {
                 .collection("entries")
                 .document(entrantId);
     }
-    private static Event documentToEvent(QueryDocumentSnapshot doc) {
 
-        String organizerId = doc.getString("organizerId");
-        String statusStr = doc.getString("status");
-
-        Event.EventStatus status = Event.EventStatus.valueOf(statusStr);
-
-        Long capacityLong = doc.getLong("capacity");
-        int capacity = capacityLong != null ? capacityLong.intValue() : 0;
-
-        Event event = new Event(organizerId, status, capacity);
-        event.eventId = doc.getId();
-
-        event.setTitle(doc.getString("title"));
-
-        Long regStart = doc.getLong("regStart");
-
-        Long regEnd = doc.getLong("regEnd");
-
-        Boolean waitlist = doc.getBoolean("waitlistEnabled");
-        /* set waitlist here */
-
-        Long waitlistCap = doc.getLong("waitlistCapacity");
-        if (waitlistCap != null) {
-            event.setWaitlistCapacity(waitlistCap.intValue());
-        }
-
-        return event;
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // Enrollment
-    // ─────────────────────────────────────────────────────────────
-
+    // for join events from events details page
+    //      creates a new entrant in the
     public void enrollInEvent(
             String eventId,
             Entrant entrant,
@@ -89,10 +59,6 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Count entrants
-    // ─────────────────────────────────────────────────────────────
-
     public void countEntrants(
             String eventId,
             OnSuccessListener<Integer> onSuccess,
@@ -106,10 +72,7 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Get entrant status
-    // ─────────────────────────────────────────────────────────────
-
+    // for querying whether an Entrant is WAITLISTED, INVITED, ...
     public void getEntrantStatus(
             String eventId,
             String entrantId,
@@ -128,10 +91,8 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // Delete entry (unenroll)
-    // ─────────────────────────────────────────────────────────────
 
+    // unenroll , delete in event/entries doc only
     public void deleteEntry(
             String eventId,
             String entrantId,
@@ -141,31 +102,6 @@ public class EventPoolStorage {
         entryDoc(eventId, entrantId)
                 .delete()
                 .addOnSuccessListener(onSuccess)
-                .addOnFailureListener(onFailure);
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // List open events
-    // ─────────────────────────────────────────────────────────────
-
-    public void listOpenEvents(
-            OnSuccessListener<List<Event>> onSuccess,
-            OnFailureListener onFailure
-    ) {
-
-        db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.OPEN.name())
-                .get()
-                .addOnSuccessListener(qs -> {
-
-                    List<Event> events = new ArrayList<>();
-
-                    for (QueryDocumentSnapshot doc : qs) {
-                        events.add(documentToEvent(doc));
-                    }
-
-                    onSuccess.onSuccess(events);
-                })
                 .addOnFailureListener(onFailure);
     }
 }

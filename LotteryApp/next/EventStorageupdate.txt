@@ -1,0 +1,32 @@
+// EventStorage.java
+
+public void updateEvent(
+        String eventId,
+        String title,
+        Event.EventStatus status,
+        Integer capacity,
+        Integer waitlistCapacity,
+        java.sql.Timestamp regStart,
+        java.sql.Timestamp regEnd,
+        java.sql.Timestamp drawTime,
+        String posterUrl
+) {
+    Map<String, Object> update = new HashMap<>();
+
+    if (title != null) update.put("title", title);
+    if (status != null) update.put("status", status.name());
+    if (capacity != null) update.put("capacity", capacity);
+    if (posterUrl != null) update.put("posterUrl", posterUrl);
+
+    // null is valid — disables waitlist
+    update.put("waitlistCapacity", waitlistCapacity);
+
+    if (regStart != null) update.put("regStart", timestampToFirebase(regStart));
+    if (regEnd != null) update.put("regEnd", timestampToFirebase(regEnd));
+    // drawTime optional; allow clearing by passing null (omit if you prefer "can't clear")
+    update.put("drawTime", timestampToFirebase(drawTime));
+
+    update.put("updatedAt", FieldValue.serverTimestamp());
+
+    eventDoc(eventId).set(update, SetOptions.merge());
+}
