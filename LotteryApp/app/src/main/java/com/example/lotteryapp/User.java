@@ -5,6 +5,8 @@ public class User {
     public String email;
     public String phoneNumber;
 
+    public String location;
+
     public User(String deviceID) {
         if (deviceID == null || deviceID.trim().isEmpty()) {
             throw new IllegalArgumentException("userId required");
@@ -38,5 +40,13 @@ public class User {
 
     public void setPhoneNumber(String phoneNumber) {// US 01.02.01 + US 01.02.02
         this.phoneNumber = phoneNumber;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
     }
 }

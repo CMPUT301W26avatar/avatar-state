@@ -23,12 +23,12 @@ public class UserStorage {
     }
 
     private DocumentReference userDoc(String uuid) {
-        return db.collection("entrants").document(uuid);
+        return db.collection("users").document(uuid);
     }
 
     public void setNewUser(User user) {
         final String uuid = user.getUUID();
-        final DocumentReference ref = db.collection("entrants").document(uuid);
+        final DocumentReference ref = db.collection("users").document(uuid);
         // Transaction so createdAt is only set once.
         db.runTransaction(new Transaction.Function<Void>() {
             @Override
@@ -60,13 +60,14 @@ public class UserStorage {
                             user.setName(snapshot.getString("name"));
                             user.setEmail(snapshot.getString("email"));
                             user.setPhoneNumber(snapshot.getString("phoneNumber"));
+                            user.setLocation(snapshot.getString("location"));
                         }
                         ok.onSuccess(user);
                     }
                 }).addOnFailureListener(fail);
     }
 
-    public void updateUserProfile(String uuid, String name, String email, String phoneNumber,
+    public void updateUserProfile(String uuid, String name, String email, String phoneNumber, String location,
                                   OnSuccessListener<Void> ok, OnFailureListener fail) {
         Map<String, Object> update = new HashMap<>();
 
@@ -79,6 +80,9 @@ public class UserStorage {
         if (phoneNumber != null) {
             update.put("phoneNumber", phoneNumber);
         }
+        if (location != null) {
+            update.put("location", location);
+        }
         update.put("updatedAt", FieldValue.serverTimestamp());
         update.put("deviceID", uuid);
 
@@ -86,21 +90,6 @@ public class UserStorage {
                 .set(update, SetOptions.merge())
                 .addOnSuccessListener(ok)
                 .addOnFailureListener(fail);
-    }
-
-    public void updateName(String uuid, String name,
-            OnSuccessListener<Void> ok, OnFailureListener fail) {
-        updateUserProfile(uuid, name, null, null, ok, fail);
-    }
-
-    public void updateEmail(String uuid, String email,
-            OnSuccessListener<Void> ok, OnFailureListener fail) {
-        updateUserProfile(uuid, null, email, null, ok, fail);
-    }
-
-    public void updatePhoneNumber(String uuid, String phone,
-            OnSuccessListener<Void> ok, OnFailureListener fail) {
-        updateUserProfile(uuid, null, null, phone, ok, fail);
     }
 }
 
