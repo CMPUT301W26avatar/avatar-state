@@ -9,9 +9,12 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /*
@@ -56,6 +59,7 @@ public class EventStorage {
         data.put("organizerId", event.getOrganizerId());
         data.put("title", event.getTitle());
         data.put("status", event.getStatus() != null ? event.getStatus().name() : Event.EventStatus.OPEN.name());
+        data.put("location", event.getLocation());
         data.put("eventCapacity", event.getEventCapacity());
         data.put("waitlistCapacity", event.getWaitlistCapacity());
         data.put("posterUrl", event.getPosterUrl());
@@ -90,7 +94,6 @@ public class EventStorage {
     // getEvent: helper - converts a Firebase document into an Event object
     private Event documentToEvent(DocumentSnapshot doc) {
         String organizerId = doc.getString("organizerId");
-        Long cap = doc.getLong("capacity");
         String rawStatus = doc.getString("status");
 
         Event.EventStatus status = Event.EventStatus.OPEN;
@@ -99,19 +102,18 @@ public class EventStorage {
             catch (IllegalArgumentException ignored) {}
         }
 
-        Event event = new Event(organizerId, status, cap != null ? cap.intValue() : 1);
+        int cap = doc.getLong("eventCapacity").intValue();
+
+        Event event = new Event(organizerId, status, cap);
 
         event.eventId = doc.getId();
+        event.setEventCapacity(cap);
         event.setTitle(doc.getString("title"));
         event.setPosterUrl(doc.getString("posterUrl"));
+        event.setLocation(doc.getString("location"));
 
         Long waitlistCap = doc.getLong("waitlistCapacity");
         event.setWaitlistCapacity(waitlistCap == null ? null : waitlistCap.intValue());
-
-        Long eventCapacity = doc.getLong("eventCapacity");
-        if (eventCapacity != null) {
-            event.setEventCapacity(eventCapacity.intValue());
-        }
 
         event.setDescription(doc.getString("description"));
 
@@ -138,4 +140,25 @@ public class EventStorage {
     public void deleteEvent(String eventId) {
         eventDoc(eventId).delete();
     }
+
+    // return all events from Firebase hosted by organizerId
+    public void getEventsByOrganizer(
+            String organizerId,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collection("events")
+                .whereEqualTo("organizerId", organizerId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Event> events = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        events.add(documentToEvent(doc));
+                    }
+                    onSuccess.onSuccess(events);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+
 }
