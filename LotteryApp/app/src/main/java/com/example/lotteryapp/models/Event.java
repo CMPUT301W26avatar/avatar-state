@@ -1,4 +1,4 @@
-package com.example.lotteryapp.backend;
+package com.example.lotteryapp.models;
 
 import java.util.UUID;
 

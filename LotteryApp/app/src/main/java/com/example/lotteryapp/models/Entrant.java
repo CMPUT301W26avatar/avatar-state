@@ -1,4 +1,4 @@
-package com.example.lotteryapp.backend;
+package com.example.lotteryapp.models;
 
 public class Entrant {
     private final String entrantId;

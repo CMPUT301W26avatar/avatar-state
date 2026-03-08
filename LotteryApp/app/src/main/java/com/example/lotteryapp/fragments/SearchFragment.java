@@ -11,11 +11,10 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.lotteryapp.backend.EventAdapter;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.services.ServiceLocator;
-import com.example.lotteryapp.backend.Event;
-import com.example.lotteryapp.backend.EventStorage;
+import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.services.storage.EventStorage;
 import com.google.android.material.search.SearchBar;
 import com.google.android.material.search.SearchView;
 import java.util.ArrayList;
@@ -24,7 +23,7 @@ import java.util.List;
 public class SearchFragment extends Fragment {
 
     private EventStorage estore = ServiceLocator.eventStorage();
-    private EventAdapter suggestedAdapter, popularAdapter;
+    private GridEventAdapter suggestedAdapter, popularAdapter;
     private List<HomeFragment.DisplayGridEvent> suggestedEvents, popularEvents;
 
     @Nullable
@@ -42,7 +41,7 @@ public class SearchFragment extends Fragment {
             recyclerViewPopular.setLayoutManager(new GridLayoutManager(getContext(), 2));
 
             popularEvents = new ArrayList<>();
-            popularAdapter = new EventAdapter(popularEvents);
+            popularAdapter = new GridEventAdapter(popularEvents);
             recyclerViewPopular.setAdapter(popularAdapter);
 
             loadPopularEvents(popularEvents, popularAdapter, 4);
@@ -52,7 +51,7 @@ public class SearchFragment extends Fragment {
             recyclerViewSuggested.setLayoutManager(new LinearLayoutManager(getContext()));
 
             suggestedEvents = new ArrayList<>();
-            suggestedAdapter = new EventAdapter(suggestedEvents);
+            suggestedAdapter = new GridEventAdapter(suggestedEvents);
             recyclerViewSuggested.setAdapter(suggestedAdapter);
 
             loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
@@ -68,7 +67,7 @@ public class SearchFragment extends Fragment {
         loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
     }
 
-    private void loadPopularEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, EventAdapter adapter, Integer limit) {
+    private void loadPopularEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
         estore.listOpenEvents(limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
             displayGridEvents.clear();
                 for (Event event : fetchedEvents) {
@@ -80,7 +79,7 @@ public class SearchFragment extends Fragment {
         );
     }
 
-    private void loadSuggestedEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, EventAdapter adapter, Integer limit) {
+    private void loadSuggestedEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
         estore.listOpenEvents(limit, fetchedEvents -> { // replace listOpenEvents with listSuggestedEvents when implemented
                 displayGridEvents.clear();
                 for (Event event : fetchedEvents) {

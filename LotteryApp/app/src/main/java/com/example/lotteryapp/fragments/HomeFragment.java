@@ -10,11 +10,10 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.lotteryapp.backend.EventAdapter;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.services.ServiceLocator;
-import com.example.lotteryapp.backend.Event;
-import com.example.lotteryapp.backend.EventStorage;
+import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.services.storage.EventStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import java.util.ArrayList;
@@ -25,7 +24,7 @@ public class HomeFragment extends Fragment {
     private MaterialCardView invitationCard;
     private MaterialButton closeInvitation;
     private EventStorage estore = ServiceLocator.eventStorage();
-    private EventAdapter adapter;
+    private GridEventAdapter adapter;
     private List<HomeFragment.DisplayGridEvent> displayGridEvents;
 
     @Nullable
@@ -42,7 +41,7 @@ public class HomeFragment extends Fragment {
         recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
 
         displayGridEvents = new ArrayList<>();
-        adapter = new EventAdapter(displayGridEvents);
+        adapter = new GridEventAdapter(displayGridEvents);
         recyclerView.setAdapter(adapter);
 
         loadEvents();

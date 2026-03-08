@@ -1,6 +1,7 @@
-package com.example.lotteryapp.backend;
+package com.example.lotteryapp.services.storage;
 import androidx.annotation.NonNull;
 
+import com.example.lotteryapp.models.User;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentReference;

@@ -10,7 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.services.ServiceLocator;
-import com.example.lotteryapp.backend.UserStorage;
+import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.DocumentSnapshot;
