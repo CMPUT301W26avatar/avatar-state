@@ -22,7 +22,7 @@ import java.util.List;
 
 public class SearchFragment extends Fragment {
 
-    private EventStorage estore = ServiceLocator.eventStorage();
+    private EventStorage estore = ServiceLocator.getEventStorage();
     private GridEventAdapter suggestedAdapter, popularAdapter;
     private List<HomeFragment.DisplayGridEvent> suggestedEvents, popularEvents;
 
