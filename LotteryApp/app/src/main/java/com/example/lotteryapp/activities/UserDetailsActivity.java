@@ -33,7 +33,7 @@ public class UserDetailsActivity extends AppCompatActivity {
 
         // use ServiceLocator to get user id and User Storage instance
         uid = ServiceLocator.uid();
-        ustore = ServiceLocator.userStorage();
+        ustore = ServiceLocator.getUserStorage();
 
         MaterialToolbar toolbar = findViewById(R.id.toolbar);
         etName = findViewById(R.id.et_name);

@@ -44,7 +44,7 @@ public class ManageFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_manage, container, false);
 
-        eventStorage = ServiceLocator.eventStorage();
+        eventStorage = ServiceLocator.getEventStorage();
         upcomingEventListContainer = view.findViewById(R.id.layout_upcoming_event_item);
 
         FloatingActionButton fab = view.findViewById(R.id.fab_add_event);
@@ -255,7 +255,7 @@ public class ManageFragment extends Fragment {
             }
 
             // call database connector
-            EventStorage eventStorage = ServiceLocator.eventStorage();
+            EventStorage eventStorage = ServiceLocator.getEventStorage();
 
             Event event = new Event(organizerId, Event.EventStatus.OPEN, eventCapacity);
 
@@ -401,7 +401,7 @@ public class ManageFragment extends Fragment {
                 return;
             }
 
-            EventStorage eventStorage = ServiceLocator.eventStorage();
+            EventStorage eventStorage = ServiceLocator.getEventStorage();
 
             // Update the existing event object
             event.setTitle(title);
