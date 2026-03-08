@@ -1,4 +1,4 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.backend;
 public class User {
     private final String uuid;
     public String name;

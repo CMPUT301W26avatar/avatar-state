@@ -1,9 +1,5 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.backend;
 
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
-
-import java.sql.Timestamp;
 import java.util.UUID;
 
 public class Event {

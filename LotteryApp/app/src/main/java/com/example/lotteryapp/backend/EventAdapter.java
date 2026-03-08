@@ -1,4 +1,4 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.backend;
 
 import android.content.Intent;
 import android.view.LayoutInflater;
@@ -7,6 +7,11 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.example.lotteryapp.R;
+import com.example.lotteryapp.activities.EventDetailsActivity;
+import com.example.lotteryapp.fragments.HomeFragment;
+
 import java.util.List;
 
 public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {

@@ -1,4 +1,4 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.fragments;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -10,8 +10,11 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
+import com.example.lotteryapp.backend.EventAdapter;
+import com.example.lotteryapp.R;
+import com.example.lotteryapp.services.ServiceLocator;
+import com.example.lotteryapp.backend.Event;
+import com.example.lotteryapp.backend.EventStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import java.util.ArrayList;

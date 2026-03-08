@@ -1,34 +1,52 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.activities;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.lotteryapp.services.FirebaseService;
+import com.example.lotteryapp.R;
+import com.example.lotteryapp.backend.User;
+import com.example.lotteryapp.backend.UserStorage;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 
-public class SignupActivity extends AppCompatActivity {
-
+public class LoginActivity extends AppCompatActivity {
     FirebaseService db = new FirebaseService();
     UserStorage ustore = new UserStorage(db.getDb());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_signup);
+        setContentView(R.layout.activity_login);
 
-        MaterialButton btnBackToLogin = findViewById(R.id.btn_back_to_login);
-        btnBackToLogin.setOnClickListener(v -> finish());
+        MaterialButton btnLogin = findViewById(R.id.btn_login);
+        MaterialButton btnGuestLogin = findViewById(R.id.btn_guest_login);
+        TextView tvRegister = findViewById(R.id.tv_register);
 
-        findViewById(R.id.btn_signup).setOnClickListener(v -> {
-            // Logic for signing up
+        btnLogin.setOnClickListener(v -> {
+            appSignIn(); // on open
+            startActivity(new Intent(LoginActivity.this, MainActivity.class));
             finish();
         });
+
+        btnGuestLogin.setOnClickListener(v -> {
+            appSignIn(); // on open
+            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+            finish();
+        });
+
+        tvRegister.setOnClickListener(v -> {
+            startActivity(new Intent(LoginActivity.this, SignupActivity.class));
+        });
     }
+
     private void appSignIn() {
         final FirebaseAuth auth = db.getAuth();
 

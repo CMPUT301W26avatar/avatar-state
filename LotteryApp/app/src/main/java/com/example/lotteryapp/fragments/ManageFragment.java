@@ -1,4 +1,4 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.fragments;
 
 import android.app.Dialog;
 import android.content.Intent;
@@ -15,6 +15,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.util.Pair;
 import androidx.fragment.app.Fragment;
+
+import com.example.lotteryapp.R;
+import com.example.lotteryapp.services.ServiceLocator;
+import com.example.lotteryapp.activities.EventDetailsActivity;
+import com.example.lotteryapp.backend.Event;
+import com.example.lotteryapp.backend.EventStorage;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;

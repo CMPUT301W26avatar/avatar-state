@@ -1,4 +1,4 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.backend;
 
 import androidx.annotation.Nullable;
 
