@@ -169,6 +169,18 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    public void getAllEvents(OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+        db.collection("events").get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Event> events = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        events.add(documentToEvent(doc));
+                    }
+                    onSuccess.onSuccess(events);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
     public void listOpenEvents(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
         // define query
         Query query = db.collection("events")

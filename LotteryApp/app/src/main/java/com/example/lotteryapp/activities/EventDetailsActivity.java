@@ -1,7 +1,10 @@
 package com.example.lotteryapp.activities;
 
 import android.os.Bundle;
+import android.view.View;
+import android.widget.ImageView;
 import android.widget.Toast;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -27,9 +30,18 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialTextView tvRegEndDate;
     private MaterialButton btnClose;
     private MaterialButton btnJoin;
+    private MaterialButton btnDeleteImage;
+    private MaterialButton btnRemoveEvent;
+    private ImageView ivEventPoster;
+
+    // Admin Tech Details Views
+    private View layoutAdminInfo;
+    private TextView tvAdminEventId, tvAdminOrganizerId, tvAdminStatus, tvAdminCapacity,
+            tvAdminWaitlistCap, tvAdminEnrolled, tvAdminWaitlistCount, tvAdminRegStart, tvAdminPosterUrl;
 
     private String eventId;
     private String currentUserId;
+    private boolean isAdminMode = false;
 
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
@@ -43,6 +55,8 @@ public class EventDetailsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_event_details);
+
+        isAdminMode = getIntent().getBooleanExtra("isAdminMode", false);
 
         bindViews();
 
@@ -76,6 +90,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         populateFromIntentExtras();
 
         loadEvent();
+        setupAdminActions();
     }
 
     private void bindViews() {
@@ -86,6 +101,50 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvRegEndDate = findViewById(R.id.tv_reg_end_date);
         btnClose = findViewById(R.id.btn_close);
         btnJoin = findViewById(R.id.btn_join_waitlist);
+        btnDeleteImage = findViewById(R.id.btn_delete_image);
+        btnRemoveEvent = findViewById(R.id.btn_remove_event);
+        ivEventPoster = findViewById(R.id.iv_event_poster);
+
+        // Admin Info
+        layoutAdminInfo = findViewById(R.id.layout_admin_info);
+        tvAdminEventId = findViewById(R.id.tv_admin_event_id);
+        tvAdminOrganizerId = findViewById(R.id.tv_admin_organizer_id);
+        tvAdminStatus = findViewById(R.id.tv_admin_status);
+        tvAdminCapacity = findViewById(R.id.tv_admin_capacity);
+        tvAdminWaitlistCap = findViewById(R.id.tv_admin_waitlist_cap);
+        tvAdminEnrolled = findViewById(R.id.tv_admin_enrolled);
+        tvAdminWaitlistCount = findViewById(R.id.tv_admin_waitlist_count);
+        tvAdminRegStart = findViewById(R.id.tv_admin_reg_start);
+        tvAdminPosterUrl = findViewById(R.id.tv_admin_poster_url);
+    }
+
+    /**
+     * Checks if user is admin
+     *      shows button to access admin actions
+     *      delete event button
+     *      delete image button
+     */
+    private void setupAdminActions() {
+        if (isAdminMode) {
+            btnRemoveEvent.setVisibility(View.VISIBLE);
+            layoutAdminInfo.setVisibility(View.VISIBLE);
+            
+            btnRemoveEvent.setOnClickListener(v -> {
+                eventStorage.deleteEvent(eventId);
+                Toast.makeText(this, "Event Removed", Toast.LENGTH_SHORT).show();
+                finish();
+            });
+
+            btnDeleteImage.setOnClickListener(v -> {
+                eventStorage.getEvent(eventId, event -> {
+                    event.setPosterUrl(null);
+                    eventStorage.upsertEvent(event);
+                    Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
+                    ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
+                    btnDeleteImage.setVisibility(View.GONE);
+                }, e -> Toast.makeText(this, "Failed to delete image", Toast.LENGTH_SHORT).show());
+            });
+        }
     }
 
 
@@ -176,6 +235,29 @@ public class EventDetailsActivity extends AppCompatActivity {
         } else {
             tvRegEndDate.setText("Registration end unavailable");
         }
+
+        if (isAdminMode && event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
+            btnDeleteImage.setVisibility(View.VISIBLE);
+        }
+        else {
+            btnDeleteImage.setVisibility(View.GONE);
+        }
+
+        if (isAdminMode) {
+            populateAdminTechDetails(event);
+        }
+    }
+
+    private void populateAdminTechDetails(Event event) {
+        tvAdminEventId.setText("eventId: \"" + event.getEventId() + "\"");
+        tvAdminOrganizerId.setText("organizerId: \"" + event.getOrganizerId() + "\"");
+        tvAdminStatus.setText("status: \"" + (event.getStatus() != null ? event.getStatus().name() : "null") + "\"");
+        tvAdminCapacity.setText("eventCapacity: " + event.getEventCapacity());
+        tvAdminWaitlistCap.setText("waitlistCapacity: " + (event.getWaitlistCapacity() != null ? event.getWaitlistCapacity() : "null"));
+        tvAdminEnrolled.setText("enrolledCount: " + event.getEnrolledCount());
+        tvAdminWaitlistCount.setText("waitlistCount: " + event.getWaitlistCount());
+        tvAdminRegStart.setText("regStartMs: " + event.getRegStartMs());
+        tvAdminPosterUrl.setText("posterUrl: " + (event.getPosterUrl() != null ? "\"" + event.getPosterUrl() + "\"" : "null"));
     }
 
     private void configureActions(Event event) {

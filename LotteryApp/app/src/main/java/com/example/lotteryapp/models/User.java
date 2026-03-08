@@ -4,8 +4,9 @@ public class User {
     public String name;
     public String email;
     public String phoneNumber;
-
     public String location;
+    private boolean isAdmin;
+    private String profilePicUrl;
 
     public User(String deviceID) {
         if (deviceID == null || deviceID.trim().isEmpty()) {
@@ -48,5 +49,21 @@ public class User {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public boolean isAdmin() {
+        return isAdmin;
+    }
+
+    public void setAdmin(boolean admin) {
+        isAdmin = admin;
+    }
+
+    public String getProfilePicUrl() {
+        return profilePicUrl;
+    }
+
+    public void setProfilePicUrl(String profilePicUrl) {
+        this.profilePicUrl = profilePicUrl;
     }
 }

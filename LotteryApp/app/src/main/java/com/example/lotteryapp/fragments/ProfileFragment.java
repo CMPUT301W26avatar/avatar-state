@@ -11,7 +11,10 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.activities.AdminActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
+import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.services.ServiceLocator;
 
 public class ProfileFragment extends Fragment {
 
@@ -37,7 +40,43 @@ public class ProfileFragment extends Fragment {
             });
         }
 
+        checkAdminStatus(view);
+
         return view;
+    }
+
+    private void checkAdminStatus(View view) {
+        String uid = ServiceLocator.uid();
+        if (uid != null) {
+            ServiceLocator.userStorage().getUserProfile(uid, user -> {
+                if (user != null && user.isAdmin()) {
+                    showAdminSection(view);
+                }
+            }, e -> {
+                // TODO: Handle error
+            });
+        }
+    }
+
+    private void showAdminSection(View view) {
+        View adminLabel = view.findViewById(R.id.tv_admin_label);
+        View adminCard = view.findViewById(R.id.card_admin);
+        View adminBrowse = view.findViewById(R.id.item_admin_browse);
+
+        if (adminLabel != null) {
+            adminLabel.setVisibility(View.VISIBLE);
+        }
+        if (adminCard != null) {
+            adminCard.setVisibility(View.VISIBLE);
+        }
+        
+        setupSettingItem(adminBrowse, "Admin Browse");
+        if (adminBrowse != null) {
+            adminBrowse.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), AdminActivity.class);
+                startActivity(intent);
+            });
+        }
     }
 
     private void setupSettingItem(View view, String title) {
