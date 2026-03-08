@@ -1,4 +1,4 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.fragments;
 
 import android.content.Intent;
 import android.view.LayoutInflater;
@@ -7,13 +7,17 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.example.lotteryapp.R;
+import com.example.lotteryapp.activities.EventDetailsActivity;
+
 import java.util.List;
 
-public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {
+public class GridEventAdapter extends RecyclerView.Adapter<GridEventAdapter.EventViewHolder> {
 
     private List<HomeFragment.DisplayGridEvent> events;
 
-    public EventAdapter(List<HomeFragment.DisplayGridEvent> events) {
+    public GridEventAdapter(List<HomeFragment.DisplayGridEvent> events) {
         this.events = events;
     }
 

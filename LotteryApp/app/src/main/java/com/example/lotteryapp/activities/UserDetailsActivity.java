@@ -1,4 +1,4 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.activities;
 
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -8,14 +8,12 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.gms.tasks.OnSuccessListener;
+import com.example.lotteryapp.R;
+import com.example.lotteryapp.services.ServiceLocator;
+import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class UserDetailsActivity extends AppCompatActivity {
 

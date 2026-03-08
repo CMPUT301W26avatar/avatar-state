@@ -1,6 +1,7 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.services.storage;
 import androidx.annotation.NonNull;
 
+import com.example.lotteryapp.models.User;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentReference;
@@ -10,8 +11,6 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.Transaction;
-
-import org.w3c.dom.Document;
 
 import java.util.HashMap;
 import java.util.Map;

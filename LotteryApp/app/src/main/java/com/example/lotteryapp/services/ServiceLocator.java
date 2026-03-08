@@ -1,7 +1,10 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.services;
 
 import androidx.annotation.Nullable;
 
+import com.example.lotteryapp.services.storage.EventPoolStorage;
+import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.firebase.auth.FirebaseAuth;
 
 /**

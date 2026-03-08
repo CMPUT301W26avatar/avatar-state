@@ -1,21 +1,21 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.activities;
 
 import android.os.Bundle;
-import android.widget.Button;
 
 import androidx.activity.EdgeToEdge;
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
+import com.example.lotteryapp.fragments.HomeFragment;
+import com.example.lotteryapp.fragments.JoinedFragment;
+import com.example.lotteryapp.fragments.ManageFragment;
+import com.example.lotteryapp.fragments.ProfileFragment;
+import com.example.lotteryapp.R;
+import com.example.lotteryapp.fragments.SearchFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.firebase.auth.AuthResult;
-import com.google.firebase.auth.FirebaseAuth;
 
 public class MainActivity extends AppCompatActivity {
 

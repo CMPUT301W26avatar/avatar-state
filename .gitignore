@@ -1,6 +1,3 @@
-*.iml
-.gradle
-local.properties
 .idea
 .idea/caches
 .idea/libraries
@@ -10,8 +7,3 @@ local.properties
 .idea/assetWizardSettings.xml
 .idea/avatar-state.iml
 .idea/caches/deviceStreaming.xml
-.DS_Store
-build
-/captures
-.externalNativeBuild
-.cxx

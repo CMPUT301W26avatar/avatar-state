@@ -1,10 +1,16 @@
-package com.example.lotteryapp;
+package com.example.lotteryapp.activities;
 
 import android.os.Bundle;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.lotteryapp.R;
+import com.example.lotteryapp.services.ServiceLocator;
+import com.example.lotteryapp.models.Entrant;
+import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.services.storage.EventPoolStorage;
+import com.example.lotteryapp.services.storage.EventStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 

@@ -1,6 +1,4 @@
-package com.example.lotteryapp;
-
-import android.content.Context;
+package com.example.lotteryapp.services;
 
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.auth.FirebaseAuth;
