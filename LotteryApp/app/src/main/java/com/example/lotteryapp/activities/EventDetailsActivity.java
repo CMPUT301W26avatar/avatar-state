@@ -83,8 +83,8 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         // get db connections for models from ServiceLocator
-        eventStorage = ServiceLocator.eventStorage();
-        eventPoolStorage = ServiceLocator.eventPoolStorage();
+        eventStorage = ServiceLocator.getEventStorage();
+        eventPoolStorage = ServiceLocator.getEventPoolStorage();
 
         // prefill any passed UI extras while backend data loads
         populateFromIntentExtras();

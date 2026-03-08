@@ -23,7 +23,7 @@ public class HomeFragment extends Fragment {
 
     private MaterialCardView invitationCard;
     private MaterialButton closeInvitation;
-    private EventStorage estore = ServiceLocator.eventStorage();
+    private EventStorage estore = ServiceLocator.getEventStorage();
     private GridEventAdapter adapter;
     private List<HomeFragment.DisplayGridEvent> displayGridEvents;
 
@@ -48,7 +48,6 @@ public class HomeFragment extends Fragment {
 
         return view;
     }
-
     @Override
     public void onResume() {
         super.onResume();

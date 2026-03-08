@@ -50,7 +50,7 @@ public class UserDetailsActivity extends AppCompatActivity {
         }
 
         isAdminMode = getIntent().getBooleanExtra(EXTRA_ADMIN_MODE, false);
-        ustore = ServiceLocator.userStorage();
+        ustore = ServiceLocator.getUserStorage();
 
         // moved to bindViews() to avoid null pointer exception
         bindViews();
