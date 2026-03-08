@@ -37,6 +37,15 @@ public class HomeFragment extends Fragment {
 
         closeInvitation.setOnClickListener(v -> invitationCard.setVisibility(View.GONE));
 
+        RecyclerView recyclerView = view.findViewById(R.id.recycler_view);
+        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
+
+        displayGridEvents = new ArrayList<>();
+        adapter = new GridEventAdapter(displayGridEvents);
+        recyclerView.setAdapter(adapter);
+
+        loadEvents();
+
         return view;
     }
     @Override
