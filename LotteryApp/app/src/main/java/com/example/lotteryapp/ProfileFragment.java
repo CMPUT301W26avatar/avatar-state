@@ -1,5 +1,6 @@
 package com.example.lotteryapp;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -24,6 +25,14 @@ public class ProfileFragment extends Fragment {
         setupSettingItem(view.findViewById(R.id.item_language), "Language");
         setupSettingItem(view.findViewById(R.id.item_privacy), "Privacy & Security");
         setupSettingItem(view.findViewById(R.id.item_storage), "Storage");
+
+        View detailsItem = view.findViewById(R.id.item_details);
+        if (detailsItem != null) {
+            detailsItem.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), UserDetailsActivity.class);
+                startActivity(intent);
+            });
+        }
 
         return view;
     }

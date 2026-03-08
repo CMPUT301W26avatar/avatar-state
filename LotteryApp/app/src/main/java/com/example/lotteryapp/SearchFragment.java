@@ -10,12 +10,19 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.search.SearchBar;
 import com.google.android.material.search.SearchView;
 import java.util.ArrayList;
 import java.util.List;
 
 public class SearchFragment extends Fragment {
+
+    private EventStorage estore = ServiceLocator.eventStorage();
+    private EventAdapter suggestedAdapter, popularAdapter;
+    private List<HomeFragment.DisplayGridEvent> suggestedEvents, popularEvents;
 
     @Nullable
     @Override
@@ -30,30 +37,78 @@ public class SearchFragment extends Fragment {
 
         if (recyclerViewPopular != null) {
             recyclerViewPopular.setLayoutManager(new GridLayoutManager(getContext(), 2));
-            recyclerViewPopular.setAdapter(new EventAdapter(getPopularEvents()));
+
+            popularEvents = new ArrayList<>();
+            popularAdapter = new EventAdapter(popularEvents);
+            recyclerViewPopular.setAdapter(popularAdapter);
+
+            loadPopularEvents(popularEvents, popularAdapter, 4);
         }
 
         if (recyclerViewSuggested != null) {
             recyclerViewSuggested.setLayoutManager(new LinearLayoutManager(getContext()));
-            recyclerViewSuggested.setAdapter(new EventAdapter(getSuggestedEvents()));
+
+            suggestedEvents = new ArrayList<>();
+            suggestedAdapter = new EventAdapter(suggestedEvents);
+            recyclerViewSuggested.setAdapter(suggestedAdapter);
+
+            loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
         }
 
         return view;
     }
 
-    private List<HomeFragment.Event> getPopularEvents() {
-        List<HomeFragment.Event> events = new ArrayList<>();
-        events.add(new HomeFragment.Event("Tech Expo", "Innovation Hub", "Explore the latest in technology.", "TECH"));
-        events.add(new HomeFragment.Event("Sports Meet", "City Stadium", "Annual sports competition.", "SPORTS"));
-        events.add(new HomeFragment.Event("Music Fest", "Downtown Plaza", "Live music performances.", "MUSIC"));
-        events.add(new HomeFragment.Event("Food Carnival", "Central Park", "Taste cuisines from around the world.", "FOOD"));
-        return events;
+    @Override
+    public void onResume() {
+        super.onResume();
+        loadPopularEvents(popularEvents, popularAdapter, 4);
+        loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
     }
 
-    private List<HomeFragment.Event> getSuggestedEvents() {
-        List<HomeFragment.Event> events = new ArrayList<>();
-        events.add(new HomeFragment.Event("Art Workshop", "Creative Studio", "Learn painting and sketching.", "ART"));
-        events.add(new HomeFragment.Event("Coding Bootcamp", "Online", "Intensive web development training.", "TECH"));
-        return events;
+    private void loadPopularEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, EventAdapter adapter, Integer limit) {
+        estore.listOpenEvents(limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
+            displayGridEvents.clear();
+                for (Event event : fetchedEvents) {
+                    displayGridEvents.add(eventToDisplayEvent(event));
+                }
+                adapter.notifyDataSetChanged();
+            },
+            error -> error.printStackTrace()
+        );
+    }
+
+    private void loadSuggestedEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, EventAdapter adapter, Integer limit) {
+        estore.listOpenEvents(limit, fetchedEvents -> { // replace listOpenEvents with listSuggestedEvents when implemented
+                displayGridEvents.clear();
+                for (Event event : fetchedEvents) {
+                    displayGridEvents.add(eventToDisplayEvent(event));
+                }
+                adapter.notifyDataSetChanged();
+            },
+                error -> error.printStackTrace()
+        );
+    }
+
+    private HomeFragment.DisplayGridEvent eventToDisplayEvent(Event event) {
+        return new HomeFragment.DisplayGridEvent(
+                event.getEventId(),
+                event.getTitle(),
+                buildSubtitle(event),
+                event.getDescription(),
+                event.getTag()
+        );
+    }
+
+    private String buildSubtitle(Event event) {
+        int enrolledCount = event.getEnrolledCount();
+        int waitlistCount = event.getWaitlistCount();
+        int eventCapacity = event.getEventCapacity();
+        int waitlistCapacity = event.getWaitlistCapacity();
+
+        if (enrolledCount < eventCapacity) {
+            return "OPEN | Enrolled: " + enrolledCount + "/" + eventCapacity;
+        } else {
+            return "CLOSED | Waitlist: " + waitlistCount + "/" + waitlistCapacity;
+        }
     }
 }

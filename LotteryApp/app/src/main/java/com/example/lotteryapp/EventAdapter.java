@@ -11,9 +11,9 @@ import java.util.List;
 
 public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHolder> {
 
-    private List<HomeFragment.Event> events;
+    private List<HomeFragment.DisplayGridEvent> events;
 
-    public EventAdapter(List<HomeFragment.Event> events) {
+    public EventAdapter(List<HomeFragment.DisplayGridEvent> events) {
         this.events = events;
     }
 
@@ -26,20 +26,19 @@ public class EventAdapter extends RecyclerView.Adapter<EventAdapter.EventViewHol
 
     @Override
     public void onBindViewHolder(@NonNull EventViewHolder holder, int position) {
-        HomeFragment.Event event = events.get(position);
+        HomeFragment.DisplayGridEvent event = events.get(position);
         holder.tvTitle.setText(event.title);
         holder.tvSubtitle.setText(event.subtitle);
         holder.tvDesc.setText(event.description);
         holder.tvTag.setText(event.tag);
 
-        holder.itemView.setOnClickListener(v -> {
+        View.OnClickListener openDetails =v -> {
             Intent intent = new Intent(v.getContext(), EventDetailsActivity.class);
-            intent.putExtra("event_name", event.title);
-            intent.putExtra("event_location", event.subtitle);
-            intent.putExtra("event_description", event.description);
-            intent.putExtra("event_tag", event.tag);
+            intent.putExtra(EventDetailsActivity.EXTRA_EVENT_ID, event.eventId);
             v.getContext().startActivity(intent);
-        });
+        };
+        // clicking on the item opens
+        holder.itemView.setOnClickListener(openDetails);
     }
 
     @Override

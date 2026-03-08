@@ -9,6 +9,9 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import java.util.ArrayList;
@@ -18,6 +21,9 @@ public class HomeFragment extends Fragment {
 
     private MaterialCardView invitationCard;
     private MaterialButton closeInvitation;
+    private EventStorage estore = ServiceLocator.eventStorage();
+    private EventAdapter adapter;
+    private List<HomeFragment.DisplayGridEvent> displayGridEvents;
 
     @Nullable
     @Override
@@ -32,26 +38,70 @@ public class HomeFragment extends Fragment {
         RecyclerView recyclerView = view.findViewById(R.id.recycler_view);
         recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
 
-        // Dummy data
-        List<Event> events = new ArrayList<>();
-        events.add(new Event("Title", "Subtitle", "Description. Lorem ipsum dolor sit amet consectetur adipiscing elit, sed do", "TAG"));
-        events.add(new Event("Title", "Subtitle", "Description. Lorem ipsum dolor sit amet consectetur adipiscing elit, sed do", "TAG"));
-        events.add(new Event("Title", "Subtitle", "Description. Lorem ipsum dolor sit amet consectetur adipiscing elit, sed do", "TAG"));
-        events.add(new Event("Title", "Subtitle", "Description. Lorem ipsum dolor sit amet consectetur adipiscing elit, sed do", "TAG"));
+        displayGridEvents = new ArrayList<>();
+        adapter = new EventAdapter(displayGridEvents);
+        recyclerView.setAdapter(adapter);
 
-        recyclerView.setAdapter(new EventAdapter(events));
+        loadEvents();
 
         return view;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        loadEvents();
+    }
+
+    private void loadEvents() {
+        if (estore == null || adapter == null) return;
+
+        estore.listOpenEvents(
+                4,
+                fetchedEvents -> {
+                    displayGridEvents.clear();
+                    for (Event e : fetchedEvents) {
+                        displayGridEvents.add(eventToDisplayEvent(e));
+                    }
+                    adapter.notifyDataSetChanged();
+                },
+                Throwable::printStackTrace
+        );
+    }
+
     // Simple Event model for the UI
-    public static class Event {
-        public String title, subtitle, description, tag;
-        public Event(String title, String subtitle, String description, String tag) {
+    public static class DisplayGridEvent {
+        public String eventId, title, subtitle, description, tag;
+
+        public DisplayGridEvent(String eventId, String title, String subtitle, String description, String tag) {
+            this.eventId = eventId;
             this.title = title;
             this.subtitle = subtitle;
             this.description = description;
             this.tag = tag;
+        }
+    }
+
+    private HomeFragment.DisplayGridEvent eventToDisplayEvent(Event event) {
+        return new HomeFragment.DisplayGridEvent(
+                event.getEventId(),
+                event.getTitle(),
+                buildSubtitle(event),
+                event.getDescription(),
+                event.getTag()
+        );
+    }
+
+    private String buildSubtitle(Event event) {
+        int enrolledCount = event.getEnrolledCount();
+        int waitlistCount = event.getWaitlistCount();
+        int eventCapacity = event.getEventCapacity();
+        int waitlistCapacity = event.getWaitlistCapacity();
+
+        if (enrolledCount < eventCapacity) {
+            return "OPEN | Enrolled: " + enrolledCount + "/" + eventCapacity;
+        } else {
+            return "CLOSED | Waitlist: " + waitlistCount + "/" + waitlistCapacity;
         }
     }
 }
