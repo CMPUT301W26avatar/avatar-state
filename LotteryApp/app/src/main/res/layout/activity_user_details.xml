@@ -180,6 +180,16 @@
                 android:textAllCaps="false" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_userdel_profile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:backgroundTint="@color/hazard_button_unpressed"
+                android:visibility="gone"
+                android:text="Delete Profile"
+                android:textAllCaps="false" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_remove_profile"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

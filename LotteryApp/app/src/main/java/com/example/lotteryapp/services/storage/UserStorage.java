@@ -137,4 +137,46 @@ public class UserStorage {
         update.put("updatedAt", FieldValue.serverTimestamp());
         userDoc(uuid).update(update).addOnSuccessListener(ok).addOnFailureListener(fail);
     }
+
+    // when used alone (reset profile), or as a helper to cascading user delete from the app
+    public void delUserProfile(
+            String uuid,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collection("users")
+                .document(uuid)
+                .delete()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    // delete all mentions of the user by uuid in the app
+    public void cascadeUserDelete(
+            String uuid,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        EventPoolStorage eventPoolStorage = new EventPoolStorage(db);
+        EventStorage eventStorage = new EventStorage(db);
+
+        eventStorage.isUserEventOrganizer(uuid, organizer -> {
+            if (organizer) {
+                eventStorage.delAllOrganizerEvents(
+                        uuid,
+                        unused -> eventPoolStorage.delAllUserEntries(uuid,
+                                unused2 -> delUserProfile(uuid, onSuccess, onFailure),
+                                onFailure
+                        ),
+                        onFailure
+                );
+            } else {
+                eventPoolStorage.delAllUserEntries(uuid,
+                        unused -> delUserProfile(uuid, onSuccess, onFailure),
+                        onFailure
+                );
+            }
+        }, onFailure);
+    }
+
 }

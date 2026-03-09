@@ -30,6 +30,7 @@ public class UserDetailsActivity extends AppCompatActivity {
     private TextView tvDeviceId;
     private View tvDeviceIdLabel;
     private MaterialButton btnSave;
+    private MaterialButton btnUserDel;
     private MaterialButton btnRemoveProfile;
     private MaterialButton btnDeleteProfilePic;
     private ImageView ivProfilePic;
@@ -67,6 +68,10 @@ public class UserDetailsActivity extends AppCompatActivity {
         loadProfile();
 
         btnSave.setOnClickListener(v -> saveProfile());
+        if (!isAdminMode) {
+            btnUserDel.setVisibility(View.VISIBLE);
+            btnUserDel.setOnClickListener(v -> userRemoveProfile());
+        }
         setupAdminActions();
     }
 
@@ -78,6 +83,7 @@ public class UserDetailsActivity extends AppCompatActivity {
         tvDeviceId = findViewById(R.id.tv_device_id);
         tvDeviceIdLabel = findViewById(R.id.tv_device_id_label);
         btnSave = findViewById(R.id.btn_save_profile);
+        btnUserDel = findViewById(R.id.btn_userdel_profile);
         btnRemoveProfile = findViewById(R.id.btn_remove_profile);
         btnDeleteProfilePic = findViewById(R.id.btn_delete_profile_pic);
         ivProfilePic = findViewById(R.id.iv_profile_pic_large);
@@ -189,6 +195,27 @@ public class UserDetailsActivity extends AppCompatActivity {
                     Toast.makeText(this,
                             "Failed to save profile",
                             Toast.LENGTH_SHORT).show();
+                }
+        );
+    }
+
+    private void userRemoveProfile() {
+
+        String uuid = ServiceLocator.uid(); // get current user id
+
+        ServiceLocator.getUserStorage().cascadeUserDelete(
+                uuid,
+                unused -> {
+                    Toast.makeText(this, "Profile deleted", Toast.LENGTH_SHORT).show();
+                    // close this activity and return to previous screen
+                    finish();
+                },
+                e -> {
+                    android.util.Log.e("UserDetailsActivity",
+                            "Failed to delete user profile for uid=" + uuid, e);
+                    Toast.makeText(this,
+                            "Failed to delete profile: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
                 }
         );
     }
