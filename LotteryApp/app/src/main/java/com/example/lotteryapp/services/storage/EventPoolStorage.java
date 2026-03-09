@@ -192,43 +192,4 @@ public class EventPoolStorage {
                 }).addOnSuccessListener(onSuccess)
                 .addOnFailureListener(onFailure);
     }
-
-    public void waitlistForEvent(
-            String eventId,
-            Entrant entrant,
-            OnSuccessListener<Void> onSuccess,
-            OnFailureListener onFailure
-    ) {
-        DocumentReference eventRef = db.collection("events").document(eventId);
-        DocumentReference entrantRef = entryDoc(eventId, entrant.getEntrantId());
-
-        db.runTransaction((Transaction.Function<Void>) transaction -> {
-                    DocumentSnapshot eventSnap = transaction.get(eventRef);
-                    DocumentSnapshot entrantSnap = transaction.get(entrantRef);
-
-                    if (!eventSnap.exists()) {
-                        throw new IllegalStateException("Event does not exist");
-                    }
-
-                    // enforce no double waitlisting
-                    if (entrantSnap.exists()) {
-                        throw new IllegalStateException("Entrant already enrolled");
-                    }
-
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("entrantId", entrant.getEntrantId());
-                    data.put("eventId", eventId);
-                    data.put("status", Entrant.EntrantStatus.ENROLLED.name());
-                    data.put("joinedAt", FieldValue.serverTimestamp());
-                    data.put("updatedAt", FieldValue.serverTimestamp());
-
-                    transaction.set(entrantRef, data);
-
-                    Map<String, Object> eventUpdates = new HashMap<>();
-                    eventUpdates.put("waitlistCount", eventSnap.getLong("waitlistCount").intValue() + 1);
-                    transaction.update(eventRef, eventUpdates);
-                    return null;
-                }).addOnSuccessListener(onSuccess)
-                .addOnFailureListener(onFailure);
-    }
 }
