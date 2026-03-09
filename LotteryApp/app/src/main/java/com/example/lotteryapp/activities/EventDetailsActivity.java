@@ -3,6 +3,7 @@ package com.example.lotteryapp.activities;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.widget.TextView;
 
@@ -23,6 +24,8 @@ import java.util.Locale;
 public class EventDetailsActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
+
+    private LinearLayout invitations_layout;
     private MaterialTextView tvName;
     private MaterialTextView tvLocation;
     private MaterialTextView tvDescription;
@@ -32,6 +35,8 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialButton btnJoin;
 
     private MaterialButton btnLeave;
+    private MaterialButton btnAccept;
+    private MaterialButton btnDecline;
     private MaterialButton btnDeleteImage;
     private MaterialButton btnRemoveEvent;
     private ImageView ivEventPoster;
@@ -103,9 +108,12 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvDescription = findViewById(R.id.tv_description);
         tvDate = findViewById(R.id.tv_event_date);
         tvRegEndDate = findViewById(R.id.tv_reg_end_date);
+        invitations_layout = findViewById(R.id.invitations_layout);
         btnClose = findViewById(R.id.btn_close);
         btnJoin = findViewById(R.id.btn_join_waitlist);
         btnLeave = findViewById(R.id.btn_leave_waitlist);
+        btnAccept = findViewById(R.id.btn_accept_invitation);
+        btnDecline = findViewById(R.id.btn_decline_invitation);
         btnDeleteImage = findViewById(R.id.btn_delete_image);
         btnRemoveEvent = findViewById(R.id.btn_remove_event);
         ivEventPoster = findViewById(R.id.iv_event_poster);
@@ -133,8 +141,8 @@ public class EventDetailsActivity extends AppCompatActivity {
         if (isAdminMode) {
             btnRemoveEvent.setVisibility(View.VISIBLE);
             btnRemoveEvent.setEnabled(true);
+            btnJoin.setEnabled(false);
             btnJoin.setVisibility(View.GONE);
-            btnLeave.setVisibility(View.GONE);
             layoutAdminInfo.setVisibility(View.VISIBLE);
             btnDeleteImage.setVisibility(View.VISIBLE);
             
@@ -418,22 +426,14 @@ public class EventDetailsActivity extends AppCompatActivity {
         //Set button visibility
         btnLeave.setVisibility(View.GONE);
         btnLeave.setEnabled(false);
-        btnJoin.setVisibility(View.VISIBLE);
-        btnJoin.setEnabled(true);
-        btnJoin.setText("Accept Invitation");
-
-        btnJoin.setOnClickListener(v -> {
+        btnJoin.setVisibility(View.GONE);
+        btnJoin.setEnabled(false);
+        invitations_layout.setVisibility(View.VISIBLE);
+        btnAccept.setOnClickListener(v -> {
             enroll();
         });
 
-        //Set button Visibility
-        btnJoin.setVisibility(View.GONE);
-        btnJoin.setEnabled(false);
-        btnLeave.setVisibility(View.VISIBLE);
-        btnLeave.setEnabled(true);
-        btnLeave.setText("Decline Invitation");
-
-        btnLeave.setOnClickListener(v -> {
+        btnDecline.setOnClickListener(v -> {
             removeInvitation();
         });
     }
@@ -445,7 +445,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnJoin.setVisibility(View.VISIBLE);
         btnJoin.setEnabled(true);
         btnJoin.setText("Unenroll");
-
+        invitations_layout.setVisibility(View.GONE);
         btnJoin.setOnClickListener(v -> {
             unenroll();
         });
@@ -454,7 +454,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private void enroll() {
         Entrant entrant = new Entrant(currentUserId, eventId, Entrant.EntrantStatus.ENROLLED);
 
-        btnJoin.setEnabled(false);
+        btnAccept.setEnabled(false);
 
         eventPoolStorage.enrollInEvent(
                 eventId,
@@ -467,7 +467,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 },
                 e -> {
                     Toast.makeText(this, "Failed to enroll", Toast.LENGTH_SHORT).show();
-                    btnJoin.setEnabled(true);
+                    btnAccept.setEnabled(true);
                 }
         );
     }
@@ -491,7 +491,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
     private void removeInvitation() {
-        btnJoin.setEnabled(false);
+        btnDecline.setEnabled(false);
 
         eventPoolStorage.deleteEntry(
                 eventId,
@@ -503,7 +503,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 },
                 e -> {
                     Toast.makeText(this, "Failed to decline invitation", Toast.LENGTH_SHORT).show();
-                    btnJoin.setEnabled(true);
+                    btnDecline.setEnabled(true);
                 }
         );
     }

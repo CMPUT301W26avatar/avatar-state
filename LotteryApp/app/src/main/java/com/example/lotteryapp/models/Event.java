@@ -9,10 +9,11 @@ public class Event {
 
     private String title;
     /* Event metadata fields here:
-
-    - Criteria / Guidelines
     - geolocational data?
      */
+
+    private String criteriaGuidelines;
+
     private String description;
     private String tag;
     private String posterUrl; // US 02.04.01 + 02.04.02
@@ -94,6 +95,10 @@ public class Event {
     public String getTitle() { return title; }
 
     public void setTitle(String title) { this.title = title; }
+
+    public String getCriteriaGuidelines() {return criteriaGuidelines;}
+
+    public void setCriteriaGuidelines(String criteriaGuidelines) {this.criteriaGuidelines = criteriaGuidelines;}
 
     public String getPosterUrl() {
         return posterUrl;

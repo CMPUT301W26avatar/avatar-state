@@ -246,10 +246,36 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:paddingVertical="12dp"
+                android:visibility="gone"
                 android:text="Leave Event Waitlist"
                 app:cornerRadius="12dp"
                 app:icon="@drawable/ic_add" />
 
+            <LinearLayout
+                android:id="@+id/invitations_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_accept_invitation"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingVertical="12dp"
+                    android:text="Accept Invitation"
+                    app:cornerRadius="12dp"
+                    app:icon="@drawable/ic_add" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_decline_invitation"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingVertical="12dp"
+                    android:text="Decline Invitation"
+                    app:cornerRadius="12dp"
+                    app:icon="@drawable/ic_add"  />
+            </LinearLayout>
         </FrameLayout>
 
     </com.google.android.material.card.MaterialCardView>
