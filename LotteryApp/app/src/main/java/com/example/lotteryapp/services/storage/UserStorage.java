@@ -137,4 +137,8 @@ public class UserStorage {
         update.put("updatedAt", FieldValue.serverTimestamp());
         userDoc(uuid).update(update).addOnSuccessListener(ok).addOnFailureListener(fail);
     }
+
+    public void updateFcmToken(String uuid, String token) {
+        userDoc(uuid).update("fcmToken", token);
+    }
 }
