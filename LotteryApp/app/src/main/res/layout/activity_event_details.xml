@@ -236,7 +236,6 @@
                 android:paddingVertical="12dp"
                 android:text="Remove Event"
                 android:textColor="@android:color/black"
-                android:visibility="gone"
                 app:backgroundTint="#FFB3B3"
                 app:cornerRadius="12dp" />
 
