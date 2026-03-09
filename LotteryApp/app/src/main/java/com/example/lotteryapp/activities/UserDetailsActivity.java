@@ -68,10 +68,8 @@ public class UserDetailsActivity extends AppCompatActivity {
         loadProfile();
 
         btnSave.setOnClickListener(v -> saveProfile());
-        if (!isAdminMode) {
-            btnUserDel.setVisibility(View.VISIBLE);
-            btnUserDel.setOnClickListener(v -> userRemoveProfile());
-        }
+        btnUserDel.setOnClickListener(v -> userRemoveProfile());
+        
         setupAdminActions();
     }
 
