@@ -280,9 +280,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         if (!event.isRegistrationOpen()) {
             //check if an invitation exists
             checkInvitation(event.getEventId());
-            checkEnrollment(event.getEventId());
             if (isInvited) {
                 enrollButton();}
+            checkEnrollment(event.getEventId());
             if (isEnrolled) {
                 UnenrollButton();
             }else {
@@ -380,7 +380,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
         btnJoin.setEnabled(false);
 
-        eventPoolStorage.enrollInEvent(
+        eventPoolStorage.waitlistForEvent(
                 eventId,
                 entrant,
                 unused -> {

@@ -103,6 +103,86 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    public void waitlistForEvent(
+            String eventId,
+            Entrant entrant,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        DocumentReference eventRef = db.collection("events").document(eventId);
+        DocumentReference entrantRef = entryDoc(eventId, entrant.getEntrantId());
+
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+                    DocumentSnapshot eventSnap = transaction.get(eventRef);
+                    DocumentSnapshot entrantSnap = transaction.get(entrantRef);
+
+                    if (!eventSnap.exists()) {
+                        throw new IllegalStateException("Event does not exist");
+                    }
+
+                    // enforce no double waitlisting
+                    if (entrantSnap.exists()) {
+                        throw new IllegalStateException("Entrant already waitlisted");
+                    }
+
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("entrantId", entrant.getEntrantId());
+                    data.put("eventId", eventId);
+                    data.put("status", Entrant.EntrantStatus.WAITLISTED.name());
+                    data.put("joinedAt", FieldValue.serverTimestamp());
+                    data.put("updatedAt", FieldValue.serverTimestamp());
+
+                    transaction.set(entrantRef, data);
+
+                    Map<String, Object> eventUpdates = new HashMap<>();
+                    eventUpdates.put("waitlistCount", eventSnap.getLong("waitlistCount").intValue() + 1);
+                    transaction.update(eventRef, eventUpdates);
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    public void inviteToEvent(
+            String eventId,
+            Entrant entrant,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        DocumentReference eventRef = db.collection("events").document(eventId);
+        DocumentReference entrantRef = entryDoc(eventId, entrant.getEntrantId());
+
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+                    DocumentSnapshot eventSnap = transaction.get(eventRef);
+                    DocumentSnapshot entrantSnap = transaction.get(entrantRef);
+
+                    if (!eventSnap.exists()) {
+                        throw new IllegalStateException("Event does not exist");
+                    }
+
+                    // enforce no double waitlisting
+                    if (entrantSnap.exists()) {
+                        throw new IllegalStateException("Entrant already invited");
+                    }
+
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("entrantId", entrant.getEntrantId());
+                    data.put("eventId", eventId);
+                    data.put("status", Entrant.EntrantStatus.INVITED.name());
+                    data.put("joinedAt", FieldValue.serverTimestamp());
+                    data.put("updatedAt", FieldValue.serverTimestamp());
+
+                    transaction.set(entrantRef, data);
+
+                    Map<String, Object> eventUpdates = new HashMap<>();
+                    eventUpdates.put("waitlistCount", eventSnap.getLong("waitlistCount").intValue() - 1);
+                    eventUpdates.put("invitedCount", eventSnap.getLong("waitlistCount") != null
+                            ? eventSnap.getLong("waitlistCount").intValue()
+                            : 0);eventSnap.getLong("invitedCount").intValue() + 1);
+                    transaction.update(eventRef, eventUpdates);
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
     // for querying whether an Entrant is WAITLISTED, INVITED, ...
     public void getEntrantStatus(
             String eventId,

@@ -22,6 +22,8 @@ public class Event {
     public Integer waitlistCapacity;
     private int enrolledCount;
     private int waitlistCount;
+    public int InvitationCapacity;
+    private int invitationCount;
     public Long eventDateMs; // milliseconds
     public Long regStartMs; // milliseconds
     public Long regEndMs; // milliseconds
@@ -64,6 +66,10 @@ public class Event {
     public void setWaitlistCount(int waitlistCount) {
         this.waitlistCount = waitlistCount;
     }
+
+    public void setInvitationCount(int count) {this.invitationCount = count;}
+
+    public int getInvitationCount() {return invitationCount;}
 
     public void setEventId(String eventId) {
         this.eventId = eventId;
