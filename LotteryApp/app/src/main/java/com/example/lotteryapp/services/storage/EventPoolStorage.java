@@ -61,8 +61,8 @@ public class EventPoolStorage {
                         throw new IllegalStateException("Event does not exist");
                     }
 
-                    int enrolled = eventSnap.getLong("enrolledCount").intValue();
-                    int capacity = eventSnap.getLong("eventCapacity").intValue();
+                    int enrolled = eventSnap.getLong("enrolledCount") != null ? eventSnap.getLong("enrolledCount").intValue() : 0;
+                    int capacity = eventSnap.getLong("eventCapacity") != null ? eventSnap.getLong("eventCapacity").intValue() : 0;
 
                     // enforce no double enrollments
                     if (entrantSnap.exists()) {
@@ -88,8 +88,8 @@ public class EventPoolStorage {
 
                     Map<String, Object> eventUpdates = new HashMap<>();
                     eventUpdates.put("enrolledCount", enrolledUpdate);
-                    eventUpdates.put("waitlistCount", eventSnap.getLong("waitlistCount") != null
-                            ? eventSnap.getLong("waitlistCount").intValue()
+                    eventUpdates.put("invitationCount", eventSnap.getLong("invitationCount") != null
+                            ? eventSnap.getLong("invitationCount").intValue() - 1
                             : 0);
                     eventUpdates.put(
                             "status",
@@ -125,6 +125,13 @@ public class EventPoolStorage {
                         throw new IllegalStateException("Entrant already waitlisted");
                     }
 
+                    int waitlistCount = eventSnap.getLong("waitlistCount") != null ? eventSnap.getLong("waitlistCount").intValue() : 0;
+                    int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
+
+                    if (waitlistCount >= waitlistCapacity) {
+                        throw new IllegalStateException("Waitlist is full");
+                    }
+
                     Map<String, Object> data = new HashMap<>();
                     data.put("entrantId", entrant.getEntrantId());
                     data.put("eventId", eventId);
@@ -135,7 +142,7 @@ public class EventPoolStorage {
                     transaction.set(entrantRef, data);
 
                     Map<String, Object> eventUpdates = new HashMap<>();
-                    eventUpdates.put("waitlistCount", eventSnap.getLong("waitlistCount").intValue() + 1);
+                    eventUpdates.put("waitlistCount", (waitlistCount + 1));
                     transaction.update(eventRef, eventUpdates);
                     return null;
                 }).addOnSuccessListener(onSuccess)
@@ -164,6 +171,14 @@ public class EventPoolStorage {
                         throw new IllegalStateException("Entrant already invited");
                     }
 
+                    int invitationCount = eventSnap.getLong("invitationCount") != null ? eventSnap.getLong("invitationCount").intValue() : 0;
+                    int invitationCapacity = eventSnap.getLong("invitationCapacity") != null ? eventSnap.getLong("invitationCapacity").intValue() : 0;
+                    int waitlistCount = eventSnap.getLong("waitlistCount") != null ? eventSnap.getLong("waitlistCount").intValue() : 0;
+
+                    if (invitationCount >= invitationCapacity) {
+                        throw new IllegalStateException("Reached invitation capacity");
+                    }
+
                     Map<String, Object> data = new HashMap<>();
                     data.put("entrantId", entrant.getEntrantId());
                     data.put("eventId", eventId);
@@ -174,10 +189,8 @@ public class EventPoolStorage {
                     transaction.set(entrantRef, data);
 
                     Map<String, Object> eventUpdates = new HashMap<>();
-                    eventUpdates.put("waitlistCount", eventSnap.getLong("waitlistCount").intValue() - 1);
-                    eventUpdates.put("invitedCount", eventSnap.getLong("waitlistCount") != null
-                            ? eventSnap.getLong("waitlistCount").intValue()
-                            : 0);eventSnap.getLong("invitedCount").intValue() + 1);
+                    eventUpdates.put("waitlistCount", (waitlistCount - 1));
+                    eventUpdates.put("invitationCount", (invitationCount + 1));
                     transaction.update(eventRef, eventUpdates);
                     return null;
                 }).addOnSuccessListener(onSuccess)
@@ -244,10 +257,12 @@ public class EventPoolStorage {
 
                     Long enrolledLong = eventSnap.getLong("enrolledCount");
                     Long waitlistLong = eventSnap.getLong("waitlistCount");
+                    Long invitationLong = eventSnap.getLong("invitationCount");
                     Long capacityLong = eventSnap.getLong("eventCapacity");
 
                     int enrolledCount = enrolledLong != null ? enrolledLong.intValue() : 0;
                     int waitlistCount = waitlistLong != null ? waitlistLong.intValue() : 0;
+                    int invitationCount = invitationLong != null ? invitationLong.intValue() : 0;
                     int capacity = capacityLong != null ? capacityLong.intValue() : 0;
 
                     String status = entrantSnap.getString("status");
@@ -256,13 +271,15 @@ public class EventPoolStorage {
                         enrolledCount = Math.max(0, enrolledCount - 1);
                     } else if (Entrant.EntrantStatus.WAITLISTED.name().equals(status)) {
                         waitlistCount = Math.max(0, waitlistCount - 1);
-                    }
+                    } else if (Entrant.EntrantStatus.INVITED.name().equals(status)) {
+                        invitationCount = Math.max(0, invitationCount - 1);}
 
                     transaction.delete(entrantRef);
 
                     Map<String, Object> updates = new HashMap<>();
                     updates.put("enrolledCount", enrolledCount);
                     updates.put("waitlistCount", waitlistCount);
+                    updates.put("invitationCount", invitationCount);
                     updates.put(
                             "status",
                             enrolledCount >= capacity
