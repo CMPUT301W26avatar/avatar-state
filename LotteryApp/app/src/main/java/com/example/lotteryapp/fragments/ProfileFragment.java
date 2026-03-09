@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.LoginActivity;
 import com.example.lotteryapp.activities.AdminActivity;
+import com.example.lotteryapp.activities.NotificationSettingsActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
 import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ServiceLocator;
@@ -64,7 +65,8 @@ public class ProfileFragment extends Fragment {
         View notificationsItem = view.findViewById(R.id.item_notifications);
         if (notificationsItem != null) {
             notificationsItem.setOnClickListener(v -> {
-                // TODO: Add notificationsItem logic here
+                Intent intent = new Intent(requireContext(), NotificationSettingsActivity.class);
+                startActivity(intent);
             });
         }
 

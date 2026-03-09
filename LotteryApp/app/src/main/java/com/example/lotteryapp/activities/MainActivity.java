@@ -1,9 +1,15 @@
 package com.example.lotteryapp.activities;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -15,7 +21,9 @@ import com.example.lotteryapp.fragments.ManageFragment;
 import com.example.lotteryapp.fragments.ProfileFragment;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.fragments.SearchFragment;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -24,6 +32,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        requestNotificationPermission();
+        updateFcmToken();
 
         BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
 
@@ -64,7 +75,30 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0);
             return insets;
         });
-
     }
 
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
+        }
+    }
+
+    private void updateFcmToken() {
+        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+            if (!task.isSuccessful()) {
+                return;
+            }
+
+            // get new FCM registration token
+            String token = task.getResult();
+
+            // save token to user profile
+            String uid = ServiceLocator.uid();
+            if (uid != null) {
+                ServiceLocator.getUserStorage().updateFcmToken(uid, token);
+            }
+        });
+    }
 }
