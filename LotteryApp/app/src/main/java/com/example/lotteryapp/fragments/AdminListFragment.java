@@ -14,7 +14,9 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.EventDetailsActivity;
+import com.example.lotteryapp.activities.UserDetailsActivity;
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ServiceLocator;
 
 import java.util.ArrayList;
@@ -88,9 +90,12 @@ public class AdminListFragment extends Fragment {
     private void loadData() {
         // TODO: Implement loading all user profiles from Firestore "users" collection
         if (TYPE_PROFILES.equals(type)) {
-            progressBar.setVisibility(View.GONE);
-            tvEmpty.setVisibility(View.VISIBLE);
-            adapter.setItems(new ArrayList<>());
+            progressBar.setVisibility(View.VISIBLE);
+            ServiceLocator.getUserStorage().getAllUsers(users -> {
+                allItems.clear();
+                allItems.addAll(users);
+                applyFilterAndSort();
+            }, e -> progressBar.setVisibility(View.GONE));
             return;
         }
 
@@ -106,7 +111,7 @@ public class AdminListFragment extends Fragment {
         // Load events from Firestore
         if (TYPE_EVENTS.equals(type)) {
             progressBar.setVisibility(View.VISIBLE);
-            ServiceLocator.eventStorage().getAllEvents(events -> {
+            ServiceLocator.getEventStorage().getAllEvents(events -> {
                 allItems.clear();
                 allItems.addAll(events);
                 applyFilterAndSort();
@@ -141,7 +146,10 @@ public class AdminListFragment extends Fragment {
             String title = ((Event) item).getTitle();
             return (title != null && !title.isEmpty()) ? title : "Untitled Event (" + ((Event) item).getEventId() + ")";
         }
-        // TODO: Handle User object display name when Profiles logic is added
+        else if (item instanceof User) {
+            String name = ((User) item).getName();
+            return (name != null && !name.isEmpty()) ? name : "Anonymous User (" + ((User) item).getUUID() + ")";
+        }
         return "Unknown Item";
     }
 
@@ -177,7 +185,13 @@ public class AdminListFragment extends Fragment {
                 intent.putExtra("isAdminMode", true);
                 startActivity(intent);
             }
-            // TODO: Implement opening UserDetailsActivity in Admin Mode when User object is clicked
+            else if (item instanceof User) {
+                // Implement opening UserDetailsActivity in Admin Mode when User object is clicked
+                Intent intent = new Intent(getContext(), UserDetailsActivity.class);
+                intent.putExtra(UserDetailsActivity.EXTRA_USER_ID, ((User) item).getUUID());
+                intent.putExtra(UserDetailsActivity.EXTRA_ADMIN_MODE, true);
+                startActivity(intent);
+            }
         }
 
         @Override
