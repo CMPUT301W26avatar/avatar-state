@@ -30,6 +30,8 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialTextView tvRegEndDate;
     private MaterialButton btnClose;
     private MaterialButton btnJoin;
+
+    private MaterialButton btnLeave;
     private MaterialButton btnDeleteImage;
     private MaterialButton btnRemoveEvent;
     private ImageView ivEventPoster;
@@ -47,6 +49,8 @@ public class EventDetailsActivity extends AppCompatActivity {
     private EventPoolStorage eventPoolStorage;
 
     private boolean isEnrolled = false;
+    private boolean isWaitlisted = false;
+    private boolean isInvited = false;
 
     private final SimpleDateFormat sdf =
             new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
@@ -101,6 +105,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvRegEndDate = findViewById(R.id.tv_reg_end_date);
         btnClose = findViewById(R.id.btn_close);
         btnJoin = findViewById(R.id.btn_join_waitlist);
+        btnLeave = findViewById(R.id.btn_leave_waitlist);
         btnDeleteImage = findViewById(R.id.btn_delete_image);
         btnRemoveEvent = findViewById(R.id.btn_remove_event);
         ivEventPoster = findViewById(R.id.iv_event_poster);
@@ -267,41 +272,146 @@ public class EventDetailsActivity extends AppCompatActivity {
             return;
         }
 
+        //if registration period is still open
         if (!event.isRegistrationOpen()) {
-            btnJoin.setEnabled(false);
-            btnJoin.setText("Registration Closed");
-            return;
+            //check if an invitation exists
+            checkInvitation(event.getEventId());
+            if (isInvited) {
+                //check enrollment
+                checkEnrollment(event.getEventId());
+            } else {
+                //if user is not invited
+                btnJoin.setEnabled(false);
+                btnJoin.setText("Registration Closed");
+                return;
+            }
+        } else {
+            //check waitlist state
+            btnJoin.setEnabled(true);
+            refreshJoiningState(event.getEventId());
         }
-
-        btnJoin.setEnabled(true);
-        refreshEnrollmentState(event.getEventId());
     }
 
-    // poll for event status
-    private void refreshEnrollmentState(String eventId) {
+    //Check whether user is waitlisted
+    private void refreshJoiningState(String eventId) {
         eventPoolStorage.getEntrantStatus(
                 eventId,
                 currentUserId,
                 status -> {
-                    isEnrolled = Entrant.EntrantStatus.ENROLLED.name().equals(status);
-                    updateJoinButton();
+                    //is waitlisted
+                    isWaitlisted = Entrant.EntrantStatus.WAITLISTED.name().equals(status);
+                    waitlistButton();
                 },
                 e -> {
-                    isEnrolled = false;
-                    updateJoinButton();
+                    //is not waitlisted
+                    isWaitlisted = false;
+                    waitlistButton();
                 }
         );
     }
-    private void updateJoinButton() {
+
+    // poll for event status
+    private void checkEnrollment(String eventId) {
+        eventPoolStorage.getEntrantStatus(
+                eventId,
+                currentUserId,
+                status -> {
+                    //is enrolled already, only display unenroll button
+                    isEnrolled = Entrant.EntrantStatus.ENROLLED.name().equals(status);
+                    UnenrollButton();
+                },
+                e -> {
+                    //is not enrolled yet, display accept or decline messages
+                    isEnrolled = false;
+                    enrollButton();
+                }
+        );
+    }
+
+    //Check if user received invitation
+    private void checkInvitation(String eventId) {
+        eventPoolStorage.getEntrantStatus(
+                eventId,
+                currentUserId,
+                status -> {
+                    isInvited = Entrant.EntrantStatus.INVITED.name().equals(status);
+                },
+                e -> {
+                    isInvited = false;
+                }
+        );
+    }
+
+    private void waitlistButton() {
+
+        if (!isWaitlisted) {
+            //set button visibilities
+            btnJoin.setVisibility(View.VISIBLE);
+            btnLeave.setVisibility(View.GONE);
+            //enable/disable buttons
+            btnJoin.setEnabled(true);
+            btnLeave.setEnabled(false);
+            btnJoin.setText("Join Waitlist");
+            btnJoin.setOnClickListener(v -> {
+                joinWaitlist();
+            });
+        }
+        else {
+            //set button visibilities
+            btnJoin.setVisibility(View.GONE);
+            btnLeave.setVisibility(View.VISIBLE);
+            //enable/disable buttons
+            btnJoin.setEnabled(false);
+            btnLeave.setEnabled(true);
+            btnJoin.setText("Leave Waitlist");
+            btnLeave.setOnClickListener(v -> {
+                leaveWaitlist();
+            });
+        }
+    }
+
+    private void joinWaitlist() {
+        //Add user to waitlist collection
+    }
+
+    private void leaveWaitlist() {
+        //Remove user from waitlist collection
+    }
+
+    private void enrollButton() {
+        //Set button visibility
+        btnLeave.setVisibility(View.GONE);
+        btnLeave.setEnabled(false);
+        btnJoin.setVisibility(View.VISIBLE);
         btnJoin.setEnabled(true);
-        btnJoin.setText(isEnrolled ? "Unenroll" : "Join Event Waitlist");
+        btnJoin.setText("Accept Invitation");
 
         btnJoin.setOnClickListener(v -> {
-            if (isEnrolled) {
-                unenroll();
-            } else {
-                enroll();
-            }
+            enroll();
+        });
+
+        //Set button Visibility
+        btnJoin.setVisibility(View.GONE);
+        btnJoin.setEnabled(false);
+        btnLeave.setVisibility(View.VISIBLE);
+        btnLeave.setEnabled(true);
+        btnLeave.setText("Decline Invitation");
+
+        btnLeave.setOnClickListener(v -> {
+            //remove user from invitation collection
+        });
+    }
+
+    private void UnenrollButton() {
+        //Set button visibility
+        btnLeave.setVisibility(View.GONE);
+        btnLeave.setEnabled(false);
+        btnJoin.setVisibility(View.VISIBLE);
+        btnJoin.setEnabled(true);
+        btnJoin.setText("Unenroll");
+
+        btnJoin.setOnClickListener(v -> {
+            unenroll();
         });
     }
 
@@ -316,7 +426,6 @@ public class EventDetailsActivity extends AppCompatActivity {
                 unused -> {
                     Toast.makeText(this, "Enrolled!", Toast.LENGTH_SHORT).show();
                     isEnrolled = true;
-                    updateJoinButton();
                     loadEvent();
                 },
                 e -> {
@@ -335,7 +444,6 @@ public class EventDetailsActivity extends AppCompatActivity {
                 unused -> {
                     Toast.makeText(this, "Unenrolled!", Toast.LENGTH_SHORT).show();
                     isEnrolled = false;
-                    updateJoinButton();
                     loadEvent();
                 },
                 e -> {
