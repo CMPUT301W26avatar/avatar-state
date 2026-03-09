@@ -168,6 +168,14 @@
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textStyle="bold" />
 
+                <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/tv_criteria_guidelines"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="48dp"
+                    android:text="Criteria/Guidelines"
+                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+
                 <!-- Admin Info Section -->
                 <LinearLayout
                     android:id="@+id/layout_admin_info"
@@ -249,7 +257,7 @@
                 android:visibility="gone"
                 android:text="Leave Event Waitlist"
                 app:cornerRadius="12dp"
-                app:icon="@drawable/ic_add" />
+                app:icon="@drawable/ic_leave" />
 
             <LinearLayout
                 android:id="@+id/invitations_layout"
@@ -265,7 +273,7 @@
                     android:paddingVertical="12dp"
                     android:text="Accept Invitation"
                     app:cornerRadius="12dp"
-                    app:icon="@drawable/ic_add" />
+                    app:icon="@drawable/ic_check_mark" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_decline_invitation"
@@ -274,7 +282,7 @@
                     android:paddingVertical="12dp"
                     android:text="Decline Invitation"
                     app:cornerRadius="12dp"
-                    app:icon="@drawable/ic_add"  />
+                    app:icon="@drawable/ic_close"  />
             </LinearLayout>
         </FrameLayout>
 

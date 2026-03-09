@@ -31,6 +31,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialTextView tvDescription;
     private MaterialTextView tvDate;
     private MaterialTextView tvRegEndDate;
+    private MaterialTextView tvCriteriaGuidelines;
     private MaterialButton btnClose;
     private MaterialButton btnJoin;
 
@@ -108,6 +109,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvDescription = findViewById(R.id.tv_description);
         tvDate = findViewById(R.id.tv_event_date);
         tvRegEndDate = findViewById(R.id.tv_reg_end_date);
+        tvCriteriaGuidelines = findViewById(R.id.tv_criteria_guidelines);
         invitations_layout = findViewById(R.id.invitations_layout);
         btnClose = findViewById(R.id.btn_close);
         btnJoin = findViewById(R.id.btn_join_waitlist);
@@ -190,6 +192,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         if (tvRegEndDate.getText() == null || tvRegEndDate.getText().toString().trim().isEmpty()) {
             tvRegEndDate.setText("Register End Date");
         }
+
+        if (tvCriteriaGuidelines.getText() == null || tvCriteriaGuidelines.getText().toString().trim().isEmpty()) {
+            tvCriteriaGuidelines.setText("Criteria Guidelines");
+        }
     }
 
     private void loadEvent() {
@@ -251,6 +257,10 @@ public class EventDetailsActivity extends AppCompatActivity {
                     sdf.format(new java.util.Date(event.getRegEndMs())));
         } else {
             tvRegEndDate.setText("Registration end unavailable");
+        }
+
+        if (event.getCriteriaGuidelines() != null) {
+            tvCriteriaGuidelines.setText("Criteria/Guidelines: " + event.getCriteriaGuidelines());
         }
 
         if (isAdminMode && event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
