@@ -2,6 +2,7 @@ package com.example.lotteryapp.services;
 
 import androidx.annotation.Nullable;
 
+import com.example.lotteryapp.services.storage.AdminStorage;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
@@ -23,6 +24,8 @@ public final class ServiceLocator {
     private static @Nullable EventStorage overrideEventStorage = null;
     private static @Nullable UserStorage overrideUserStorage = null;
     private static @Nullable EventPoolStorage overrideEventPoolStorage = null;
+
+    private static @Nullable AdminStorage overrideAdminStorage = null;
 
     private static @Nullable UserIdProvider overrideUserIdProvider = null;
 
@@ -68,6 +71,11 @@ public final class ServiceLocator {
     public static EventPoolStorage getEventPoolStorage() {
         if (overrideEventPoolStorage != null) return overrideEventPoolStorage;
         return new EventPoolStorage(getFirebase().getDb());
+    }
+
+    public static AdminStorage getAdminStorage() {
+        if (overrideAdminStorage != null) return overrideAdminStorage;
+        return new AdminStorage(getFirebase().getDb());
     }
 
     // ---- Test-only overrides ----

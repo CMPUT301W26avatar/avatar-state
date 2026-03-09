@@ -29,6 +29,7 @@
         <activity android:name=".activities.UserDetailsActivity"/>
         <activity android:name=".activities.EventDetailsActivity"/>
         <activity android:name=".activities.AdminActivity"/>
+        <activity android:name=".activities.PromoteNewAdminActivity" />
         <activity android:name=".activities.NotificationSettingsActivity" />
 
         <service

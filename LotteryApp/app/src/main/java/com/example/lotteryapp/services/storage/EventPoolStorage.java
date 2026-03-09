@@ -127,9 +127,9 @@ public class EventPoolStorage {
     public void countEntrantsByStatus(String eventId, String status,
                                       OnSuccessListener<Integer> onSuccess,
                                       OnFailureListener onFailure) {
-        db.collection("eventPool")
+        db.collection("events")
                 .document(eventId)
-                .collection("entrants")
+                .collection("entries")
                 .whereEqualTo("status", status)
                 .get()
                 .addOnSuccessListener(querySnapshot -> onSuccess.onSuccess(querySnapshot.size()))
