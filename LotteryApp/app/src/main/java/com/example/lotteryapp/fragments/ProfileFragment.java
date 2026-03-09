@@ -56,7 +56,8 @@ public class ProfileFragment extends Fragment {
             });
         }
 
-        checkAdminStatus(view);
+        // replaced with /* BLOCK A */
+        /*checkAdminStatus(view);*/
 
         View devicesItem = view.findViewById(R.id.item_devices);
         if (devicesItem != null) {
@@ -112,51 +113,55 @@ public class ProfileFragment extends Fragment {
             });
         }
 
-        // return whether the user is the admin inside of isAdmin
+        /* Block A
+        Determine if the user is an admin, and set "request admin" / "open admin dashboard" buttons accordingly
+            If the user is an admin, simply show the "open admin dashboard" as visible
+                - pressing the button launches AdminActivity
+            If the user is not an admin, the "request to be an admin" button is shown as visible.
+                - If there is no current admin, launches the AdminActivity with the current user as the new admin
+                - If there is a current admin, adds the user to a collection of requests
+                    - The current admin can then check the requests collection in a list, and click on one of the requests to promote this person to be a new admin.
+         TO CHANGE:
+            - Only one current admin -> multiple concurrent admins
+            - Promoting an admin forces current admin to step down -> promoting an admin just adds them as another concurrent admin
+         */
+        
+        // pass current user uuid into AdminStorage.isAdmin()
         String uuid = ServiceLocator.uid();
-        ServiceLocator.getAdminStorage().isAdmin(uuid, isAdmin -> {
-                    if (isAdmin) {
-                    } // is admin
-                    else {
-                    } // is not admin
-                }, e -> {
-                    e.printStackTrace();
-                }
-        );
 
         View btnApplyAdmin = view.findViewById(R.id.btn_apply_admin);
         View btnOpenAdminMenu = view.findViewById(R.id.btn_open_admin);
         AdminStorage astore = ServiceLocator.getAdminStorage();
 
-        astore.isAdmin(uuid, isAdmin -> {
-            if (isAdmin) {
+        // call isAdmin to return bool inside of isAdminBool whether the current user is an admin
+        astore.isAdmin(uuid, isAdminBool -> {
+            if (isAdminBool) { // is admin, launch admin activity
                 btnApplyAdmin.setVisibility(View.GONE);
                 btnOpenAdminMenu.setVisibility(View.VISIBLE);
 
-                btnOpenAdminMenu.setOnClickListener(v -> openAdminList());
-            } else {
+                btnOpenAdminMenu.setOnClickListener(v -> showAdminSection(view));
+            } else { // not admin, can apply or request
                 btnOpenAdminMenu.setVisibility(View.GONE);
                 btnApplyAdmin.setVisibility(View.VISIBLE);
 
                 btnApplyAdmin.setOnClickListener(v -> {
                     astore.getAdmin(adminUuid -> {
 
+                        // no current admin
                         if (adminUuid == null || adminUuid.trim().isEmpty()) {
-
                             astore.setNewAdmin(uuid, unused -> {
                                 Toast.makeText(requireContext(),
                                         "You are now the admin",
                                         Toast.LENGTH_LONG).show();
-                                openAdminList();
+                                showAdminSection(view);
                             }, e -> {
                                 Toast.makeText(requireContext(),
                                         "Failed to set admin status",
                                         Toast.LENGTH_LONG).show();
                                 e.printStackTrace();
                             });
-
+                        // request current admin to promote the user to admin status
                         } else {
-
                             astore.requestNewAdmin(uuid, unused -> {
                                 Toast.makeText(requireContext(),
                                         "Requested to be an admin",
@@ -168,27 +173,24 @@ public class ProfileFragment extends Fragment {
                                         Toast.LENGTH_LONG).show();
                                 e.printStackTrace();
                             });
-
                         }
-
                     }, e -> {
-
                         // No admin doc exists → create one
                         astore.setNewAdmin(uuid, unused -> {
                             Toast.makeText(requireContext(),
                                     "You are now the admin",
                                     Toast.LENGTH_LONG).show();
-                            openAdminList();
+                            showAdminSection(view);
                         }, err -> {
                             Toast.makeText(requireContext(),
                                     "Failed to set admin status",
                                     Toast.LENGTH_LONG).show();
                             err.printStackTrace();
                         });
-
                     });
                 });
             }
+        // something went wrong in the AdminStorage.isAdmin() call.
         }, e -> {
             Toast.makeText(requireContext(),
                     "Failed to check admin status",
@@ -197,10 +199,6 @@ public class ProfileFragment extends Fragment {
         });
     }
 
-    private void openAdminList() {
-        Intent intent = new Intent(requireContext(), AdminActivity.class);
-        startActivity(intent);
-    }
     private void refreshProfileFragment() {
         requireActivity()
                 .getSupportFragmentManager()
@@ -209,7 +207,8 @@ public class ProfileFragment extends Fragment {
                 .commit();
     }
 
-    private void checkAdminStatus(View view) {
+    // replaced with AdminStorage.isAdmin()
+    /*private void checkAdminStatus(View view) {
         String uid = ServiceLocator.uid();
         if (uid != null) {
             ServiceLocator.getUserStorage().getUserProfile(uid, user -> {
@@ -220,7 +219,7 @@ public class ProfileFragment extends Fragment {
                 // TODO: Handle error
             });
         }
-    }
+    }*/
 
     private void showAdminSection(View view) {
         View adminLabel = view.findViewById(R.id.tv_admin_label);
