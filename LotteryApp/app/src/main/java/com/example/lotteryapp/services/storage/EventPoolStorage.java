@@ -14,6 +14,8 @@ import com.google.firebase.firestore.Transaction;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Manages the event pool and lottery lifecycle.
@@ -260,4 +262,31 @@ public class EventPoolStorage {
             })
             .addOnFailureListener(onFailure);
     }
+
+    /**
+     * US 02.06.03 --> List of entrants who enrolled for the event.
+     * status == "ENROLLED"
+     */
+    public void getEnrolledEntrants(String eventId,
+                                    OnSuccessListener<List<Entrant>> onSuccess,
+                                    OnFailureListener onFailure) {
+        db.collection("events")
+                .document(eventId)
+                .collection("entries")
+                .whereEqualTo("status", Entrant.EntrantStatus.ENROLLED.name())
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Entrant> entrants = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String entrantId = doc.getString("entrantId");
+                        String eid = doc.getString("eventId");
+                        if (entrantId != null && eid != null) {
+                            entrants.add(new Entrant(entrantId, eid, Entrant.EntrantStatus.ENROLLED));
+                        }
+                    }
+                    onSuccess.onSuccess(entrants);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
 }
