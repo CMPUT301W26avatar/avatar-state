@@ -179,4 +179,8 @@ public class UserStorage {
         }, onFailure);
     }
 
+
+    public void updateFcmToken(String uuid, String token) {
+        userDoc(uuid).update("fcmToken", token);
+    }
 }
