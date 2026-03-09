@@ -8,10 +8,12 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Manages the event pool and lottery lifecycle.
@@ -191,5 +193,71 @@ public class EventPoolStorage {
             return null;
         }).addOnSuccessListener(onSuccess)
         .addOnFailureListener(onFailure);
+    }
+
+    // safe delete of all user entries in all events/entries docs
+    public void delAllUserEntries(
+            String entrantId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collection("events")
+            .get()
+            .addOnSuccessListener(eventSnapshot -> {
+                if (eventSnapshot.isEmpty()) { // no events exist
+                    onSuccess.onSuccess(null);
+                    return;
+                }
+                AtomicInteger remainingChecks = new AtomicInteger(eventSnapshot.size());
+                AtomicInteger remainingDeletes = new AtomicInteger(0);
+                boolean[] failed = {false};
+                boolean[] finishedChecking = {false};
+
+                Runnable tryFinish = () -> {
+                    if (!failed[0]
+                            && finishedChecking[0]
+                            && remainingDeletes.get() == 0) {
+                        onSuccess.onSuccess(null);
+                    }
+                };
+                for (QueryDocumentSnapshot eventDoc : eventSnapshot) {
+                    if (failed[0]) { // stop if failure already happened
+                        return;
+                    }
+                    String eventId = eventDoc.getId();
+                    entryDoc(eventId, entrantId)
+                        .get()
+                        .addOnSuccessListener(entrySnapshot -> {
+                            if (failed[0]) {
+                                return;
+                            }
+                            if (entrySnapshot.exists()) { // user is in this event
+                                remainingDeletes.incrementAndGet();
+                                deleteEntry(eventId, entrantId, unused -> {
+                                    if (!failed[0]) {
+                                        remainingDeletes.decrementAndGet();
+                                        tryFinish.run();
+                                    }}, e -> {
+                                    if (!failed[0]) {
+                                        failed[0] = true;
+                                        onFailure.onFailure(e);
+                                    }
+                                }
+                                );
+                            }
+                            if (remainingChecks.decrementAndGet() == 0) { // done checking all events
+                                finishedChecking[0] = true;
+                                tryFinish.run();
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            if (!failed[0]) {
+                                failed[0] = true;
+                                onFailure.onFailure(e);
+                            }
+                        });
+                }
+            })
+            .addOnFailureListener(onFailure);
     }
 }
