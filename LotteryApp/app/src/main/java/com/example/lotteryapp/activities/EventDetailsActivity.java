@@ -132,7 +132,11 @@ public class EventDetailsActivity extends AppCompatActivity {
     private void setupAdminActions() {
         if (isAdminMode) {
             btnRemoveEvent.setVisibility(View.VISIBLE);
+            btnRemoveEvent.setEnabled(true);
+            btnJoin.setVisibility(View.GONE);
+            btnLeave.setVisibility(View.GONE);
             layoutAdminInfo.setVisibility(View.VISIBLE);
+            btnDeleteImage.setVisibility(View.VISIBLE);
             
             btnRemoveEvent.setOnClickListener(v -> {
                 eventStorage.deleteEvent(eventId);
@@ -276,10 +280,12 @@ public class EventDetailsActivity extends AppCompatActivity {
         if (!event.isRegistrationOpen()) {
             //check if an invitation exists
             checkInvitation(event.getEventId());
+            checkEnrollment(event.getEventId());
             if (isInvited) {
-                //check enrollment
-                checkEnrollment(event.getEventId());
-            } else {
+                enrollButton();}
+            if (isEnrolled) {
+                UnenrollButton();
+            }else {
                 //if user is not invited
                 btnJoin.setEnabled(false);
                 btnJoin.setText("Registration Closed");
@@ -318,12 +324,10 @@ public class EventDetailsActivity extends AppCompatActivity {
                 status -> {
                     //is enrolled already, only display unenroll button
                     isEnrolled = Entrant.EntrantStatus.ENROLLED.name().equals(status);
-                    UnenrollButton();
                 },
                 e -> {
                     //is not enrolled yet, display accept or decline messages
                     isEnrolled = false;
-                    enrollButton();
                 }
         );
     }
@@ -372,10 +376,42 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     private void joinWaitlist() {
         //Add user to waitlist collection
+        Entrant entrant = new Entrant(currentUserId, eventId, Entrant.EntrantStatus.WAITLISTED);
+
+        btnJoin.setEnabled(false);
+
+        eventPoolStorage.enrollInEvent(
+                eventId,
+                entrant,
+                unused -> {
+                    Toast.makeText(this, "Waitlisted!", Toast.LENGTH_SHORT).show();
+                    isWaitlisted = true;
+                    loadEvent();
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to waitlist", Toast.LENGTH_SHORT).show();
+                    btnJoin.setEnabled(true);
+                }
+        );
     }
 
     private void leaveWaitlist() {
         //Remove user from waitlist collection
+        btnJoin.setEnabled(false);
+
+        eventPoolStorage.deleteEntry(
+                eventId,
+                currentUserId,
+                unused -> {
+                    Toast.makeText(this, "Left waitlist!", Toast.LENGTH_SHORT).show();
+                    isWaitlisted = false;
+                    loadEvent();
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to leave waitlist.", Toast.LENGTH_SHORT).show();
+                    btnJoin.setEnabled(true);
+                }
+        );
     }
 
     private void enrollButton() {
@@ -398,7 +434,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnLeave.setText("Decline Invitation");
 
         btnLeave.setOnClickListener(v -> {
-            //remove user from invitation collection
+            removeInvitation();
         });
     }
 
@@ -426,6 +462,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 unused -> {
                     Toast.makeText(this, "Enrolled!", Toast.LENGTH_SHORT).show();
                     isEnrolled = true;
+                    isInvited = false;
                     loadEvent();
                 },
                 e -> {
@@ -448,6 +485,24 @@ public class EventDetailsActivity extends AppCompatActivity {
                 },
                 e -> {
                     Toast.makeText(this, "Failed to unenroll", Toast.LENGTH_SHORT).show();
+                    btnJoin.setEnabled(true);
+                }
+        );
+    }
+
+    private void removeInvitation() {
+        btnJoin.setEnabled(false);
+
+        eventPoolStorage.deleteEntry(
+                eventId,
+                currentUserId,
+                unused -> {
+                    Toast.makeText(this, "Invitation declined!", Toast.LENGTH_SHORT).show();
+                    isInvited = false;
+                    loadEvent();
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to decline invitation", Toast.LENGTH_SHORT).show();
                     btnJoin.setEnabled(true);
                 }
         );

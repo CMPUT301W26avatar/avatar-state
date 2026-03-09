@@ -50,36 +50,36 @@ public class EventPoolStorage {
         DocumentReference entrantRef = entryDoc(eventId, entrant.getEntrantId());
 
         db.runTransaction((Transaction.Function<Void>) transaction -> {
-            DocumentSnapshot eventSnap = transaction.get(eventRef);
-            DocumentSnapshot entrantSnap = transaction.get(entrantRef);
+                    DocumentSnapshot eventSnap = transaction.get(eventRef);
+                    DocumentSnapshot entrantSnap = transaction.get(entrantRef);
 
-            if (!eventSnap.exists()) {
-                throw new IllegalStateException("Event does not exist");
-            }
+                    if (!eventSnap.exists()) {
+                        throw new IllegalStateException("Event does not exist");
+                    }
 
-            int enrolled = eventSnap.getLong("enrolledCount").intValue();
-            int capacity = eventSnap.getLong("eventCapacity").intValue();
+                    int enrolled = eventSnap.getLong("enrolledCount").intValue();
+                    int capacity = eventSnap.getLong("eventCapacity").intValue();
 
-            // enforce no double enrollments
-            if (entrantSnap.exists()) {
-                throw new IllegalStateException("Entrant already enrolled");
-            }
+                    // enforce no double enrollments
+                    if (entrantSnap.exists()) {
+                        throw new IllegalStateException("Entrant already enrolled");
+                    }
 
-            // enforce no overenrollments
-            if (enrolled >= capacity) {
-                throw new IllegalStateException("Event is already full");
-            }
+                    // enforce no overenrollments
+                    if (enrolled >= capacity) {
+                        throw new IllegalStateException("Event is already full");
+                    }
 
-            Map<String, Object> data = new HashMap<>();
-            data.put("entrantId", entrant.getEntrantId());
-            data.put("eventId", eventId);
-            data.put("status", Entrant.EntrantStatus.ENROLLED.name());
-            data.put("joinedAt", FieldValue.serverTimestamp());
-            data.put("updatedAt", FieldValue.serverTimestamp());
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("entrantId", entrant.getEntrantId());
+                    data.put("eventId", eventId);
+                    data.put("status", Entrant.EntrantStatus.ENROLLED.name());
+                    data.put("joinedAt", FieldValue.serverTimestamp());
+                    data.put("updatedAt", FieldValue.serverTimestamp());
 
-            transaction.set(entrantRef, data);
+                    transaction.set(entrantRef, data);
 
-            // update Event details inside transaction
+                    // update Event details inside transaction
                     int enrolledUpdate = enrolled + 1;
 
                     Map<String, Object> eventUpdates = new HashMap<>();
@@ -94,9 +94,9 @@ public class EventPoolStorage {
                                     : Event.EventStatus.OPEN.name()
                     );
                     transaction.update(eventRef, eventUpdates);
-            return null;
-        }).addOnSuccessListener(onSuccess)
-        .addOnFailureListener(onFailure);
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
     }
 
     // for querying whether an Entrant is WAITLISTED, INVITED, ...
@@ -147,49 +147,88 @@ public class EventPoolStorage {
         DocumentReference entrantRef = entryDoc(eventId, entrantId);
 
         db.runTransaction((Transaction.Function<Void>) transaction -> {
-            DocumentSnapshot eventSnap = transaction.get(eventRef);
-            DocumentSnapshot entrantSnap = transaction.get(entrantRef);
+                    DocumentSnapshot eventSnap = transaction.get(eventRef);
+                    DocumentSnapshot entrantSnap = transaction.get(entrantRef);
 
-            if (!eventSnap.exists()) {
-                throw new IllegalStateException("Event does not exist");
-            }
+                    if (!eventSnap.exists()) {
+                        throw new IllegalStateException("Event does not exist");
+                    }
 
-            if (!entrantSnap.exists()) {
-                throw new IllegalStateException("Entry does not exist");
-            }
+                    if (!entrantSnap.exists()) {
+                        throw new IllegalStateException("Entry does not exist");
+                    }
 
-            Long enrolledLong = eventSnap.getLong("enrolledCount");
-            Long waitlistLong = eventSnap.getLong("waitlistCount");
-            Long capacityLong = eventSnap.getLong("eventCapacity");
+                    Long enrolledLong = eventSnap.getLong("enrolledCount");
+                    Long waitlistLong = eventSnap.getLong("waitlistCount");
+                    Long capacityLong = eventSnap.getLong("eventCapacity");
 
-            int enrolledCount = enrolledLong != null ? enrolledLong.intValue() : 0;
-            int waitlistCount = waitlistLong != null ? waitlistLong.intValue() : 0;
-            int capacity = capacityLong != null ? capacityLong.intValue() : 0;
+                    int enrolledCount = enrolledLong != null ? enrolledLong.intValue() : 0;
+                    int waitlistCount = waitlistLong != null ? waitlistLong.intValue() : 0;
+                    int capacity = capacityLong != null ? capacityLong.intValue() : 0;
 
-            String status = entrantSnap.getString("status");
+                    String status = entrantSnap.getString("status");
 
-            if (Entrant.EntrantStatus.ENROLLED.name().equals(status)) {
-                enrolledCount = Math.max(0, enrolledCount - 1);
-            } else if (Entrant.EntrantStatus.WAITLISTED.name().equals(status)) {
-                waitlistCount = Math.max(0, waitlistCount - 1);
-            }
+                    if (Entrant.EntrantStatus.ENROLLED.name().equals(status)) {
+                        enrolledCount = Math.max(0, enrolledCount - 1);
+                    } else if (Entrant.EntrantStatus.WAITLISTED.name().equals(status)) {
+                        waitlistCount = Math.max(0, waitlistCount - 1);
+                    }
 
-            transaction.delete(entrantRef);
+                    transaction.delete(entrantRef);
 
-            Map<String, Object> updates = new HashMap<>();
-            updates.put("enrolledCount", enrolledCount);
-            updates.put("waitlistCount", waitlistCount);
-            updates.put(
-                    "status",
-                    enrolledCount >= capacity
-                            ? Event.EventStatus.CLOSED.name()
-                            : Event.EventStatus.OPEN.name()
-            );
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("enrolledCount", enrolledCount);
+                    updates.put("waitlistCount", waitlistCount);
+                    updates.put(
+                            "status",
+                            enrolledCount >= capacity
+                                    ? Event.EventStatus.CLOSED.name()
+                                    : Event.EventStatus.OPEN.name()
+                    );
 
-            transaction.update(eventRef, updates);
+                    transaction.update(eventRef, updates);
 
-            return null;
-        }).addOnSuccessListener(onSuccess)
-        .addOnFailureListener(onFailure);
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    public void waitlistForEvent(
+            String eventId,
+            Entrant entrant,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        DocumentReference eventRef = db.collection("events").document(eventId);
+        DocumentReference entrantRef = entryDoc(eventId, entrant.getEntrantId());
+
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+                    DocumentSnapshot eventSnap = transaction.get(eventRef);
+                    DocumentSnapshot entrantSnap = transaction.get(entrantRef);
+
+                    if (!eventSnap.exists()) {
+                        throw new IllegalStateException("Event does not exist");
+                    }
+
+                    // enforce no double waitlisting
+                    if (entrantSnap.exists()) {
+                        throw new IllegalStateException("Entrant already enrolled");
+                    }
+
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("entrantId", entrant.getEntrantId());
+                    data.put("eventId", eventId);
+                    data.put("status", Entrant.EntrantStatus.ENROLLED.name());
+                    data.put("joinedAt", FieldValue.serverTimestamp());
+                    data.put("updatedAt", FieldValue.serverTimestamp());
+
+                    transaction.set(entrantRef, data);
+
+                    Map<String, Object> eventUpdates = new HashMap<>();
+                    eventUpdates.put("waitlistCount", eventSnap.getLong("waitlistCount").intValue() + 1);
+                    transaction.update(eventRef, eventUpdates);
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
     }
 }
