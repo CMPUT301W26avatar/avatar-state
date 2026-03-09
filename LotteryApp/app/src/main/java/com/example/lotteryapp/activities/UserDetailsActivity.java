@@ -205,7 +205,13 @@ public class UserDetailsActivity extends AppCompatActivity {
                 uuid,
                 unused -> {
                     Toast.makeText(this, "Profile deleted", Toast.LENGTH_SHORT).show();
-                    // close this activity and return to previous screen
+                    
+                    // launch LoginActivity
+                    Intent intent = new Intent(this, LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    
+                    // finish UserDetailsActivity
                     finish();
                 },
                 e -> {
