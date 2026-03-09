@@ -7,6 +7,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.content.Intent;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -30,6 +31,7 @@ public class UserDetailsActivity extends AppCompatActivity {
     private TextView tvDeviceId;
     private View tvDeviceIdLabel;
     private MaterialButton btnSave;
+    private MaterialButton btnUserDel;
     private MaterialButton btnRemoveProfile;
     private MaterialButton btnDeleteProfilePic;
     private ImageView ivProfilePic;
@@ -67,6 +69,8 @@ public class UserDetailsActivity extends AppCompatActivity {
         loadProfile();
 
         btnSave.setOnClickListener(v -> saveProfile());
+        btnUserDel.setOnClickListener(v -> userRemoveProfile());
+        
         setupAdminActions();
     }
 
@@ -78,6 +82,7 @@ public class UserDetailsActivity extends AppCompatActivity {
         tvDeviceId = findViewById(R.id.tv_device_id);
         tvDeviceIdLabel = findViewById(R.id.tv_device_id_label);
         btnSave = findViewById(R.id.btn_save_profile);
+        btnUserDel = findViewById(R.id.btn_userdel_profile);
         btnRemoveProfile = findViewById(R.id.btn_remove_profile);
         btnDeleteProfilePic = findViewById(R.id.btn_delete_profile_pic);
         ivProfilePic = findViewById(R.id.iv_profile_pic_large);
@@ -189,6 +194,33 @@ public class UserDetailsActivity extends AppCompatActivity {
                     Toast.makeText(this,
                             "Failed to save profile",
                             Toast.LENGTH_SHORT).show();
+                }
+        );
+    }
+
+    private void userRemoveProfile() {
+
+        String uuid = ServiceLocator.uid(); // get current user id
+
+        ServiceLocator.getUserStorage().cascadeUserDelete(
+                uuid,
+                unused -> {
+                    Toast.makeText(this, "Profile deleted", Toast.LENGTH_SHORT).show();
+                    
+                    // launch LoginActivity
+                    Intent intent = new Intent(this, LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    
+                    // finish UserDetailsActivity
+                    finish();
+                },
+                e -> {
+                    android.util.Log.e("UserDetailsActivity",
+                            "Failed to delete user profile for uid=" + uuid, e);
+                    Toast.makeText(this,
+                            "Failed to delete profile: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
                 }
         );
     }

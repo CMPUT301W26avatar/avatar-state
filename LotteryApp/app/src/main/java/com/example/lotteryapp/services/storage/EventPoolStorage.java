@@ -8,10 +8,14 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Manages the event pool and lottery lifecycle.
@@ -123,9 +127,9 @@ public class EventPoolStorage {
     public void countEntrantsByStatus(String eventId, String status,
                                       OnSuccessListener<Integer> onSuccess,
                                       OnFailureListener onFailure) {
-        db.collection("eventPool")
+        db.collection("events")
                 .document(eventId)
-                .collection("entrants")
+                .collection("entries")
                 .whereEqualTo("status", status)
                 .get()
                 .addOnSuccessListener(querySnapshot -> onSuccess.onSuccess(querySnapshot.size()))
@@ -192,4 +196,97 @@ public class EventPoolStorage {
                 }).addOnSuccessListener(onSuccess)
                 .addOnFailureListener(onFailure);
     }
+
+    // safe delete of all user entries in all events/entries docs
+    public void delAllUserEntries(
+            String entrantId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collection("events")
+            .get()
+            .addOnSuccessListener(eventSnapshot -> {
+                if (eventSnapshot.isEmpty()) { // no events exist
+                    onSuccess.onSuccess(null);
+                    return;
+                }
+                AtomicInteger remainingChecks = new AtomicInteger(eventSnapshot.size());
+                AtomicInteger remainingDeletes = new AtomicInteger(0);
+                boolean[] failed = {false};
+                boolean[] finishedChecking = {false};
+
+                Runnable tryFinish = () -> {
+                    if (!failed[0]
+                            && finishedChecking[0]
+                            && remainingDeletes.get() == 0) {
+                        onSuccess.onSuccess(null);
+                    }
+                };
+                for (QueryDocumentSnapshot eventDoc : eventSnapshot) {
+                    if (failed[0]) { // stop if failure already happened
+                        return;
+                    }
+                    String eventId = eventDoc.getId();
+                    entryDoc(eventId, entrantId)
+                        .get()
+                        .addOnSuccessListener(entrySnapshot -> {
+                            if (failed[0]) {
+                                return;
+                            }
+                            if (entrySnapshot.exists()) { // user is in this event
+                                remainingDeletes.incrementAndGet();
+                                deleteEntry(eventId, entrantId, unused -> {
+                                    if (!failed[0]) {
+                                        remainingDeletes.decrementAndGet();
+                                        tryFinish.run();
+                                    }}, e -> {
+                                    if (!failed[0]) {
+                                        failed[0] = true;
+                                        onFailure.onFailure(e);
+                                    }
+                                }
+                                );
+                            }
+                            if (remainingChecks.decrementAndGet() == 0) { // done checking all events
+                                finishedChecking[0] = true;
+                                tryFinish.run();
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            if (!failed[0]) {
+                                failed[0] = true;
+                                onFailure.onFailure(e);
+                            }
+                        });
+                }
+            })
+            .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * US 02.06.03 --> List of entrants who enrolled for the event.
+     * status == "ENROLLED"
+     */
+    public void getEnrolledEntrants(String eventId,
+                                    OnSuccessListener<List<Entrant>> onSuccess,
+                                    OnFailureListener onFailure) {
+        db.collection("events")
+                .document(eventId)
+                .collection("entries")
+                .whereEqualTo("status", Entrant.EntrantStatus.ENROLLED.name())
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Entrant> entrants = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String entrantId = doc.getString("entrantId");
+                        String eid = doc.getString("eventId");
+                        if (entrantId != null && eid != null) {
+                            entrants.add(new Entrant(entrantId, eid, Entrant.EntrantStatus.ENROLLED));
+                        }
+                    }
+                    onSuccess.onSuccess(entrants);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
 }

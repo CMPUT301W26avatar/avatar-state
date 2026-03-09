@@ -6,6 +6,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -14,6 +16,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.EventDetailsActivity;
+import com.example.lotteryapp.activities.MainActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.User;
@@ -29,6 +32,8 @@ public class AdminListFragment extends Fragment {
     public static final String TYPE_PROFILES = "profiles";
     public static final String TYPE_IMAGES = "images";
     private static final String ARG_TYPE = "type";
+
+    public static final String TYPE_REQUESTED_ADMINS = "requested_admins";
 
     private String type;
     private RecyclerView recyclerView;
@@ -117,6 +122,22 @@ public class AdminListFragment extends Fragment {
                 applyFilterAndSort();
             }, e -> progressBar.setVisibility(View.GONE));
         }
+
+        if (TYPE_REQUESTED_ADMINS.equals(type)) {
+            progressBar.setVisibility(View.VISIBLE);
+            ServiceLocator.getAdminStorage().getRequestedAdminIds(requestIds -> {
+                ServiceLocator.getUserStorage().getAllUsers(users -> {
+                    allItems.clear();
+                    for (User user : users) {
+                        if (requestIds.contains(user.getUUID())) {
+                            allItems.add(user);
+                        }
+                    }
+                    applyFilterAndSort();
+                }, e -> progressBar.setVisibility(View.GONE));
+            }, e -> progressBar.setVisibility(View.GONE));
+            return;
+        }
     }
 
     /**
@@ -175,7 +196,13 @@ public class AdminListFragment extends Fragment {
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             Object item = displayItems.get(position);
             holder.title.setText(getItemDisplayName(item));
-            holder.itemView.setOnClickListener(v -> openDetails(item));
+            holder.itemView.setOnClickListener(v -> {
+                if (TYPE_REQUESTED_ADMINS.equals(type) && item instanceof User) {
+                    showPromoteNewAdminDialog((User) item);
+                } else {
+                openDetails(item);
+                }
+            });
         }
 
         private void openDetails(Object item) {
@@ -192,6 +219,31 @@ public class AdminListFragment extends Fragment {
                 intent.putExtra(UserDetailsActivity.EXTRA_ADMIN_MODE, true);
                 startActivity(intent);
             }
+        }
+
+        private void showPromoteNewAdminDialog(User user) {
+            new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Make New Admin")
+                .setMessage("Make " + user.getName() + " the new admin?")
+                .setPositiveButton("Confirm New Admin", (dialog, which) -> {
+                    ServiceLocator.getAdminStorage().promoteToAdmin(user.getUUID(), unused -> {
+                        Toast.makeText(requireContext(), user.getName() + " is now the admin", android.widget.Toast.LENGTH_LONG).show();
+
+                        Intent intent = new Intent(requireContext(), MainActivity.class);
+                        intent.putExtra("open_fragment", "profile");
+                        startActivity(intent);
+
+                        requireActivity().finish();
+                    }, e -> {
+                        android.widget.Toast.makeText(
+                                requireContext(),
+                                "Failed to promote new admin",
+                                android.widget.Toast.LENGTH_LONG
+                        ).show();
+                        e.printStackTrace();});
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
         }
 
         @Override
