@@ -176,17 +176,22 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="32dp"
+                android:paddingVertical="12dp"
                 android:text="Save"
+                app:cornerRadius="12dp"
                 android:textAllCaps="false" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_userdel_profile"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
-                android:backgroundTint="@color/hazard_button_unpressed"
-                android:visibility="gone"
+                android:layout_marginTop="12dp"
+                android:paddingVertical="12dp"
                 android:text="Delete Profile"
+                android:textColor="@android:color/black"
+                android:visibility="gone"
+                app:backgroundTint="#FFB3B3"
+                app:cornerRadius="12dp"
                 android:textAllCaps="false" />
 
             <com.google.android.material.button.MaterialButton
@@ -199,7 +204,8 @@
                 android:textColor="@android:color/black"
                 android:visibility="gone"
                 app:backgroundTint="#FFB3B3"
-                app:cornerRadius="12dp" />
+                app:cornerRadius="12dp"
+                android:textAllCaps="false" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
