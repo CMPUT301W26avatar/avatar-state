@@ -2,7 +2,10 @@ package com.example.lotteryapp.activities;
 
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.view.View;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -17,14 +20,23 @@ import com.google.firebase.firestore.DocumentSnapshot;
 
 public class UserDetailsActivity extends AppCompatActivity {
 
+    public static final String EXTRA_USER_ID = "userId";
+    public static final String EXTRA_ADMIN_MODE = "isAdminMode";
+
     private EditText etName;
     private EditText etPhone;
     private EditText etEmail;
     private EditText etLocation;
+    private TextView tvDeviceId;
+    private View tvDeviceIdLabel;
     private MaterialButton btnSave;
+    private MaterialButton btnRemoveProfile;
+    private MaterialButton btnDeleteProfilePic;
+    private ImageView ivProfilePic;
 
     private UserStorage ustore;
     private String uid;
+    private boolean isAdminMode = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,16 +44,18 @@ public class UserDetailsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_user_details);
 
         // use ServiceLocator to get user id and User Storage instance
-        uid = ServiceLocator.uid();
+        uid = getIntent().getStringExtra(EXTRA_USER_ID);
+        if (uid == null) {
+            uid = ServiceLocator.uid();
+        }
+
+        isAdminMode = getIntent().getBooleanExtra(EXTRA_ADMIN_MODE, false);
         ustore = ServiceLocator.getUserStorage();
 
-        MaterialToolbar toolbar = findViewById(R.id.toolbar);
-        etName = findViewById(R.id.et_name);
-        etPhone = findViewById(R.id.et_phone);
-        etEmail = findViewById(R.id.et_email);
-        etLocation = findViewById(R.id.et_location);
-        btnSave = findViewById(R.id.btn_save_profile);
+        // moved to bindViews() to avoid null pointer exception
+        bindViews();
 
+        MaterialToolbar toolbar = findViewById(R.id.toolbar);
         toolbar.setNavigationOnClickListener(v -> finish());
 
         if (uid == null || uid.trim().isEmpty()) {
@@ -53,6 +67,51 @@ public class UserDetailsActivity extends AppCompatActivity {
         loadProfile();
 
         btnSave.setOnClickListener(v -> saveProfile());
+        setupAdminActions();
+    }
+
+    private void bindViews() {
+        etName = findViewById(R.id.et_name);
+        etPhone = findViewById(R.id.et_phone);
+        etEmail = findViewById(R.id.et_email);
+        etLocation = findViewById(R.id.et_location);
+        tvDeviceId = findViewById(R.id.tv_device_id);
+        tvDeviceIdLabel = findViewById(R.id.tv_device_id_label);
+        btnSave = findViewById(R.id.btn_save_profile);
+        btnRemoveProfile = findViewById(R.id.btn_remove_profile);
+        btnDeleteProfilePic = findViewById(R.id.btn_delete_profile_pic);
+        ivProfilePic = findViewById(R.id.iv_profile_pic_large);
+    }
+
+    /**
+     * Checks if user is admin
+     *      shows button to access admin actions
+     *      delete profile button
+     *      delete image button
+     *
+     *      NOTE: no tested idk if this even works
+     */
+    private void setupAdminActions() {
+        if (isAdminMode) {
+            btnRemoveProfile.setVisibility(View.VISIBLE);
+            tvDeviceId.setVisibility(View.VISIBLE);
+            tvDeviceIdLabel.setVisibility(View.VISIBLE);
+            
+            btnRemoveProfile.setOnClickListener(v -> {
+                ustore.deleteUser(uid, unused -> {
+                    Toast.makeText(this, "Profile Removed", Toast.LENGTH_SHORT).show();
+                    finish();
+                }, e -> Toast.makeText(this, "Failed to remove profile", Toast.LENGTH_SHORT).show());
+            });
+
+            btnDeleteProfilePic.setOnClickListener(v -> {
+                ustore.deleteProfilePic(uid, unused -> {
+                    Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
+                    ivProfilePic.setImageResource(R.drawable.ic_profile);
+                    btnDeleteProfilePic.setVisibility(View.GONE);
+                }, e -> Toast.makeText(this, "Failed to delete image", Toast.LENGTH_SHORT).show());
+            });
+        }
     }
 
     private void loadProfile() {
@@ -63,6 +122,15 @@ public class UserDetailsActivity extends AppCompatActivity {
                     etPhone.setText(user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
                     etEmail.setText(user.getEmail() != null ? user.getEmail() : "");
                     etLocation.setText(user.getLocation() != null ? user.getLocation() : "");
+                    tvDeviceId.setText(user.getUUID());
+
+                    // Admin can see delete buttons
+                    if (isAdminMode && user.getProfilePicUrl() != null && !user.getProfilePicUrl().isEmpty()) {
+                        btnDeleteProfilePic.setVisibility(View.VISIBLE);
+                    }
+                    else { // no one else can!
+                        btnDeleteProfilePic.setVisibility(View.GONE);
+                    }
                 },
                 e -> {
                     android.util.Log.e("UserDetailsActivity",
@@ -110,7 +178,9 @@ public class UserDetailsActivity extends AppCompatActivity {
                 location,
                 unused -> {
                     Toast.makeText(this, "Profile updated!", Toast.LENGTH_SHORT).show();
-                    finish();
+                    if (!isAdminMode) {
+                        finish();
+                    }
                 },
                 e -> {
                     android.util.Log.e("UserDetailsActivity",
