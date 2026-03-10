@@ -8,10 +8,14 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Manages the event pool and lottery lifecycle.
@@ -50,36 +54,36 @@ public class EventPoolStorage {
         DocumentReference entrantRef = entryDoc(eventId, entrant.getEntrantId());
 
         db.runTransaction((Transaction.Function<Void>) transaction -> {
-            DocumentSnapshot eventSnap = transaction.get(eventRef);
-            DocumentSnapshot entrantSnap = transaction.get(entrantRef);
+                    DocumentSnapshot eventSnap = transaction.get(eventRef);
+                    DocumentSnapshot entrantSnap = transaction.get(entrantRef);
 
-            if (!eventSnap.exists()) {
-                throw new IllegalStateException("Event does not exist");
-            }
+                    if (!eventSnap.exists()) {
+                        throw new IllegalStateException("Event does not exist");
+                    }
 
-            int enrolled = eventSnap.getLong("enrolledCount").intValue();
-            int capacity = eventSnap.getLong("eventCapacity").intValue();
+                    int enrolled = eventSnap.getLong("enrolledCount").intValue();
+                    int capacity = eventSnap.getLong("eventCapacity").intValue();
 
-            // enforce no double enrollments
-            if (entrantSnap.exists()) {
-                throw new IllegalStateException("Entrant already enrolled");
-            }
+                    // enforce no double enrollments
+                    if (entrantSnap.exists()) {
+                        throw new IllegalStateException("Entrant already enrolled");
+                    }
 
-            // enforce no overenrollments
-            if (enrolled >= capacity) {
-                throw new IllegalStateException("Event is already full");
-            }
+                    // enforce no overenrollments
+                    if (enrolled >= capacity) {
+                        throw new IllegalStateException("Event is already full");
+                    }
 
-            Map<String, Object> data = new HashMap<>();
-            data.put("entrantId", entrant.getEntrantId());
-            data.put("eventId", eventId);
-            data.put("status", Entrant.EntrantStatus.ENROLLED.name());
-            data.put("joinedAt", FieldValue.serverTimestamp());
-            data.put("updatedAt", FieldValue.serverTimestamp());
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("entrantId", entrant.getEntrantId());
+                    data.put("eventId", eventId);
+                    data.put("status", Entrant.EntrantStatus.ENROLLED.name());
+                    data.put("joinedAt", FieldValue.serverTimestamp());
+                    data.put("updatedAt", FieldValue.serverTimestamp());
 
-            transaction.set(entrantRef, data);
+                    transaction.set(entrantRef, data);
 
-            // update Event details inside transaction
+                    // update Event details inside transaction
                     int enrolledUpdate = enrolled + 1;
 
                     Map<String, Object> eventUpdates = new HashMap<>();
@@ -94,9 +98,9 @@ public class EventPoolStorage {
                                     : Event.EventStatus.OPEN.name()
                     );
                     transaction.update(eventRef, eventUpdates);
-            return null;
-        }).addOnSuccessListener(onSuccess)
-        .addOnFailureListener(onFailure);
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
     }
 
     // for querying whether an Entrant is WAITLISTED, INVITED, ...
@@ -123,9 +127,9 @@ public class EventPoolStorage {
     public void countEntrantsByStatus(String eventId, String status,
                                       OnSuccessListener<Integer> onSuccess,
                                       OnFailureListener onFailure) {
-        db.collection("eventPool")
+        db.collection("events")
                 .document(eventId)
-                .collection("entrants")
+                .collection("entries")
                 .whereEqualTo("status", status)
                 .get()
                 .addOnSuccessListener(querySnapshot -> onSuccess.onSuccess(querySnapshot.size()))
@@ -147,49 +151,142 @@ public class EventPoolStorage {
         DocumentReference entrantRef = entryDoc(eventId, entrantId);
 
         db.runTransaction((Transaction.Function<Void>) transaction -> {
-            DocumentSnapshot eventSnap = transaction.get(eventRef);
-            DocumentSnapshot entrantSnap = transaction.get(entrantRef);
+                    DocumentSnapshot eventSnap = transaction.get(eventRef);
+                    DocumentSnapshot entrantSnap = transaction.get(entrantRef);
 
-            if (!eventSnap.exists()) {
-                throw new IllegalStateException("Event does not exist");
-            }
+                    if (!eventSnap.exists()) {
+                        throw new IllegalStateException("Event does not exist");
+                    }
 
-            if (!entrantSnap.exists()) {
-                throw new IllegalStateException("Entry does not exist");
-            }
+                    if (!entrantSnap.exists()) {
+                        throw new IllegalStateException("Entry does not exist");
+                    }
 
-            Long enrolledLong = eventSnap.getLong("enrolledCount");
-            Long waitlistLong = eventSnap.getLong("waitlistCount");
-            Long capacityLong = eventSnap.getLong("eventCapacity");
+                    Long enrolledLong = eventSnap.getLong("enrolledCount");
+                    Long waitlistLong = eventSnap.getLong("waitlistCount");
+                    Long capacityLong = eventSnap.getLong("eventCapacity");
 
-            int enrolledCount = enrolledLong != null ? enrolledLong.intValue() : 0;
-            int waitlistCount = waitlistLong != null ? waitlistLong.intValue() : 0;
-            int capacity = capacityLong != null ? capacityLong.intValue() : 0;
+                    int enrolledCount = enrolledLong != null ? enrolledLong.intValue() : 0;
+                    int waitlistCount = waitlistLong != null ? waitlistLong.intValue() : 0;
+                    int capacity = capacityLong != null ? capacityLong.intValue() : 0;
 
-            String status = entrantSnap.getString("status");
+                    String status = entrantSnap.getString("status");
 
-            if (Entrant.EntrantStatus.ENROLLED.name().equals(status)) {
-                enrolledCount = Math.max(0, enrolledCount - 1);
-            } else if (Entrant.EntrantStatus.WAITLISTED.name().equals(status)) {
-                waitlistCount = Math.max(0, waitlistCount - 1);
-            }
+                    if (Entrant.EntrantStatus.ENROLLED.name().equals(status)) {
+                        enrolledCount = Math.max(0, enrolledCount - 1);
+                    } else if (Entrant.EntrantStatus.WAITLISTED.name().equals(status)) {
+                        waitlistCount = Math.max(0, waitlistCount - 1);
+                    }
 
-            transaction.delete(entrantRef);
+                    transaction.delete(entrantRef);
 
-            Map<String, Object> updates = new HashMap<>();
-            updates.put("enrolledCount", enrolledCount);
-            updates.put("waitlistCount", waitlistCount);
-            updates.put(
-                    "status",
-                    enrolledCount >= capacity
-                            ? Event.EventStatus.CLOSED.name()
-                            : Event.EventStatus.OPEN.name()
-            );
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("enrolledCount", enrolledCount);
+                    updates.put("waitlistCount", waitlistCount);
+                    updates.put(
+                            "status",
+                            enrolledCount >= capacity
+                                    ? Event.EventStatus.CLOSED.name()
+                                    : Event.EventStatus.OPEN.name()
+                    );
 
-            transaction.update(eventRef, updates);
+                    transaction.update(eventRef, updates);
 
-            return null;
-        }).addOnSuccessListener(onSuccess)
-        .addOnFailureListener(onFailure);
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
     }
+
+    // safe delete of all user entries in all events/entries docs
+    public void delAllUserEntries(
+            String entrantId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collection("events")
+                .get()
+                .addOnSuccessListener(eventSnapshot -> {
+                    if (eventSnapshot.isEmpty()) { // no events exist
+                        onSuccess.onSuccess(null);
+                        return;
+                    }
+                    AtomicInteger remainingChecks = new AtomicInteger(eventSnapshot.size());
+                    AtomicInteger remainingDeletes = new AtomicInteger(0);
+                    boolean[] failed = {false};
+                    boolean[] finishedChecking = {false};
+
+                    Runnable tryFinish = () -> {
+                        if (!failed[0]
+                                && finishedChecking[0]
+                                && remainingDeletes.get() == 0) {
+                            onSuccess.onSuccess(null);
+                        }
+                    };
+                    for (QueryDocumentSnapshot eventDoc : eventSnapshot) {
+                        if (failed[0]) { // stop if failure already happened
+                            return;
+                        }
+                        String eventId = eventDoc.getId();
+                        entryDoc(eventId, entrantId)
+                                .get()
+                                .addOnSuccessListener(entrySnapshot -> {
+                                    if (failed[0]) {
+                                        return;
+                                    }
+                                    if (entrySnapshot.exists()) { // user is in this event
+                                        remainingDeletes.incrementAndGet();
+                                        deleteEntry(eventId, entrantId, unused -> {
+                                                    if (!failed[0]) {
+                                                        remainingDeletes.decrementAndGet();
+                                                        tryFinish.run();
+                                                    }}, e -> {
+                                                    if (!failed[0]) {
+                                                        failed[0] = true;
+                                                        onFailure.onFailure(e);
+                                                    }
+                                                }
+                                        );
+                                    }
+                                    if (remainingChecks.decrementAndGet() == 0) { // done checking all events
+                                        finishedChecking[0] = true;
+                                        tryFinish.run();
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    if (!failed[0]) {
+                                        failed[0] = true;
+                                        onFailure.onFailure(e);
+                                    }
+                                });
+                    }
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * US 02.06.03 --> List of entrants who enrolled for the event.
+     * status == "ENROLLED"
+     */
+    public void getEnrolledEntrants(String eventId,
+                                    OnSuccessListener<List<Entrant>> onSuccess,
+                                    OnFailureListener onFailure) {
+        db.collection("events")
+                .document(eventId)
+                .collection("entries")
+                .whereEqualTo("status", Entrant.EntrantStatus.ENROLLED.name())
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Entrant> entrants = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String entrantId = doc.getString("entrantId");
+                        String eid = doc.getString("eventId");
+                        if (entrantId != null && eid != null) {
+                            entrants.add(new Entrant(entrantId, eid, Entrant.EntrantStatus.ENROLLED));
+                        }
+                    }
+                    onSuccess.onSuccess(entrants);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
 }
