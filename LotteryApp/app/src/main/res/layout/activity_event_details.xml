@@ -3,12 +3,13 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface">
+    android:background="?attr/colorSurface"
+    android:fitsSystemWindows="true">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingBottom="80dp"
+        android:paddingBottom="160dp"
         android:clipToPadding="false">
 
         <LinearLayout
@@ -33,7 +34,21 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_delete_image"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="16dp"
+                    android:text="Delete Image"
+                    android:textColor="@android:color/black"
+                    android:visibility="gone"
+                    app:backgroundTint="#FFB3B3"
+                    app:cornerRadius="8dp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
                 <ImageView
+                    android:id="@+id/iv_event_poster"
                     android:layout_width="64dp"
                     android:layout_height="64dp"
                     android:src="@drawable/ic_image_placeholder"
@@ -153,6 +168,38 @@
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textStyle="bold" />
 
+                <!-- Admin Info Section -->
+                <LinearLayout
+                    android:id="@+id/layout_admin_info"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="32dp"
+                    android:padding="16dp"
+                    android:background="?attr/colorSurfaceVariant"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="ADMIN TECHNICAL DETAILS"
+                        android:textAppearance="?attr/textAppearanceLabelLarge"
+                        android:textColor="?attr/colorPrimary"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp"/>
+
+                    <TextView android:id="@+id/tv_admin_event_id" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceBodySmall" android:layout_marginBottom="4dp"/>
+                    <TextView android:id="@+id/tv_admin_organizer_id" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceBodySmall" android:layout_marginBottom="4dp"/>
+                    <TextView android:id="@+id/tv_admin_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceBodySmall" android:layout_marginBottom="4dp"/>
+                    <TextView android:id="@+id/tv_admin_capacity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceBodySmall" android:layout_marginBottom="4dp"/>
+                    <TextView android:id="@+id/tv_admin_waitlist_cap" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceBodySmall" android:layout_marginBottom="4dp"/>
+                    <TextView android:id="@+id/tv_admin_enrolled" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceBodySmall" android:layout_marginBottom="4dp"/>
+                    <TextView android:id="@+id/tv_admin_waitlist_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceBodySmall" android:layout_marginBottom="4dp"/>
+                    <TextView android:id="@+id/tv_admin_reg_start" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceBodySmall" android:layout_marginBottom="4dp"/>
+                    <TextView android:id="@+id/tv_admin_poster_url" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAppearance="?attr/textAppearanceBodySmall" />
+
+                </LinearLayout>
+
             </LinearLayout>
 
         </LinearLayout>
@@ -167,15 +214,34 @@
         app:cardElevation="8dp"
         app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.None">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_join_waitlist"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:paddingVertical="12dp"
-            android:text="Join Event Waitlist"
-            app:icon="@drawable/ic_add"
-            app:cornerRadius="12dp" />
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_remove_event"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:paddingVertical="12dp"
+                android:text="Remove Event"
+                android:textColor="@android:color/black"
+                android:visibility="gone"
+                app:backgroundTint="#FFB3B3"
+                app:cornerRadius="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_join_waitlist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingVertical="12dp"
+                android:text="Join Event Waitlist"
+                app:cornerRadius="12dp"
+                app:icon="@drawable/ic_add" />
+
+        </LinearLayout>
 
     </com.google.android.material.card.MaterialCardView>
 

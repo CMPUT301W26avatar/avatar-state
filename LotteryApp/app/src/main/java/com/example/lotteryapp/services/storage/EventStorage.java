@@ -13,6 +13,7 @@ import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
+import com.google.firebase.firestore.WriteBatch;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -156,6 +157,18 @@ public class EventStorage {
     public void deleteEvent(String eventId) {
         eventDoc(eventId).delete();
     }
+    public void isUserEventOrganizer(String uuid,
+                                     OnSuccessListener<Boolean> onSuccess,
+                                     OnFailureListener onFailure
+    ) {
+        db.collection("events")
+                .whereEqualTo("organizerId", uuid)
+                .limit(1)
+                .get()
+                .addOnSuccessListener(querySnapshot -> onSuccess.onSuccess(!querySnapshot.isEmpty()))
+                .addOnFailureListener(onFailure);
+    }
+
 
     // return all events from Firebase hosted by organizerId
     public void getEventsByOrganizer(String organizerId, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
@@ -167,6 +180,39 @@ public class EventStorage {
                     onSuccess.onSuccess(events);
                 })
                 .addOnFailureListener(onFailure);
+    }
+
+    public void getAllEvents(OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+        db.collection("events").get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Event> events = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        events.add(documentToEvent(doc));
+                    }
+                    onSuccess.onSuccess(events);
+                })
+                .addOnFailureListener(onFailure);
+    }
+    public void delAllOrganizerEvents(String organizerId,
+                                      OnSuccessListener<Void> onSuccess,
+                                      OnFailureListener onFailure
+    ) {
+        db.collection("events")
+                .whereEqualTo("organizerId", organizerId)
+                .get()
+                .addOnSuccessListener(eventSnapshot -> {
+                    if (eventSnapshot.isEmpty()) { // no hosted events found
+                        onSuccess.onSuccess(null);
+                        return;
+                    }
+                    // batch delete hosted event docs
+                    WriteBatch batch = db.batch(); // batch delete hosted event docs
+                    for (QueryDocumentSnapshot eventDoc : eventSnapshot) {
+                        batch.delete(eventDoc.getReference());
+                    }
+                    batch.commit().addOnSuccessListener(onSuccess).addOnFailureListener(onFailure);
+                })
+                .addOnFailureListener(onFailure); // query failure
     }
 
     public void listOpenEvents(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
@@ -188,5 +234,6 @@ public class EventStorage {
             onSuccess.onSuccess(events);
         }).addOnFailureListener(onFailure);
     }
+
 
 }

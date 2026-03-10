@@ -1,17 +1,26 @@
 package com.example.lotteryapp.fragments;
 
+import static android.view.View.GONE;
+
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.activities.LoginActivity;
+import com.example.lotteryapp.activities.AdminActivity;
+import com.example.lotteryapp.activities.NotificationSettingsActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
+import com.example.lotteryapp.services.ServiceLocator;
+import com.example.lotteryapp.services.storage.AdminStorage;
 
 public class ProfileFragment extends Fragment {
 
@@ -19,7 +28,6 @@ public class ProfileFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_profile, container, false);
-        
         setupSettingItem(view.findViewById(R.id.item_saved_events), "Saved Events");
         setupSettingItem(view.findViewById(R.id.item_details), "Details");
         setupSettingItem(view.findViewById(R.id.item_devices), "Devices");
@@ -29,6 +37,18 @@ public class ProfileFragment extends Fragment {
         setupSettingItem(view.findViewById(R.id.item_privacy), "Privacy & Security");
         setupSettingItem(view.findViewById(R.id.item_storage), "Storage");
 
+        setupListeners(view);
+        return view;
+    }
+
+    private void setupListeners(View view) {
+        View savedEventsItem = view.findViewById(R.id.item_saved_events);
+        if (savedEventsItem != null) {
+            savedEventsItem.setOnClickListener(v -> {
+                // TODO: Add savedEventsItem logic here
+            });
+        }
+
         View detailsItem = view.findViewById(R.id.item_details);
         if (detailsItem != null) {
             detailsItem.setOnClickListener(v -> {
@@ -37,7 +57,191 @@ public class ProfileFragment extends Fragment {
             });
         }
 
-        return view;
+        // replaced with /* BLOCK A */
+        /*checkAdminStatus(view);*/
+
+        View devicesItem = view.findViewById(R.id.item_devices);
+        if (devicesItem != null) {
+            devicesItem.setOnClickListener(v -> {
+                // TODO: Add devicesItem logic here
+            });
+        }
+
+        View notificationsItem = view.findViewById(R.id.item_notifications);
+        if (notificationsItem != null) {
+            notificationsItem.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), NotificationSettingsActivity.class);
+                startActivity(intent);
+            });
+        }
+
+        View appearanceItem = view.findViewById(R.id.item_appearance);
+        if (appearanceItem != null) {
+            appearanceItem.setOnClickListener(v -> {
+                // TODO: Add item_appearance logic here
+            });
+        }
+
+        View languageItem = view.findViewById(R.id.item_language);
+        if (languageItem != null) {
+            languageItem.setOnClickListener(v -> {
+                // TODO: Add item_language logic here
+            });
+        }
+
+        View privacyItem = view.findViewById(R.id.item_privacy);
+        if (privacyItem != null) {
+            privacyItem.setOnClickListener(v -> {
+                // TODO: Add item_privacy logic here
+            });
+        }
+
+        View storageItem = view.findViewById(R.id.item_storage);
+        if (storageItem != null) {
+            storageItem.setOnClickListener(v -> {
+                // TODO: Add item_storage logic here
+            });
+        }
+
+        View btnLogout = view.findViewById(R.id.btn_logout);
+        if (btnLogout != null) {
+            btnLogout.setOnClickListener(v -> {
+                ServiceLocator.getAuthService().userSignOut();
+                Intent intent = new Intent(requireContext(), LoginActivity.class);
+                startActivity(intent);
+                if (getActivity() != null) {
+                    getActivity().finish();
+                }
+            });
+        }
+
+        /* Block A
+        Determine if the user is an admin, and set "request admin" / "open admin dashboard" buttons accordingly
+            If the user is an admin, simply show the "open admin dashboard" as visible
+                - pressing the button launches AdminActivity
+            If the user is not an admin, the "request to be an admin" button is shown as visible.
+                - If there is no current admin, launches the AdminActivity with the current user as the new admin
+                - If there is a current admin, adds the user to a collection of requests
+                    - The current admin can then check the requests collection in a list, and click on one of the requests to promote this person to be a new admin.
+         TO CHANGE:
+            - Only one current admin -> multiple concurrent admins
+            - Promoting an admin forces current admin to step down -> promoting an admin just adds them as another concurrent admin
+         */
+        
+        // pass current user uuid into AdminStorage.isAdmin()
+        String uuid = ServiceLocator.uid();
+
+        View btnApplyAdmin = view.findViewById(R.id.btn_apply_admin);
+        View btnOpenAdminMenu = view.findViewById(R.id.btn_open_admin);
+        AdminStorage astore = ServiceLocator.getAdminStorage();
+
+        // call isAdmin to return bool inside of isAdminBool whether the current user is an admin
+        astore.isAdmin(uuid, isAdminBool -> {
+            if (isAdminBool) { // is admin, launch admin activity
+                btnApplyAdmin.setVisibility(View.GONE);
+                btnOpenAdminMenu.setVisibility(View.VISIBLE);
+
+                btnOpenAdminMenu.setOnClickListener(v -> showAdminSection(view));
+            } else { // not admin, can apply or request
+                btnOpenAdminMenu.setVisibility(View.GONE);
+                btnApplyAdmin.setVisibility(View.VISIBLE);
+
+                btnApplyAdmin.setOnClickListener(v -> {
+                    astore.getAdmin(adminUuid -> {
+
+                        // no current admin
+                        if (adminUuid == null || adminUuid.trim().isEmpty()) {
+                            astore.setNewAdmin(uuid, unused -> {
+                                Toast.makeText(requireContext(),
+                                        "You are now the admin",
+                                        Toast.LENGTH_LONG).show();
+                                showAdminSection(view);
+                            }, e -> {
+                                Toast.makeText(requireContext(),
+                                        "Failed to set admin status",
+                                        Toast.LENGTH_LONG).show();
+                                e.printStackTrace();
+                            });
+                        // request current admin to promote the user to admin status
+                        } else {
+                            astore.requestNewAdmin(uuid, unused -> {
+                                Toast.makeText(requireContext(),
+                                        "Requested to be an admin",
+                                        Toast.LENGTH_LONG).show();
+                                refreshProfileFragment();
+                            }, e -> {
+                                Toast.makeText(requireContext(),
+                                        "Failed to request admin",
+                                        Toast.LENGTH_LONG).show();
+                                e.printStackTrace();
+                            });
+                        }
+                    }, e -> {
+                        // No admin doc exists → create one
+                        astore.setNewAdmin(uuid, unused -> {
+                            Toast.makeText(requireContext(),
+                                    "You are now the admin",
+                                    Toast.LENGTH_LONG).show();
+                            showAdminSection(view);
+                        }, err -> {
+                            Toast.makeText(requireContext(),
+                                    "Failed to set admin status",
+                                    Toast.LENGTH_LONG).show();
+                            err.printStackTrace();
+                        });
+                    });
+                });
+            }
+        // something went wrong in the AdminStorage.isAdmin() call.
+        }, e -> {
+            Toast.makeText(requireContext(),
+                    "Failed to check admin status",
+                    Toast.LENGTH_LONG).show();
+            e.printStackTrace();
+        });
+    }
+
+    private void refreshProfileFragment() {
+        requireActivity()
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.fragment_container, new ProfileFragment())
+                .commit();
+    }
+
+    // replaced with AdminStorage.isAdmin()
+    /*private void checkAdminStatus(View view) {
+        String uid = ServiceLocator.uid();
+        if (uid != null) {
+            ServiceLocator.getUserStorage().getUserProfile(uid, user -> {
+                if (user != null && user.isAdmin()) {
+                    showAdminSection(view);
+                }
+            }, e -> {
+                // TODO: Handle error
+            });
+        }
+    }*/
+
+    private void showAdminSection(View view) {
+        View adminLabel = view.findViewById(R.id.tv_admin_label);
+        View adminCard = view.findViewById(R.id.card_admin);
+        View adminBrowse = view.findViewById(R.id.item_admin_browse);
+
+        if (adminLabel != null) {
+            adminLabel.setVisibility(View.VISIBLE);
+        }
+        if (adminCard != null) {
+            adminCard.setVisibility(View.VISIBLE);
+        }
+        
+        setupSettingItem(adminBrowse, "Admin Browse");
+        if (adminBrowse != null) {
+            adminBrowse.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), AdminActivity.class);
+                startActivity(intent);
+            });
+        }
     }
 
     private void setupSettingItem(View view, String title) {
