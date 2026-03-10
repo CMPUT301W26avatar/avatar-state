@@ -38,12 +38,12 @@
                 android:textSize="20sp"
                 android:textStyle="bold"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/btn_admin_settings"
+                app:layout_constraintEnd_toStartOf="@id/btn_admin_promote"
                 app:layout_constraintStart_toEndOf="@id/btn_close_admin"
                 app:layout_constraintTop_toTopOf="parent" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_admin_settings"
+                android:id="@+id/btn_admin_promote"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
