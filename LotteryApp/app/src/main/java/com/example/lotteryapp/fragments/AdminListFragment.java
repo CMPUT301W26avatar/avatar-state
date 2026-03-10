@@ -125,7 +125,7 @@ public class AdminListFragment extends Fragment {
 
         if (TYPE_REQUESTED_ADMINS.equals(type)) {
             progressBar.setVisibility(View.VISIBLE);
-            ServiceLocator.getAdminStorage().getRequestedAdminIds(requestIds -> {
+            ServiceLocator.getAdminStorage().getRequestedAdmins(requestIds -> {
                 ServiceLocator.getUserStorage().getAllUsers(users -> {
                     allItems.clear();
                     for (User user : users) {
@@ -224,10 +224,10 @@ public class AdminListFragment extends Fragment {
         private void showPromoteNewAdminDialog(User user) {
             new androidx.appcompat.app.AlertDialog.Builder(requireContext())
                 .setTitle("Make New Admin")
-                .setMessage("Make " + user.getName() + " the new admin?")
+                .setMessage("Make " + user.getName() + " an admin?")
                 .setPositiveButton("Confirm New Admin", (dialog, which) -> {
-                    ServiceLocator.getAdminStorage().promoteToAdmin(user.getUUID(), unused -> {
-                        Toast.makeText(requireContext(), user.getName() + " is now the admin", android.widget.Toast.LENGTH_LONG).show();
+                    ServiceLocator.getAdminStorage().setNewAdmin(user.getUUID(), unused -> {
+                        Toast.makeText(requireContext(), user.getName() + " is now an admin", android.widget.Toast.LENGTH_LONG).show();
 
                         Intent intent = new Intent(requireContext(), MainActivity.class);
                         intent.putExtra("open_fragment", "profile");

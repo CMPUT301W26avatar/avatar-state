@@ -1,7 +1,5 @@
 package com.example.lotteryapp.fragments;
 
-import static android.view.View.GONE;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -138,7 +136,7 @@ public class ProfileFragment extends Fragment {
                 btnApplyAdmin.setVisibility(View.VISIBLE);
 
                 btnApplyAdmin.setOnClickListener(v -> {
-                    astore.getAdmin(adminUuid -> {
+                    astore.isThereAnAdmin(adminUuid -> {
                         // no current admin
                         if (adminUuid == null || adminUuid.trim().isEmpty()) {
                             astore.setNewAdmin(uuid, unused -> {

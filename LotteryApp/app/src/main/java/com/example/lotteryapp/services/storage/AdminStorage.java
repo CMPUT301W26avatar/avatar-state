@@ -33,6 +33,33 @@ public class AdminStorage {
             .addOnFailureListener(onFailure);
     }
 
+    public void isThereAnAdmin(
+            OnSuccessListener<String> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collection("admin")
+                .document("current")
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (!documentSnapshot.exists()) {
+                        onFailure.onFailure(
+                                new IllegalStateException("Admin document does not exist")
+                        );
+                        return;
+                    }
+
+                    String uuid = documentSnapshot.getString("uuid");
+                    if (uuid == null) {
+                        onFailure.onFailure(
+                                new IllegalStateException("Admin uuid missing")
+                        );
+                        return;
+                    }
+                    onSuccess.onSuccess(uuid);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
     public void requestNewAdmin(
             String uuid,
             OnSuccessListener<Void> onSuccess,
@@ -64,34 +91,45 @@ public class AdminStorage {
             .addOnFailureListener(onFailure);
     }
 
-    public void getAdmin(
-            OnSuccessListener<String> onSuccess,
+    public void removeCurrentAdmin(
+            String uid,
+            OnSuccessListener<Void> onSuccess,
             OnFailureListener onFailure
     ) {
-        db.collection("admin")
-            .document("current")
-            .get()
-            .addOnSuccessListener(documentSnapshot -> {
-                if (!documentSnapshot.exists()) {
-                    onFailure.onFailure(
-                            new IllegalStateException("Admin document does not exist")
-                    );
-                    return;
-                }
+        if (uid == null || uid.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("uid cannot be null or empty"));
+            return;
+        }
 
-                String uuid = documentSnapshot.getString("uuid");
-                if (uuid == null) {
-                    onFailure.onFailure(
-                            new IllegalStateException("Admin uuid missing")
-                    );
-                    return;
-                }
-                onSuccess.onSuccess(uuid);
-            })
-            .addOnFailureListener(onFailure);
+        db.collection("admin")
+                .document("current")
+                .collection("users")
+                .document(uid)
+                .delete()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
     }
 
-    public void getRequestedAdminIds(
+    public void removeRequestedAdmin(
+            String uid,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (uid == null || uid.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("uid cannot be null or empty"));
+            return;
+        }
+
+        db.collection("admin")
+                .document("requests")
+                .collection("requested")
+                .document(uid)
+                .delete()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    public void getRequestedAdmins(
             OnSuccessListener<List<String>> onSuccess,
             OnFailureListener onFailure
     ) {
@@ -110,6 +148,24 @@ public class AdminStorage {
                 onSuccess.onSuccess(ids);
             })
             .addOnFailureListener(onFailure);
+    }
+
+    public void getCurrentAdmins(
+            OnSuccessListener<List<String>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collection("admin")
+                .document("current")
+                .collection("users")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> adminIds = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        adminIds.add(doc.getId());
+                    }
+                    onSuccess.onSuccess(adminIds);
+                })
+                .addOnFailureListener(onFailure);
     }
 
     public void promoteToAdmin(
