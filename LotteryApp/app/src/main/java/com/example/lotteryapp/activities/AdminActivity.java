@@ -37,7 +37,7 @@ public class AdminActivity extends AppCompatActivity {
         setContentView(R.layout.activity_admin);
 
         ImageButton btnCloseAdmin = findViewById(R.id.btn_close_admin);
-        MaterialButton btnPromote = findViewById(R.id.btn_admin_settings);
+        MaterialButton btnPromote = findViewById(R.id.btn_admin_promote);
 
         TabLayout tabLayout = findViewById(R.id.tab_layout);
         ViewPager2 viewPager = findViewById(R.id.view_pager);
