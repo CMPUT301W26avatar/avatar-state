@@ -136,9 +136,9 @@ public class ProfileFragment extends Fragment {
                 btnApplyAdmin.setVisibility(View.VISIBLE);
 
                 btnApplyAdmin.setOnClickListener(v -> {
-                    astore.isThereAnAdmin(adminUuid -> {
+                    astore.isThereAnAdmin(adminExists -> {
                         // no current admin
-                        if (adminUuid == null || adminUuid.trim().isEmpty()) {
+                        if (!adminExists) {
                             astore.setNewAdmin(uuid, unused -> {
                                 Toast.makeText(requireContext(),
                                         "You are now the admin",

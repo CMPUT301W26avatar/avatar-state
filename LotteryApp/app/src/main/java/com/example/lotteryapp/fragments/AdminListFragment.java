@@ -5,11 +5,13 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -21,6 +23,8 @@ import com.example.lotteryapp.activities.UserDetailsActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ServiceLocator;
+import com.example.lotteryapp.services.storage.AdminStorage;
+import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -222,28 +226,50 @@ public class AdminListFragment extends Fragment {
         }
 
         private void showPromoteNewAdminDialog(User user) {
-            new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("Make New Admin")
-                .setMessage("Make " + user.getName() + " an admin?")
-                .setPositiveButton("Confirm New Admin", (dialog, which) -> {
-                    ServiceLocator.getAdminStorage().setNewAdmin(user.getUUID(), unused -> {
-                        Toast.makeText(requireContext(), user.getName() + " is now an admin", android.widget.Toast.LENGTH_LONG).show();
+            View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_promote_admin, null);
 
-                        Intent intent = new Intent(requireContext(), MainActivity.class);
-                        intent.putExtra("open_fragment", "profile");
-                        startActivity(intent);
+            ImageButton btnClose = dialogView.findViewById(R.id.btn_close_dialog);
+            TextView tvTitle = dialogView.findViewById(R.id.tv_dialog_title);
+            TextView tvMessage = dialogView.findViewById(R.id.tv_dialog_message);
+            MaterialButton btnCancelRequest = dialogView.findViewById(R.id.btn_cancel_request);
+            MaterialButton btnAcceptRequest = dialogView.findViewById(R.id.btn_accept_request);
+            AdminStorage astore = ServiceLocator.getAdminStorage();
 
-                        requireActivity().finish();
+            tvTitle.setText("Admin Request");
+            tvMessage.setText("What would you like to do with " + user.getName() + "'s admin request?");
+
+            AlertDialog dialog = new AlertDialog.Builder(requireContext()).setView(dialogView).create();
+
+            if (btnClose != null) {
+                btnClose.setOnClickListener(v -> dialog.dismiss());
+            }
+            if (btnCancelRequest != null) {
+                btnCancelRequest.setOnClickListener(v -> {
+                    astore.removeRequestedAdmin(user.getUUID(), unused -> {
+                        Toast.makeText(requireContext(), user.getName() + "'s request was cancelled", Toast.LENGTH_LONG).show();
+                        dialog.dismiss();
+                        loadData();
+                        }, e -> {
+                            Toast.makeText(requireContext(), "Failed to cancel request", Toast.LENGTH_LONG).show();
+                            e.printStackTrace();
+                        }
+                    );
+                });
+            }
+            if (btnAcceptRequest != null) {
+                btnAcceptRequest.setOnClickListener(v -> {
+                    astore.promoteToAdmin(user.getUUID(), unused -> {
+                        Toast.makeText(requireContext(), user.getName() + " is now an admin", Toast.LENGTH_LONG).show();
+                        dialog.dismiss();
+                        loadData();
+
                     }, e -> {
-                        android.widget.Toast.makeText(
-                                requireContext(),
-                                "Failed to promote new admin",
-                                android.widget.Toast.LENGTH_LONG
-                        ).show();
-                        e.printStackTrace();});
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+                        Toast.makeText(requireContext(), "Failed to promote new admin", Toast.LENGTH_LONG).show();
+                        e.printStackTrace();
+                    });
+                });
+            }
+            dialog.show();
         }
 
         @Override
