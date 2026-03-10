@@ -2,6 +2,7 @@ package com.example.lotteryapp.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -24,13 +25,19 @@ public class LoginActivity extends AppCompatActivity {
         TextView tvRegister = findViewById(R.id.tv_register);
 
         btnLogin.setOnClickListener(v -> {
-            auth.userSignIn(); // on open
+            EditText etEmail = findViewById(R.id.et_email);
+            EditText etPassword = findViewById(R.id.et_password);
+
+            final String email = etEmail.getText().toString();
+            final String password = etPassword.getText().toString();
+
+            auth.userSignInCred(email, password); // on open
             startActivity(new Intent(LoginActivity.this, MainActivity.class));
             finish();
         });
 
         btnGuestLogin.setOnClickListener(v -> {
-            auth.userSignIn(); // on open
+            auth.userSignInAnon(this.getBaseContext()); // on open
             startActivity(new Intent(LoginActivity.this, MainActivity.class));
             finish();
         });
