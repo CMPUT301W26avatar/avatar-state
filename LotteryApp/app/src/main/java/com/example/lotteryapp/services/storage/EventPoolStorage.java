@@ -166,18 +166,13 @@ public class EventPoolStorage {
                         throw new IllegalStateException("Event does not exist");
                     }
 
-                    // enforce no double waitlisting
+                    // enforce no double invitation
                     if (entrantSnap.exists()) {
                         throw new IllegalStateException("Entrant already invited");
                     }
 
                     int invitationCount = eventSnap.getLong("invitationCount") != null ? eventSnap.getLong("invitationCount").intValue() : 0;
-                    int invitationCapacity = eventSnap.getLong("invitationCapacity") != null ? eventSnap.getLong("invitationCapacity").intValue() : 0;
                     int waitlistCount = eventSnap.getLong("waitlistCount") != null ? eventSnap.getLong("waitlistCount").intValue() : 0;
-
-                    if (invitationCount >= invitationCapacity) {
-                        throw new IllegalStateException("Reached invitation capacity");
-                    }
 
                     Map<String, Object> data = new HashMap<>();
                     data.put("entrantId", entrant.getEntrantId());

@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class ManageFragment extends Fragment {
-    private int waitlistLimit = -1; // sentinel for unlimited waitlist capacity
+    private Integer waitlistLimit = -1; // sentinel for unlimited waitlist capacity
     private Long startDateMs;
     private Long endDateMs;
     private Long eventDateMs;
@@ -204,11 +204,23 @@ public class ManageFragment extends Fragment {
 
         view.findViewById(R.id.btn_clear_all).setOnClickListener(v -> {
             // Logic to clear fields
-            ((EditText)view.findViewById(R.id.et_event_name)).setText("");
-            ((EditText)view.findViewById(R.id.et_description)).setText("");
-            ((EditText)view.findViewById(R.id.et_location)).setText("");
+            etEventName.setText("");
+            etDescription.setText("");
+            etLocation.setText("");
+            etEventCapacity.setText("");
+            etWaitlistCapacity.setText("");
+            //Clear waitlist
+            switchWaitlist.setChecked(false);
+            layoutWaitlistCapacity.setVisibility(View.GONE);
             etDate.setText("");
             etRegDates.setText("");
+            etEventCapacity.setText("");
+
+            eventDateMs = null;
+            startDateMs = null;
+            endDateMs = null;
+            //NOTE: need to implement clearing image
+            //edit organizers
             ((EditText)view.findViewById(R.id.et_organizers)).setText("");
         });
 
@@ -237,7 +249,6 @@ public class ManageFragment extends Fragment {
                 return;
             }
 
-
             if (startDateMs >= endDateMs) {
                 Toast.makeText(requireContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
                 return;
@@ -264,7 +275,9 @@ public class ManageFragment extends Fragment {
             event.setRegStartMs(startDateMs);
             event.setRegEndMs(endDateMs);
             event.setEventCapacity(eventCapacity);
-            event.setWaitlistCapacity(waitlistLimit);
+            event.setInvitationCount(0);
+            String criteriaGuidelines = getString(R.string.criteriaGuidelines);
+            event.setCriteriaGuidelines(criteriaGuidelines);
 
             if (!description.isEmpty()) {
                 setOptionalString(event, "setDescription", description);
@@ -274,6 +287,25 @@ public class ManageFragment extends Fragment {
                 setOptionalString(event, "setLocation", location);
             }
 
+            if (waitlistEnabled) {
+                String waitlistText = etWaitlistCapacity.getText().toString().trim();
+
+                if (waitlistText.isEmpty()) {
+                    Toast.makeText(requireContext(), "Waitlist capacity is required when waitlist is enabled", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                try {
+                    waitlistLimit = Integer.parseInt(waitlistText);
+                } catch (NumberFormatException e) {
+                    Toast.makeText(requireContext(), "Waitlist capacity must be a valid number", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (waitlistLimit < 0) {
+                    Toast.makeText(requireContext(), "Waitlist capacity must be 0 or greater", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                event.setWaitlistCapacity(waitlistLimit);
+            }
             eventStorage.upsertEvent(event);
 
             Toast.makeText(requireContext(), "Event created!", Toast.LENGTH_SHORT).show();
@@ -294,6 +326,7 @@ public class ManageFragment extends Fragment {
         EditText etLocation = view.findViewById(R.id.et_location);
         EditText etEventCapacity = view.findViewById(R.id.et_event_capacity);
         EditText etWaitlistCapacity = view.findViewById(R.id.et_waitlist_capacity);
+        EditText etOrganizers = view.findViewById(R.id.et_organizers);
 
         View layoutWaitlistCapacity = view.findViewById(R.id.layout_waitlist_capacity);
         MaterialSwitch switchWaitlist = view.findViewById(R.id.switch_waitlist);
@@ -305,10 +338,9 @@ public class ManageFragment extends Fragment {
         etEventName.setText(event.getTitle());
         etDescription.setText(event.getDescription());
         etLocation.setText(event.getLocation());
-
-
         etEventCapacity.setText(String.valueOf(event.getEventCapacity()));
-
+        etOrganizers.setText(String.valueOf(event.getOrganizerId()));
+        //NOTE: Implement image
 
         if (event.getWaitlistCapacity() > 0) {
             switchWaitlist.setChecked(true);
@@ -338,6 +370,8 @@ public class ManageFragment extends Fragment {
 
             switchWaitlist.setChecked(false);
             layoutWaitlistCapacity.setVisibility(View.GONE);
+
+            //NOTE: implement clearing image
 
             eventDateMs = null;
             startDateMs = null;

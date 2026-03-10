@@ -194,7 +194,8 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         if (tvCriteriaGuidelines.getText() == null || tvCriteriaGuidelines.getText().toString().trim().isEmpty()) {
-            tvCriteriaGuidelines.setText("Criteria Guidelines");
+            String criteriaGuidelines = getString(R.string.criteriaGuidelines);
+            tvCriteriaGuidelines.setText("Criteria/Guidelines: " + criteriaGuidelines);
         }
     }
 
