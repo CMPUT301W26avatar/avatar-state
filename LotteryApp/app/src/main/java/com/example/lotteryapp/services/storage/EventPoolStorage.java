@@ -1,5 +1,7 @@
 package com.example.lotteryapp.services.storage;
 
+import android.widget.Toast;
+
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
 import com.google.android.gms.tasks.OnFailureListener;
@@ -65,7 +67,7 @@ public class EventPoolStorage {
                     int capacity = eventSnap.getLong("eventCapacity") != null ? eventSnap.getLong("eventCapacity").intValue() : 0;
 
                     // enforce no double enrollments
-                    if (entrantSnap.exists()) {
+                    if (entrantSnap.exists() && (entrantSnap.getString("status").equals("ENROLLED"))) {
                         throw new IllegalStateException("Entrant already enrolled");
                     }
 
@@ -73,7 +75,6 @@ public class EventPoolStorage {
                     if (enrolled >= capacity) {
                         throw new IllegalStateException("Event is already full");
                     }
-
                     Map<String, Object> data = new HashMap<>();
                     data.put("entrantId", entrant.getEntrantId());
                     data.put("eventId", eventId);
@@ -121,7 +122,7 @@ public class EventPoolStorage {
                     }
 
                     // enforce no double waitlisting
-                    if (entrantSnap.exists()) {
+                    if (entrantSnap.exists() && (entrantSnap.getString("status").equals("WAITLISTED"))) {
                         throw new IllegalStateException("Entrant already waitlisted");
                     }
 
@@ -167,7 +168,7 @@ public class EventPoolStorage {
                     }
 
                     // enforce no double invitation
-                    if (entrantSnap.exists()) {
+                    if (entrantSnap.exists() && (entrantSnap.getString("status").equals("INVITED"))) {
                         throw new IllegalStateException("Entrant already invited");
                     }
 

@@ -227,7 +227,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="16dp"
+            android:id="@+id/frame_layout_events">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_remove_event"
@@ -238,14 +239,15 @@
                 android:text="Remove Event"
                 android:textColor="@android:color/black"
                 app:backgroundTint="#FFB3B3"
-                app:cornerRadius="12dp" />
+                app:cornerRadius="12dp"
+                android:visibility="gone"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_join_waitlist"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:paddingVertical="12dp"
-                android:text="Join Event Waitlist"
+                android:text="Join Waitlist"
                 app:cornerRadius="12dp"
                 app:icon="@drawable/ic_add" />
 

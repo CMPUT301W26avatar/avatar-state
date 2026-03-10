@@ -59,7 +59,6 @@ public class EventStorage {
             }
         });
     }
-
     // upsertsEvent: helper - maps document fields into a dict.
     private Map<String, Object> eventToMap(Event event) {
         Map<String, Object> data = new HashMap<>();
@@ -238,6 +237,29 @@ public class EventStorage {
             for (QueryDocumentSnapshot doc : qs) {
                 events.add(documentToEvent(doc));
             }
+            onSuccess.onSuccess(events);
+        }).addOnFailureListener(onFailure);
+    }
+
+    public void listClosedEvents(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+        Query query = db.collection("events")
+                .whereEqualTo("status", Event.EventStatus.CLOSED.name());
+
+        if (limit != null && limit > 0) {
+            query = query.limit(limit);
+        }
+
+        query.get().addOnSuccessListener(qs -> {
+            List<Event> events = new ArrayList<>();
+
+            android.util.Log.d("EventStorage", "Closed query count = " + qs.size());
+
+            for (QueryDocumentSnapshot doc : qs) {
+                android.util.Log.d("EventStorage",
+                        "doc=" + doc.getId() + ", status=" + doc.get("status"));
+                events.add(documentToEvent(doc));
+            }
+
             onSuccess.onSuccess(events);
         }).addOnFailureListener(onFailure);
     }

@@ -1,7 +1,9 @@
 package com.example.lotteryapp.activities;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -27,6 +29,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     private LinearLayout invitations_layout;
     private MaterialTextView tvName;
+    private static final String MY_TAG = "InvitationDebug";
     private MaterialTextView tvLocation;
     private MaterialTextView tvDescription;
     private MaterialTextView tvDate;
@@ -34,7 +37,6 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialTextView tvCriteriaGuidelines;
     private MaterialButton btnClose;
     private MaterialButton btnJoin;
-
     private MaterialButton btnLeave;
     private MaterialButton btnAccept;
     private MaterialButton btnDecline;
@@ -299,17 +301,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         if (!event.isRegistrationOpen()) {
             //check if an invitation exists
             checkInvitation(event.getEventId());
-            if (isInvited) {
-                enrollButton();}
             checkEnrollment(event.getEventId());
-            if (isEnrolled) {
-                UnenrollButton();
-            }else {
-                //if user is not invited
-                btnJoin.setEnabled(false);
-                btnJoin.setText("Registration Closed");
-                return;
-            }
+            //if user is not invited
+            btnJoin.setEnabled(false);
+            btnJoin.setText("Registration Closed");
         } else {
             //check waitlist state
             btnJoin.setEnabled(true);
@@ -343,6 +338,9 @@ public class EventDetailsActivity extends AppCompatActivity {
                 status -> {
                     //is enrolled already, only display unenroll button
                     isEnrolled = Entrant.EntrantStatus.ENROLLED.name().equals(status);
+                    if (isEnrolled) {
+                        UnenrollButton();
+                    }
                 },
                 e -> {
                     //is not enrolled yet, display accept or decline messages
@@ -358,6 +356,9 @@ public class EventDetailsActivity extends AppCompatActivity {
                 currentUserId,
                 status -> {
                     isInvited = Entrant.EntrantStatus.INVITED.name().equals(status);
+                    if (isInvited) {
+                        enrollButton();
+                    }
                 },
                 e -> {
                     isInvited = false;
@@ -409,6 +410,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 },
                 e -> {
                     Toast.makeText(this, "Failed to waitlist", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnJoin.setEnabled(true);
                 }
         );
@@ -428,6 +430,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 },
                 e -> {
                     Toast.makeText(this, "Failed to leave waitlist.", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnJoin.setEnabled(true);
                 }
         );
@@ -436,10 +439,10 @@ public class EventDetailsActivity extends AppCompatActivity {
     private void enrollButton() {
         //Set button visibility
         btnLeave.setVisibility(View.GONE);
-        btnLeave.setEnabled(false);
         btnJoin.setVisibility(View.GONE);
-        btnJoin.setEnabled(false);
+        btnRemoveEvent.setVisibility(View.GONE);
         invitations_layout.setVisibility(View.VISIBLE);
+
         btnAccept.setOnClickListener(v -> {
             enroll();
         });
@@ -478,6 +481,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 },
                 e -> {
                     Toast.makeText(this, "Failed to enroll", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnAccept.setEnabled(true);
                 }
         );
@@ -496,6 +500,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 },
                 e -> {
                     Toast.makeText(this, "Failed to unenroll", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnJoin.setEnabled(true);
                 }
         );
@@ -514,6 +519,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 },
                 e -> {
                     Toast.makeText(this, "Failed to decline invitation", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnDecline.setEnabled(true);
                 }
         );
