@@ -24,8 +24,10 @@ public class HomeFragment extends Fragment {
     private MaterialCardView invitationCard;
     private MaterialButton closeInvitation;
     private EventStorage estore = ServiceLocator.getEventStorage();
-    private GridEventAdapter adapter;
-    private List<HomeFragment.DisplayGridEvent> displayGridEvents;
+    private GridEventAdapter openAdapter;
+    private GridEventAdapter closedAdapter;
+    private List<HomeFragment.DisplayGridEvent> displayOpenGridEvents;
+    private List<HomeFragment.DisplayGridEvent> displayClosedGridEvents;
 
     @Nullable
     @Override
@@ -37,36 +39,65 @@ public class HomeFragment extends Fragment {
 
         closeInvitation.setOnClickListener(v -> invitationCard.setVisibility(View.GONE));
 
-        RecyclerView recyclerView = view.findViewById(R.id.recycler_view);
-        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        RecyclerView recyclerViewOpen = view.findViewById(R.id.recycler_view_open);
+        recyclerViewOpen.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        RecyclerView recyclerViewClosed = view.findViewById(R.id.recycler_view_closed);
+        recyclerViewClosed.setLayoutManager(new GridLayoutManager(getContext(), 2));
 
-        displayGridEvents = new ArrayList<>();
-        adapter = new GridEventAdapter(displayGridEvents);
-        recyclerView.setAdapter(adapter);
+        displayOpenGridEvents = new ArrayList<>();
+        displayClosedGridEvents = new ArrayList<>();
 
-        loadEvents();
+        openAdapter = new GridEventAdapter(displayOpenGridEvents);
+        closedAdapter = new GridEventAdapter(displayClosedGridEvents);
+
+        recyclerViewOpen.setAdapter(openAdapter);
+        recyclerViewClosed.setAdapter(closedAdapter);
+
+        loadOpenEvents();
+        loadClosedEvents();
 
         return view;
     }
     @Override
     public void onResume() {
         super.onResume();
-        loadEvents();
+        loadOpenEvents();
+        loadClosedEvents();
     }
 
-    private void loadEvents() {
-        if (estore == null || adapter == null) return;
+    private void loadOpenEvents() {
+        if (estore == null || openAdapter == null) return;
 
         estore.listOpenEvents(
                 4,
                 fetchedEvents -> {
-                    displayGridEvents.clear();
+                    displayOpenGridEvents.clear();
                     for (Event e : fetchedEvents) {
-                        displayGridEvents.add(eventToDisplayEvent(e));
+                        displayOpenGridEvents.add(eventToDisplayEvent(e));
                     }
-                    adapter.notifyDataSetChanged();
+                    openAdapter.notifyDataSetChanged();
                 },
-                Throwable::printStackTrace
+                e -> {
+                    android.util.Log.e("HomeFragment", "Failed to load open events", e);
+                }
+        );
+    }
+
+    private void loadClosedEvents() {
+        if (estore == null || closedAdapter == null) return;
+
+        estore.listClosedEvents(
+                4,
+                fetchedEvents -> {
+                    displayClosedGridEvents.clear();
+                    for (Event e : fetchedEvents) {
+                        displayClosedGridEvents.add(eventToDisplayEvent(e));
+                    }
+                    closedAdapter.notifyDataSetChanged();
+                },
+                e -> {
+                    android.util.Log.e("HomeFragment", "Failed to load closed events", e);
+                }
         );
     }
 

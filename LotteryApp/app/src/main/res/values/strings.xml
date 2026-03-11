@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">LotteryApp</string>
+    <string name="criteriaGuidelines">Once the registration period ends, a number of waitlisted users are
+        randomly selected by the app and will be sent invitations for enrollment. You may accept or decline your invitation.
+        Note that if you choose to decline your invitation, you will not have further opportunity to enroll in this event.
+        This process will be repreated until the event has reached enrollment capacity.</string>
 </resources>
