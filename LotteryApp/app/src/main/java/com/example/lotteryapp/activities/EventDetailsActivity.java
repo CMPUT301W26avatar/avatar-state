@@ -1,8 +1,14 @@
 package com.example.lotteryapp.activities;
 
+import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
+import static com.example.lotteryapp.models.Entrant.EntrantStatus.ENROLLED;
+import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
+
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.widget.TextView;
 
@@ -23,13 +29,20 @@ import java.util.Locale;
 public class EventDetailsActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
+
+    private LinearLayout invitations_layout;
     private MaterialTextView tvName;
+    private static final String MY_TAG = "InvitationDebug";
     private MaterialTextView tvLocation;
     private MaterialTextView tvDescription;
     private MaterialTextView tvDate;
     private MaterialTextView tvRegEndDate;
+    private MaterialTextView tvCriteriaGuidelines;
     private MaterialButton btnClose;
     private MaterialButton btnJoin;
+    private MaterialButton btnLeave;
+    private MaterialButton btnAccept;
+    private MaterialButton btnDecline;
     private MaterialButton btnDeleteImage;
     private MaterialButton btnRemoveEvent;
     private ImageView ivEventPoster;
@@ -46,7 +59,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
 
-    private boolean isEnrolled = false;
+    private Entrant.EntrantStatus currentStatus = null;
 
     private final SimpleDateFormat sdf =
             new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
@@ -99,8 +112,13 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvDescription = findViewById(R.id.tv_description);
         tvDate = findViewById(R.id.tv_event_date);
         tvRegEndDate = findViewById(R.id.tv_reg_end_date);
+        tvCriteriaGuidelines = findViewById(R.id.tv_criteria_guidelines);
+        invitations_layout = findViewById(R.id.invitations_layout);
         btnClose = findViewById(R.id.btn_close);
         btnJoin = findViewById(R.id.btn_join_waitlist);
+        btnLeave = findViewById(R.id.btn_leave_waitlist);
+        btnAccept = findViewById(R.id.btn_accept_invitation);
+        btnDecline = findViewById(R.id.btn_decline_invitation);
         btnDeleteImage = findViewById(R.id.btn_delete_image);
         btnRemoveEvent = findViewById(R.id.btn_remove_event);
         ivEventPoster = findViewById(R.id.iv_event_poster);
@@ -127,7 +145,11 @@ public class EventDetailsActivity extends AppCompatActivity {
     private void setupAdminActions() {
         if (isAdminMode) {
             btnRemoveEvent.setVisibility(View.VISIBLE);
+            btnRemoveEvent.setEnabled(true);
+            btnJoin.setEnabled(false);
+            btnJoin.setVisibility(View.GONE);
             layoutAdminInfo.setVisibility(View.VISIBLE);
+            btnDeleteImage.setVisibility(View.VISIBLE);
             
             btnRemoveEvent.setOnClickListener(v -> {
                 eventStorage.deleteEvent(eventId);
@@ -172,6 +194,11 @@ public class EventDetailsActivity extends AppCompatActivity {
 
         if (tvRegEndDate.getText() == null || tvRegEndDate.getText().toString().trim().isEmpty()) {
             tvRegEndDate.setText("Register End Date");
+        }
+
+        if (tvCriteriaGuidelines.getText() == null || tvCriteriaGuidelines.getText().toString().trim().isEmpty()) {
+            String criteriaGuidelines = getString(R.string.criteriaGuidelines);
+            tvCriteriaGuidelines.setText("Criteria/Guidelines: " + criteriaGuidelines);
         }
     }
 
@@ -236,6 +263,10 @@ public class EventDetailsActivity extends AppCompatActivity {
             tvRegEndDate.setText("Registration end unavailable");
         }
 
+        if (event.getCriteriaGuidelines() != null) {
+            tvCriteriaGuidelines.setText("Criteria/Guidelines: " + event.getCriteriaGuidelines());
+        }
+
         if (isAdminMode && event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
             btnDeleteImage.setVisibility(View.VISIBLE);
         }
@@ -260,67 +291,258 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminPosterUrl.setText("posterUrl: " + (event.getPosterUrl() != null ? "\"" + event.getPosterUrl() + "\"" : "null"));
     }
 
-    private void configureActions(Event event) {
-        if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
-            btnJoin.setEnabled(false);
-            btnJoin.setText("Registration Unavailable");
+    private void renderActions(Event event, Entrant.EntrantStatus status) {
+        btnJoin.setVisibility(View.GONE);
+        btnLeave.setVisibility(View.GONE);
+        invitations_layout.setVisibility(View.GONE);
+
+        if (status == Entrant.EntrantStatus.WAITLISTED) {
+            btnLeave.setVisibility(View.VISIBLE);
+            btnLeave.setEnabled(true);
+            btnLeave.setOnClickListener(v -> leaveWaitlist());
             return;
         }
 
-        if (!event.isRegistrationOpen()) {
-            btnJoin.setEnabled(false);
-            btnJoin.setText("Registration Closed");
+        if (status == Entrant.EntrantStatus.INVITED) {
+            invitations_layout.setVisibility(View.VISIBLE);
+            btnAccept.setOnClickListener(v -> acceptInvitation());
+            btnDecline.setOnClickListener(v -> declineInvitation());
             return;
         }
 
-        btnJoin.setEnabled(true);
-        refreshEnrollmentState(event.getEventId());
+        if (status == ENROLLED) {
+            btnJoin.setVisibility(View.VISIBLE);
+            btnJoin.setEnabled(true);
+            btnJoin.setText("Unenroll");
+            btnJoin.setOnClickListener(v -> unenroll());
+            return;
+        }
+
+        if (event.isRegistrationOpen()) {
+            btnJoin.setVisibility(View.VISIBLE);
+            btnJoin.setEnabled(true);
+            btnJoin.setText("Join Waitlist");
+            btnJoin.setOnClickListener(v -> joinWaitlist());
+        } else {
+            showJoinDisabled("Registration Closed");
+        }
     }
 
-    // poll for event status
-    private void refreshEnrollmentState(String eventId) {
+    private void showJoinDisabled(String text) {
+        btnJoin.setVisibility(View.VISIBLE);
+        btnJoin.setEnabled(false);
+        btnJoin.setText(text);
+        btnLeave.setVisibility(View.GONE);
+        invitations_layout.setVisibility(View.GONE);
+    }
+
+    private void configureActions(Event event) {
+        if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
+            showJoinDisabled("Registration Unavailable");
+            return;
+        }
+
+        eventPoolStorage.getEntrantStatus(
+                event.getEventId(),
+                currentUserId,
+                status -> {
+                    currentStatus = status;
+                    renderActions(event, status);
+                },
+                e -> {
+                    currentStatus = null;
+                    renderActions(event, null);
+                }
+        );
+    }
+    /*
+    //Check whether user is waitlisted
+    private void refreshJoiningState(String eventId) {
         eventPoolStorage.getEntrantStatus(
                 eventId,
                 currentUserId,
                 status -> {
-                    isEnrolled = Entrant.EntrantStatus.ENROLLED.name().equals(status);
-                    updateJoinButton();
+                    //is waitlisted
+                    isWaitlisted = Entrant.EntrantStatus.WAITLISTED.name().equals(status);
+                    waitlistButton();
                 },
                 e -> {
-                    isEnrolled = false;
-                    updateJoinButton();
+                    //is not waitlisted
+                    isWaitlisted = false;
+                    waitlistButton();
                 }
         );
     }
-    private void updateJoinButton() {
-        btnJoin.setEnabled(true);
-        btnJoin.setText(isEnrolled ? "Unenroll" : "Join Event Waitlist");
 
-        btnJoin.setOnClickListener(v -> {
-            if (isEnrolled) {
-                unenroll();
-            } else {
-                enroll();
-            }
+    // poll for event status
+    private void checkEnrollment(String eventId) {
+        eventPoolStorage.getEntrantStatus(
+                eventId,
+                currentUserId,
+                status -> {
+                    //is enrolled already, only display unenroll button
+                    isEnrolled = ENROLLED.name().equals(status);
+                    if (isEnrolled) {
+                        UnenrollButton();
+                    }
+                },
+                e -> {
+                    //is not enrolled yet, display accept or decline messages
+                    isEnrolled = false;
+                }
+        );
+    }
+
+    //Check if user received invitation
+    private void checkInvitation(String eventId) {
+        eventPoolStorage.getEntrantStatus(
+                eventId,
+                currentUserId,
+                status -> {
+                    if (isInvited) {
+                        enrollButton();
+                    }
+                },
+                e -> {
+                    isInvited = false;
+                }
+        );
+    }*/
+    /*
+    private void waitlistButton() {
+
+        if (!currentStatus.equals(WAITLISTED)) {
+            //set button visibilities
+            btnJoin.setVisibility(View.VISIBLE);
+            btnLeave.setVisibility(View.GONE);
+            //enable/disable buttons
+            btnJoin.setEnabled(true);
+            btnLeave.setEnabled(false);
+            btnJoin.setText("Join Waitlist");
+            btnJoin.setOnClickListener(v -> {
+                joinWaitlist();
+            });
+        }
+        else {
+            //set button visibilities
+            btnJoin.setVisibility(View.GONE);
+            btnLeave.setVisibility(View.VISIBLE);
+            //enable/disable buttons
+            btnJoin.setEnabled(false);
+            btnLeave.setEnabled(true);
+            btnJoin.setText("Leave Waitlist");
+            btnLeave.setOnClickListener(v -> {
+                leaveWaitlist();
+            });
+        }
+    }*/
+
+    private void joinWaitlist() {
+        //Add user to waitlist collection
+        Entrant entrant = new Entrant(currentUserId, eventId, Entrant.EntrantStatus.WAITLISTED);
+
+        btnJoin.setEnabled(false);
+
+        eventPoolStorage.waitlistForEvent(
+                eventId,
+                entrant,
+                unused -> {
+                    Toast.makeText(this, "Waitlisted!", Toast.LENGTH_SHORT).show();
+                    currentStatus = WAITLISTED;
+                    loadEvent();
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to waitlist", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnJoin.setEnabled(true);
+                }
+        );
+    }
+
+    private void leaveWaitlist() {
+        btnLeave.setEnabled(false);
+
+        eventPoolStorage.removeFromWaitlist(
+                eventId,
+                currentUserId,
+                unused -> {
+                    Toast.makeText(this, "Left waitlist!", Toast.LENGTH_SHORT).show();
+                    currentStatus = null;
+                    loadEvent();
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to leave waitlist.", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnLeave.setEnabled(true);
+                }
+        );
+    }
+
+    private void acceptInvitationButton() {
+        //Set button visibility
+        btnLeave.setVisibility(View.GONE);
+        btnJoin.setVisibility(View.GONE);
+        btnRemoveEvent.setVisibility(View.GONE);
+        invitations_layout.setVisibility(View.VISIBLE);
+
+        btnAccept.setOnClickListener(v -> {
+            acceptInvitation();
+        });
+
+        btnDecline.setOnClickListener(v -> {
+            declineInvitation();
         });
     }
 
-    private void enroll() {
-        Entrant entrant = new Entrant(currentUserId, eventId, Entrant.EntrantStatus.ENROLLED);
+    /*
+    private void unenrollButton() {
+        //Set button visibility
+        btnLeave.setVisibility(View.GONE);
+        btnLeave.setEnabled(false);
+        btnJoin.setVisibility(View.VISIBLE);
+        btnJoin.setEnabled(true);
+        btnJoin.setText("Unenroll");
+        invitations_layout.setVisibility(View.GONE);
+        btnJoin.setOnClickListener(v -> {
+            unenroll();
+        });
+    }*/
 
-        btnJoin.setEnabled(false);
+    private void acceptInvitation() {
+        Entrant entrant = new Entrant(currentUserId, eventId, ENROLLED);
+
+        btnAccept.setEnabled(false);
 
         eventPoolStorage.enrollInEvent(
                 eventId,
                 entrant,
                 unused -> {
                     Toast.makeText(this, "Enrolled!", Toast.LENGTH_SHORT).show();
-                    isEnrolled = true;
-                    updateJoinButton();
+                    currentStatus = ENROLLED;
                     loadEvent();
                 },
                 e -> {
                     Toast.makeText(this, "Failed to enroll", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnAccept.setEnabled(true);
+                }
+        );
+    }
+
+    private void declineInvitation() {
+        btnJoin.setEnabled(false);
+
+        eventPoolStorage.removeFromWaitlist(
+                eventId,
+                currentUserId,
+                unused -> {
+                    Toast.makeText(this, "Unenrolled!", Toast.LENGTH_SHORT).show();
+                    currentStatus = DECLINED;
+                    loadEvent();
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to unenroll", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnJoin.setEnabled(true);
                 }
         );
@@ -329,19 +551,20 @@ public class EventDetailsActivity extends AppCompatActivity {
     private void unenroll() {
         btnJoin.setEnabled(false);
 
-        eventPoolStorage.deleteEntry(
+        eventPoolStorage.unenroll(
                 eventId,
                 currentUserId,
                 unused -> {
                     Toast.makeText(this, "Unenrolled!", Toast.LENGTH_SHORT).show();
-                    isEnrolled = false;
-                    updateJoinButton();
+                    currentStatus = null;
                     loadEvent();
                 },
                 e -> {
                     Toast.makeText(this, "Failed to unenroll", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnJoin.setEnabled(true);
                 }
         );
     }
+
 }

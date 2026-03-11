@@ -59,26 +59,27 @@ public class EventStorage {
             }
         });
     }
-
     // upsertsEvent: helper - maps document fields into a dict.
     private Map<String, Object> eventToMap(Event event) {
         Map<String, Object> data = new HashMap<>();
         data.put("eventId", event.getEventId());
         data.put("organizerId", event.getOrganizerId());
         data.put("title", event.getTitle());
-        data.put("status", event.getStatus() != null ? event.getStatus().name() : Event.EventStatus.OPEN.name());
-        data.put("location", event.getLocation());
+        data.put("status", event.getStatus().name());
         data.put("eventCapacity", event.getEventCapacity());
         data.put("waitlistCapacity", event.getWaitlistCapacity());
         data.put("enrolledCount", event.getEnrolledCount());
         data.put("waitlistCount", event.getWaitlistCount());
+        data.put("invitationCount", event.getInvitationCount());
+        data.put("criteriaGuidelines", event.getCriteriaGuidelines());
         data.put("posterUrl", event.getPosterUrl());
-        data.put("description", event.getDescription());
         data.put("eventDateMs", event.getEventDateMs());
         data.put("regStartMs", event.getRegStartMs());
         data.put("regEndMs", event.getRegEndMs());
-        data.put("createdAt", FieldValue.serverTimestamp());
-        data.put("updatedAt", FieldValue.serverTimestamp());
+        data.put("location", event.getLocation());
+        data.put("createdAt", FieldValue.serverTimestamp()); // currently no use case - remove for part 4 if still not used
+        data.put("updatedAt", FieldValue.serverTimestamp()); // currently no use case - remove for part 4 if still not used
+        data.put("description", event.getDescription());
         return data;
     }
 
@@ -104,27 +105,27 @@ public class EventStorage {
     // getEvent: helper - converts a Firebase document into an Event object
     private Event documentToEvent(DocumentSnapshot doc) {
         String organizerId = doc.getString("organizerId");
-        String rawStatus = doc.getString("status");
 
-        Event.EventStatus status = Event.EventStatus.OPEN;
+        Long eventCapLong = doc.getLong("eventCapacity");
+        int eventCap = eventCapLong != null ? eventCapLong.intValue() : 1;
+
+        Long waitlistCapLong = doc.getLong("waitlistCapacity");
+        int waitlistCap = waitlistCapLong != null ? waitlistCapLong.intValue() : 1;
+
+        Event event = new Event(organizerId, eventCap, waitlistCap);
+
+        event.setEventId(doc.getId());
+        event.setEventCapacity(eventCap);
+        event.setWaitlistCapacity(waitlistCap);
+
+        String rawStatus = doc.getString("status");
         if (rawStatus != null) {
-            try { status = Event.EventStatus.valueOf(rawStatus); }
-            catch (IllegalArgumentException ignored) {}
+            event.setStatus(Event.EventStatus.valueOf(rawStatus));
         }
 
-        Long capLong = doc.getLong("eventCapacity");
-        int cap = capLong != null ? capLong.intValue() : 1;
-
-        Event event = new Event(organizerId, status, cap);
-
-        event.eventId = doc.getId();
-        event.setEventCapacity(cap);
         event.setTitle(doc.getString("title"));
         event.setPosterUrl(doc.getString("posterUrl"));
         event.setLocation(doc.getString("location"));
-
-        Long waitlistCap = doc.getLong("waitlistCapacity");
-        event.setWaitlistCapacity(waitlistCap == null ? null : waitlistCap.intValue());
 
         Long enrolledCount = doc.getLong("enrolledCount");
         event.setEnrolledCount(enrolledCount == null ? 0 : enrolledCount.intValue());
@@ -132,6 +133,10 @@ public class EventStorage {
         Long waitlistCount = doc.getLong("waitlistCount");
         event.setWaitlistCount(waitlistCount == null ? 0 : waitlistCount.intValue());
 
+        Long invitationCount = doc.getLong("invitationCount");
+        event.setInvitationCount(invitationCount == null ? 0 : invitationCount.intValue());
+
+        event.setCriteriaGuidelines(doc.getString("criteriaGuidelines"));
         event.setDescription(doc.getString("description"));
 
         Long eventDateMs = doc.getLong("eventDateMs");
@@ -215,10 +220,10 @@ public class EventStorage {
                 .addOnFailureListener(onFailure); // query failure
     }
 
-    public void listOpenEvents(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+    public void listEventsRegOpen(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
         // define query
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.OPEN.name());
+                .whereEqualTo("status", Event.EventStatus.REG_OPEN.name());
 
         // optional limit to how many events to return
         if (limit != null && limit > 0) {
@@ -231,6 +236,75 @@ public class EventStorage {
             for (QueryDocumentSnapshot doc : qs) {
                 events.add(documentToEvent(doc));
             }
+            onSuccess.onSuccess(events);
+        }).addOnFailureListener(onFailure);
+    }
+
+    public void listEventsRegClosed(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+        Query query = db.collection("events")
+                .whereEqualTo("status", Event.EventStatus.REG_CLOSED.name());
+
+        if (limit != null && limit > 0) {
+            query = query.limit(limit);
+        }
+
+        query.get().addOnSuccessListener(qs -> {
+            List<Event> events = new ArrayList<>();
+
+            android.util.Log.d("EventStorage", "Closed query count = " + qs.size());
+
+            for (QueryDocumentSnapshot doc : qs) {
+                android.util.Log.d("EventStorage",
+                        "doc=" + doc.getId() + ", status=" + doc.get("status"));
+                events.add(documentToEvent(doc));
+            }
+
+            onSuccess.onSuccess(events);
+        }).addOnFailureListener(onFailure);
+    }
+
+    public void listEventsRegFull(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+        Query query = db.collection("events")
+                .whereEqualTo("status", Event.EventStatus.REG_FULL.name());
+
+        if (limit != null && limit > 0) {
+            query = query.limit(limit);
+        }
+
+        query.get().addOnSuccessListener(qs -> {
+            List<Event> events = new ArrayList<>();
+
+            android.util.Log.d("EventStorage", "Closed query count = " + qs.size());
+
+            for (QueryDocumentSnapshot doc : qs) {
+                android.util.Log.d("EventStorage",
+                        "doc=" + doc.getId() + ", status=" + doc.get("status"));
+                events.add(documentToEvent(doc));
+            }
+
+            onSuccess.onSuccess(events);
+        }).addOnFailureListener(onFailure);
+    }
+
+    public void listEventsRegUpcoming(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+        Query query = db.collection("events")
+                .whereEqualTo("status", Event.EventStatus.REG_UPCOMING.name());
+
+        if (limit != null && limit > 0) {
+            query = query.limit(limit);
+        }
+
+        query.get().addOnSuccessListener(qs -> {
+            List<Event> events = new ArrayList<>();
+
+            android.util.Log.d("EventStorage", "Closed query count = " + qs.size());
+
+            for (QueryDocumentSnapshot doc : qs) {
+                android.util.Log.d("EventStorage",
+                        "doc=" + doc.getId() + ", status=" + doc.get("status"));
+                events.add(documentToEvent(doc));
+            }
+
             onSuccess.onSuccess(events);
         }).addOnFailureListener(onFailure);
     }
