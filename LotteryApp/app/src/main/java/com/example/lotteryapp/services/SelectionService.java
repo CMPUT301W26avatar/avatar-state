@@ -15,11 +15,6 @@ public class SelectionService {
         this.random = new SecureRandom();
     }
 
-    // visible for testing
-    public SelectionService(SecureRandom random) {
-        this.random = random;
-    }
-
     /**
      * Randomly selects up to eventCapacity entrants from the waitlist.
      * Returns a new list and does not mutate the caller's list.

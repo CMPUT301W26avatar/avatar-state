@@ -21,10 +21,8 @@ public final class ServiceLocator {
     private static @Nullable FirebaseService overrideFirebaseService = null;
 
     private static @Nullable AuthService overrideAuthService = null;
-<<<<<<< HEAD
     private static @Nullable UserNameService overrideUserNameService = null;
-=======
->>>>>>> parent of 2615175 (declining invitation now reflects to db, and joining waitlist becomes disabled)
+    private static @Nullable SelectionService overrideSelectionService = null;
     private static @Nullable EventStorage overrideEventStorage = null;
     private static @Nullable UserStorage overrideUserStorage = null;
     private static @Nullable EventPoolStorage overrideEventPoolStorage = null;
@@ -53,6 +51,11 @@ public final class ServiceLocator {
     public static AuthService getAuthService() {
         if (overrideAuthService != null) return overrideAuthService;
         return new AuthService(getFirebase());
+    }
+
+    public static SelectionService getSelectionService() {
+        if (overrideSelectionService != null) return overrideSelectionService;
+        return new SelectionService();
     }
 
     // FOR TESTS: can get a valid uuid without enforcing FirebaseAuth sign-in
