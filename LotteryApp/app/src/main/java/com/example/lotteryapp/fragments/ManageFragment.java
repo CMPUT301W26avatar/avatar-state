@@ -17,6 +17,7 @@ import androidx.core.util.Pair;
 import androidx.fragment.app.Fragment;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.activities.EnrolledListActivity;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.models.Event;
@@ -24,6 +25,7 @@ import com.example.lotteryapp.services.storage.EventStorage;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
+import com.example.lotteryapp.activities.EnrolledListActivity;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -97,6 +99,8 @@ public class ManageFragment extends Fragment {
             View btnDetails = row.findViewById(R.id.btn_event_details);
             View btnEdit = row.findViewById(R.id.btn_edit_event);
 
+            View btnEnrolled = row.findViewById(R.id.btn_view_enrolled);
+
             String title = event.getTitle();
             tvTitle.setText(title != null && !title.trim().isEmpty() ? title : event.getEventId());
 
@@ -104,6 +108,12 @@ public class ManageFragment extends Fragment {
 
             btnDetails.setOnClickListener(v -> openEventDetails(event));
             btnEdit.setOnClickListener(v -> showUpdateEventDialog(event));
+
+            btnEnrolled.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), EnrolledListActivity.class);
+                intent.putExtra(EnrolledListActivity.EXTRA_EVENT_ID, event.getEventId());
+                startActivity(intent);
+            });
 
             upcomingEventListContainer.addView(row);
         }
