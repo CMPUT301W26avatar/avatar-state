@@ -15,7 +15,6 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.services.SelectionService;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
@@ -25,7 +24,6 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
 import java.text.SimpleDateFormat;
-import java.util.List;
 import java.util.Locale;
 
 public class EventDetailsActivity extends AppCompatActivity {
@@ -62,7 +60,6 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
-    private SelectionService selectionService;
     private Entrant.EntrantStatus currentStatus = null;
 
     private final SimpleDateFormat sdf =
@@ -74,9 +71,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_event_details);
 
         isAdminMode = getIntent().getBooleanExtra("isAdminMode", false);
-
-        selectionService = ServiceLocator.getSelectionService();
-
+        
         bindViews();
 
         btnClose.setOnClickListener(v -> finish());
