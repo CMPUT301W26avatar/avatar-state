@@ -106,6 +106,7 @@ public class ProfileFragment extends Fragment {
         if (btnLogout != null) {
             btnLogout.setOnClickListener(v -> {
                 ServiceLocator.getAuthService().userSignOut();
+                Toast.makeText(getContext(), "Logging Out...", Toast.LENGTH_SHORT).show();
                 Intent intent = new Intent(requireContext(), LoginActivity.class);
                 startActivity(intent);
                 if (getActivity() != null) {
