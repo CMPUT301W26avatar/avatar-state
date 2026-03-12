@@ -1,8 +1,14 @@
 package com.example.lotteryapp.activities;
 
+import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
+import static com.example.lotteryapp.models.Entrant.EntrantStatus.ENROLLED;
+import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
+
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.widget.TextView;
 
@@ -18,20 +24,29 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
 import java.text.SimpleDateFormat;
+import java.util.List;
 import java.util.Locale;
 
 public class EventDetailsActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
+
+    private LinearLayout invitations_layout;
     private MaterialTextView tvName;
+    private static final String MY_TAG = "InvitationDebug";
     private MaterialTextView tvLocation;
     private MaterialTextView tvDescription;
     private MaterialTextView tvDate;
     private MaterialTextView tvRegEndDate;
+    private MaterialTextView tvCriteriaGuidelines;
     private MaterialButton btnClose;
     private MaterialButton btnJoin;
+    private MaterialButton btnLeave;
+    private MaterialButton btnAccept;
+    private MaterialButton btnDecline;
     private MaterialButton btnDeleteImage;
     private MaterialButton btnRemoveEvent;
+    private MaterialButton btnBeginLotterySelection;
     private ImageView ivEventPoster;
 
     // Admin Tech Details Views
@@ -42,11 +57,11 @@ public class EventDetailsActivity extends AppCompatActivity {
     private String eventId;
     private String currentUserId;
     private boolean isAdminMode = false;
+    private Event currentEvent;
 
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
-
-    private boolean isEnrolled = false;
+    private Entrant.EntrantStatus currentStatus = null;
 
     private final SimpleDateFormat sdf =
             new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
@@ -90,17 +105,22 @@ public class EventDetailsActivity extends AppCompatActivity {
         populateFromIntentExtras();
 
         loadEvent();
-        setupAdminActions();
     }
 
+    // associate all xml components to their application counterparts
     private void bindViews() {
         tvName = findViewById(R.id.tv_event_name);
         tvLocation = findViewById(R.id.tv_location);
         tvDescription = findViewById(R.id.tv_description);
         tvDate = findViewById(R.id.tv_event_date);
         tvRegEndDate = findViewById(R.id.tv_reg_end_date);
+        tvCriteriaGuidelines = findViewById(R.id.tv_criteria_guidelines);
+        invitations_layout = findViewById(R.id.invitations_layout);
         btnClose = findViewById(R.id.btn_close);
         btnJoin = findViewById(R.id.btn_join_waitlist);
+        btnLeave = findViewById(R.id.btn_leave_waitlist);
+        btnAccept = findViewById(R.id.btn_accept_invitation);
+        btnDecline = findViewById(R.id.btn_decline_invitation);
         btnDeleteImage = findViewById(R.id.btn_delete_image);
         btnRemoveEvent = findViewById(R.id.btn_remove_event);
         ivEventPoster = findViewById(R.id.iv_event_poster);
@@ -118,6 +138,41 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminPosterUrl = findViewById(R.id.tv_admin_poster_url);
     }
 
+    // render/load event to the screen
+    private void loadEvent() {
+        eventStorage.getEvent(
+                eventId,
+                event -> {
+                    this.currentEvent = event;
+                    android.util.Log.d("EventDetailsActivity",
+                            "Event loaded: id=" + currentEvent.getEventId()
+                                    + ", title=" + currentEvent.getTitle()
+                                    + ", eventDateMs=" + currentEvent.getEventDateMs()
+                                    + ", regStartMs=" + currentEvent.getRegStartMs()
+                                    + ", regEndMs=" + currentEvent.getRegEndMs()
+                                    + ", capacity=" + currentEvent.getEventCapacity());
+
+                    populateInfo(currentEvent);
+                    if (isAdminMode) {
+                        setupAdminActions();
+                    } else {
+                        setupEntrantActions(currentEvent);
+                    }
+                },
+                e -> {
+                    android.util.Log.e("EventDetailsActivity",
+                            "Failed to load event: " + e.getMessage(), e);
+                    e.printStackTrace();
+                }
+        );
+    }
+
+    // load event helper: returns a bool for if the current user is the event organizer inside of the Event lambda
+    private boolean isOrganizer(Event event) {
+        return event.getOrganizerId().equals(currentUserId);
+    }
+
+
     /**
      * Checks if user is admin
      *      shows button to access admin actions
@@ -127,7 +182,11 @@ public class EventDetailsActivity extends AppCompatActivity {
     private void setupAdminActions() {
         if (isAdminMode) {
             btnRemoveEvent.setVisibility(View.VISIBLE);
+            btnRemoveEvent.setEnabled(true);
+            btnJoin.setEnabled(false);
+            btnJoin.setVisibility(View.GONE);
             layoutAdminInfo.setVisibility(View.VISIBLE);
+            btnDeleteImage.setVisibility(View.VISIBLE);
             
             btnRemoveEvent.setOnClickListener(v -> {
                 eventStorage.deleteEvent(eventId);
@@ -147,6 +206,74 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Checks if user is entrant
+
+
+
+     */
+    private void setupEntrantActions(Event event) {
+        if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
+            showJoinDisabled("Registration Unavailable");
+            return;
+        }
+
+        eventPoolStorage.getEntrantStatus(
+                event.getEventId(),
+                currentUserId,
+                status -> {
+                    currentStatus = status;
+                    renderEntrantActions(event, status);
+                },
+                e -> {
+                    currentStatus = null;
+                    renderEntrantActions(event, null);
+                }
+        );
+    }
+
+    private void renderEntrantActions(Event event, Entrant.EntrantStatus status) {
+        btnJoin.setVisibility(View.GONE);
+        btnLeave.setVisibility(View.GONE);
+        invitations_layout.setVisibility(View.GONE);
+
+        if (status == Entrant.EntrantStatus.WAITLISTED) {
+            btnLeave.setVisibility(View.VISIBLE);
+            btnLeave.setEnabled(true);
+            btnLeave.setOnClickListener(v -> leaveWaitlist());
+            return;
+        }
+
+        if (status == Entrant.EntrantStatus.INVITED) {
+            invitations_layout.setVisibility(View.VISIBLE);
+            btnAccept.setOnClickListener(v -> acceptInvitation());
+            btnDecline.setOnClickListener(v -> declineInvitation());
+            return;
+        }
+
+        if (status == ENROLLED) {
+            btnJoin.setVisibility(View.VISIBLE);
+            btnJoin.setEnabled(true);
+            btnJoin.setText("Unenroll");
+            btnJoin.setOnClickListener(v -> unenroll());
+            return;
+        }
+
+        if (status == DECLINED) {
+            // cannot join waitlist, or event again
+            showJoinDisabled("Invitation Declined");
+            return;
+        }
+
+        if (event.isRegistrationOpen()) {
+            btnJoin.setVisibility(View.VISIBLE);
+            btnJoin.setEnabled(true);
+            btnJoin.setText("Join Waitlist");
+            btnJoin.setOnClickListener(v -> joinWaitlist());
+        } else {
+            showJoinDisabled("Registration Closed");
+        }
+    }
 
     private void populateFromIntentExtras() {
         String name = getIntent().getStringExtra("event_name");
@@ -173,29 +300,11 @@ public class EventDetailsActivity extends AppCompatActivity {
         if (tvRegEndDate.getText() == null || tvRegEndDate.getText().toString().trim().isEmpty()) {
             tvRegEndDate.setText("Register End Date");
         }
-    }
 
-    private void loadEvent() {
-        eventStorage.getEvent(
-                eventId,
-                event -> {
-                    android.util.Log.d("EventDetailsActivity",
-                            "Event loaded: id=" + event.getEventId()
-                                    + ", title=" + event.getTitle()
-                                    + ", eventDateMs=" + event.getEventDateMs()
-                                    + ", regStartMs=" + event.getRegStartMs()
-                                    + ", regEndMs=" + event.getRegEndMs()
-                                    + ", capacity=" + event.getEventCapacity());
-
-                    populateInfo(event);
-                    configureActions(event);
-                },
-                e -> {
-                    android.util.Log.e("EventDetailsActivity",
-                            "Failed to load event: " + e.getMessage(), e);
-                    e.printStackTrace();
-                }
-        );
+        if (tvCriteriaGuidelines.getText() == null || tvCriteriaGuidelines.getText().toString().trim().isEmpty()) {
+            String criteriaGuidelines = getString(R.string.criteriaGuidelines);
+            tvCriteriaGuidelines.setText("Criteria/Guidelines: " + criteriaGuidelines);
+        }
     }
 
     private void populateInfo(Event event) {
@@ -236,6 +345,10 @@ public class EventDetailsActivity extends AppCompatActivity {
             tvRegEndDate.setText("Registration end unavailable");
         }
 
+        if (event.getCriteriaGuidelines() != null) {
+            tvCriteriaGuidelines.setText("Criteria/Guidelines: " + event.getCriteriaGuidelines());
+        }
+
         if (isAdminMode && event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
             btnDeleteImage.setVisibility(View.VISIBLE);
         }
@@ -260,68 +373,97 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminPosterUrl.setText("posterUrl: " + (event.getPosterUrl() != null ? "\"" + event.getPosterUrl() + "\"" : "null"));
     }
 
-    private void configureActions(Event event) {
-        if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
-            btnJoin.setEnabled(false);
-            btnJoin.setText("Registration Unavailable");
-            return;
-        }
-
-        if (!event.isRegistrationOpen()) {
-            btnJoin.setEnabled(false);
-            btnJoin.setText("Registration Closed");
-            return;
-        }
-
-        btnJoin.setEnabled(true);
-        refreshEnrollmentState(event.getEventId());
+    private void showJoinDisabled(String text) {
+        btnJoin.setVisibility(View.VISIBLE);
+        btnJoin.setEnabled(false);
+        btnJoin.setText(text);
+        btnLeave.setVisibility(View.GONE);
+        invitations_layout.setVisibility(View.GONE);
     }
 
-    // poll for event status
-    private void refreshEnrollmentState(String eventId) {
-        eventPoolStorage.getEntrantStatus(
+
+
+    private void joinWaitlist() {
+        //Add user to waitlist collection
+        Entrant entrant = new Entrant(currentUserId, eventId, Entrant.EntrantStatus.WAITLISTED);
+
+        btnJoin.setEnabled(false);
+
+        eventPoolStorage.waitlistForEvent(
                 eventId,
-                currentUserId,
-                status -> {
-                    isEnrolled = Entrant.EntrantStatus.ENROLLED.name().equals(status);
-                    updateJoinButton();
+                entrant,
+                unused -> {
+                    Toast.makeText(this, "Waitlisted!", Toast.LENGTH_SHORT).show();
+                    currentStatus = WAITLISTED;
+                    loadEvent();
                 },
                 e -> {
-                    isEnrolled = false;
-                    updateJoinButton();
+                    Toast.makeText(this, "Failed to waitlist", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnJoin.setEnabled(true);
                 }
         );
     }
-    private void updateJoinButton() {
-        btnJoin.setEnabled(true);
-        btnJoin.setText(isEnrolled ? "Unenroll" : "Join Event Waitlist");
 
-        btnJoin.setOnClickListener(v -> {
-            if (isEnrolled) {
-                unenroll();
-            } else {
-                enroll();
-            }
-        });
+    private void leaveWaitlist() {
+        btnLeave.setEnabled(false);
+
+        eventPoolStorage.removeFromWaitlist(
+                eventId,
+                currentUserId,
+                unused -> {
+                    Toast.makeText(this, "Left waitlist!", Toast.LENGTH_SHORT).show();
+                    currentStatus = null;
+                    loadEvent();
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to leave waitlist.", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnLeave.setEnabled(true);
+                }
+        );
     }
 
-    private void enroll() {
-        Entrant entrant = new Entrant(currentUserId, eventId, Entrant.EntrantStatus.ENROLLED);
+    private void acceptInvitation() {
+        Entrant entrant = new Entrant(currentUserId, eventId, ENROLLED);
 
-        btnJoin.setEnabled(false);
+        btnAccept.setEnabled(false);
 
         eventPoolStorage.enrollInEvent(
                 eventId,
                 entrant,
                 unused -> {
                     Toast.makeText(this, "Enrolled!", Toast.LENGTH_SHORT).show();
-                    isEnrolled = true;
-                    updateJoinButton();
+                    currentStatus = ENROLLED;
                     loadEvent();
                 },
                 e -> {
                     Toast.makeText(this, "Failed to enroll", Toast.LENGTH_SHORT).show();
-                    btnJoin.setEnabled(true);
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnAccept.setEnabled(true);
+                }
+        );
+    }
+
+    private void declineInvitation() {
+        btnDecline.setEnabled(false);
+
+        eventPoolStorage.removeFromInvited(
+                eventId,
+                currentUserId,
+                unused -> {
+                    Toast.makeText(this, "Invitation declined", Toast.LENGTH_SHORT).show();
+
+                    currentStatus = DECLINED;
+                    invitations_layout.setVisibility(View.GONE);
+                    renderEntrantActions(currentEvent, DECLINED);
+
+                    btnDecline.setEnabled(true);
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to decline invitation", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnDecline.setEnabled(true);
                 }
         );
     }
@@ -329,19 +471,20 @@ public class EventDetailsActivity extends AppCompatActivity {
     private void unenroll() {
         btnJoin.setEnabled(false);
 
-        eventPoolStorage.deleteEntry(
+        eventPoolStorage.unenroll(
                 eventId,
                 currentUserId,
                 unused -> {
                     Toast.makeText(this, "Unenrolled!", Toast.LENGTH_SHORT).show();
-                    isEnrolled = false;
-                    updateJoinButton();
+                    currentStatus = null;
                     loadEvent();
                 },
                 e -> {
                     Toast.makeText(this, "Failed to unenroll", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnJoin.setEnabled(true);
                 }
         );
+
     }
 }
