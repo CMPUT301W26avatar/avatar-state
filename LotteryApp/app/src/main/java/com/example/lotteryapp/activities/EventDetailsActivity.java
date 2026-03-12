@@ -15,6 +15,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.services.SelectionService;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
@@ -58,6 +59,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
+    private SelectionService selectionService;
 
     private Entrant.EntrantStatus currentStatus = null;
 
