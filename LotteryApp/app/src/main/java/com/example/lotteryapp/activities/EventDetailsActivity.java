@@ -15,7 +15,6 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.services.SelectionService;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
@@ -62,8 +61,6 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
-    private SelectionService selectionService;
-
     private Entrant.EntrantStatus currentStatus = null;
 
     private final SimpleDateFormat sdf =
@@ -75,8 +72,6 @@ public class EventDetailsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_event_details);
 
         isAdminMode = getIntent().getBooleanExtra("isAdminMode", false);
-
-        selectionService = ServiceLocator.getSelectionService();
 
         bindViews();
 
@@ -128,7 +123,6 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnDecline = findViewById(R.id.btn_decline_invitation);
         btnDeleteImage = findViewById(R.id.btn_delete_image);
         btnRemoveEvent = findViewById(R.id.btn_remove_event);
-        btnBeginLotterySelection = findViewById(R.id.btn_begin_lottery_selection);
         ivEventPoster = findViewById(R.id.iv_event_poster);
 
         // Admin Info
@@ -161,8 +155,6 @@ public class EventDetailsActivity extends AppCompatActivity {
                     populateInfo(currentEvent);
                     if (isAdminMode) {
                         setupAdminActions();
-                    } else if (isOrganizer(currentEvent)) {
-                        setupOrganizerActions(currentEvent);
                     } else {
                         setupEntrantActions(currentEvent);
                     }
@@ -211,36 +203,6 @@ public class EventDetailsActivity extends AppCompatActivity {
                     btnDeleteImage.setVisibility(View.GONE);
                 }, e -> Toast.makeText(this, "Failed to delete image", Toast.LENGTH_SHORT).show());
             });
-        }
-    }
-
-    /**
-     * Checks if user is organizer
-
-
-
-     */
-    private void setupOrganizerActions(Event event) {
-        // Hide entrant actions
-        btnJoin.setVisibility(View.GONE);
-        btnLeave.setVisibility(View.GONE);
-        invitations_layout.setVisibility(View.GONE);
-
-        // Organizer should not see admin-only controls
-        btnRemoveEvent.setVisibility(View.GONE);
-        btnDeleteImage.setVisibility(View.GONE);
-        layoutAdminInfo.setVisibility(View.GONE);
-
-        // Decide whether the lottery button should be shown
-        boolean registrationClosed = event.getStatus() == Event.EventStatus.REG_CLOSED;
-        boolean registrationFull = event.getStatus() == Event.EventStatus.REG_FULL;
-
-        if (registrationClosed || registrationFull) {
-            btnBeginLotterySelection.setVisibility(View.VISIBLE);
-            btnBeginLotterySelection.setEnabled(true);
-            btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
-        } else {
-            btnBeginLotterySelection.setVisibility(View.GONE);
         }
     }
 
@@ -523,81 +485,6 @@ public class EventDetailsActivity extends AppCompatActivity {
                     btnJoin.setEnabled(true);
                 }
         );
+
     }
-
-
-    private void beginLotterySelection(Event event) {
-        if (event == null) {
-            Toast.makeText(this, "Event not loaded", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        int remainingSpots = event.getEventCapacity()
-                - event.getEnrolledCount()
-                - event.getInvitationCount();
-
-        if (remainingSpots <= 0) {
-            Toast.makeText(this, "No spots available for invitations", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (btnBeginLotterySelection != null) {
-            btnBeginLotterySelection.setEnabled(false);
-        }
-
-        eventPoolStorage.getWaitlistedEntrants(
-                eventId,
-                waitlistedEntrants -> {
-                    if (waitlistedEntrants == null || waitlistedEntrants.isEmpty()) {
-                        Toast.makeText(this, "No entrants on the waitlist", Toast.LENGTH_SHORT).show();
-                        if (btnBeginLotterySelection != null) {
-                            btnBeginLotterySelection.setEnabled(true);
-                        }
-                        return;
-                    }
-
-                    List<Entrant> selected =
-                            selectionService.selectRandomWaitlistSubset(waitlistedEntrants, remainingSpots);
-
-                    if (selected.isEmpty()) {
-                        Toast.makeText(this, "No entrants selected", Toast.LENGTH_SHORT).show();
-                        if (btnBeginLotterySelection != null) {
-                            btnBeginLotterySelection.setEnabled(true);
-                        }
-                        return;
-                    }
-
-                    eventPoolStorage.inviteSelectedEntrants(
-                            eventId,
-                            selected,
-                            invitedCount -> {
-                                Toast.makeText(
-                                        this,
-                                        "Lottery complete: " + invitedCount + " invite(s) sent",
-                                        Toast.LENGTH_SHORT
-                                ).show();
-                                loadEvent();
-                                if (btnBeginLotterySelection != null) {
-                                    btnBeginLotterySelection.setEnabled(true);
-                                }
-                            },
-                            e -> {
-                                Toast.makeText(this, "Failed to send invites", Toast.LENGTH_SHORT).show();
-                                Log.e(MY_TAG, "Lottery selection failed: " + e.getMessage(), e);
-                                if (btnBeginLotterySelection != null) {
-                                    btnBeginLotterySelection.setEnabled(true);
-                                }
-                            }
-                    );
-                },
-                e -> {
-                    Toast.makeText(this, "Failed to load waitlist", Toast.LENGTH_SHORT).show();
-                    Log.e(MY_TAG, "Failed to read waitlist: " + e.getMessage(), e);
-                    if (btnBeginLotterySelection != null) {
-                        btnBeginLotterySelection.setEnabled(true);
-                    }
-                }
-        );
-    }
-
 }

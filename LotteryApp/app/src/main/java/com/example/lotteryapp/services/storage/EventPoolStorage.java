@@ -545,48 +545,6 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // mass inviter: calls inviteToEvent for all entries returned by SelectionService
-    public void inviteSelectedEntrants(
-            String eventId,
-            List<Entrant> selectedEntrants,
-            OnSuccessListener<Integer> onSuccess,
-            OnFailureListener onFailure
-    ) {
-        if (selectedEntrants == null || selectedEntrants.isEmpty()) {
-            onSuccess.onSuccess(0);
-            return;
-        }
-
-        AtomicInteger remaining = new AtomicInteger(selectedEntrants.size());
-        AtomicInteger successCount = new AtomicInteger(0);
-        boolean[] failed = {false};
-
-        for (Entrant entrant : selectedEntrants) {
-            if (entrant == null || entrant.getEntrantId() == null) {
-                if (remaining.decrementAndGet() == 0 && !failed[0]) {
-                    onSuccess.onSuccess(successCount.get());
-                }
-                continue;
-            }
-            inviteToEvent(
-                    eventId,
-                    entrant,
-                    unused -> {
-                        successCount.incrementAndGet();
-                        if (remaining.decrementAndGet() == 0 && !failed[0]) {
-                            onSuccess.onSuccess(successCount.get());
-                        }
-                    },
-                    e -> {
-                        if (!failed[0]) {
-                            failed[0] = true;
-                            onFailure.onFailure(e);
-                        }
-                    }
-            );
-        }
-    }
-
     // DATABASE DELETE ENTRY (status unknown)
     // helper: holds different logic for deleting an entrant from each subcollection
     private void deleteEntryByStatus(

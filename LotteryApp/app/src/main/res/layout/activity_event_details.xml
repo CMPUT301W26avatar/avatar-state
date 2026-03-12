@@ -261,12 +261,6 @@
                 app:cornerRadius="12dp"
                 app:icon="@drawable/ic_leave" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_begin_lottery_selection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Begin Lottery Selection"
-                android:visibility="gone" />
 
             <LinearLayout
                 android:id="@+id/invitations_layout"
