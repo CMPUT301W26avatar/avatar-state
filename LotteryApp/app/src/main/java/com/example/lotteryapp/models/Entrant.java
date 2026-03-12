@@ -7,12 +7,11 @@ public class Entrant {
     private EntrantStatus entrantStatus;
 
     public enum EntrantStatus {
-        INVITED, // not in pool or waitlist, but invited to sign up
-        CANCELLED, // selected, but user denied selection
-        WAITLISTED, // not in pool, in waitlist
-        ENROLLED, // in pool, draw has yet to happen
-        SELECTED, // selected from pool
-        NOT_SELECTED, // not selected from pool
+        INVITED, // in waitlist, selected
+        NOT_INVITED, // in waitlist, not selected
+        DECLINED, // in waitlist, selected, declined
+        WAITLISTED, // in waitlist, selection has yet to happen
+        ENROLLED, // won the lottery, enrolled in the Event
     }
 
     public Entrant(String entrantId, String eventId, EntrantStatus status) {

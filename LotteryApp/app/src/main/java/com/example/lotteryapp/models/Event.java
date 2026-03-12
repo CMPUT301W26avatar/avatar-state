@@ -7,74 +7,66 @@ public class Event {
     public final String organizerId;
     public EventStatus status;
 
-    private String title;
-    /* Event metadata fields here:
-
-    - Criteria / Guidelines
-    - geolocational data?
-     */
-    private String description;
-    private String tag;
-    private String posterUrl; // US 02.04.01 + 02.04.02
-
     public int eventCapacity;
 
-    public Integer waitlistCapacity;
     private int enrolledCount;
+
+    public Integer waitlistCapacity; // Integer for optionally set, can be null
     private int waitlistCount;
+
+    private int invitationCount;
+
     public Long eventDateMs; // milliseconds
     public Long regStartMs; // milliseconds
     public Long regEndMs; // milliseconds
     private String location;
+
+
+    private String title;
+
+    private String description;
+
+    private String criteriaGuidelines;
+    private String tag;
+    private String posterUrl;
     public enum EventStatus {
-        OPEN, // reg. open
-        CLOSED, // reg. closed
-        ENDED, // event finished
+        REG_UPCOMING,
+        REG_OPEN, // reg. open, reg. start date passed
+        REG_CLOSED, // reg. closed, reg. end date passed
+        REG_FULL, // reg. open but exceeding waitlist capacity
+        EVENT_OPEN, // event open, set after reg. end date, event still has capacity
+        EVENT_CLOSED, // event closed/finished
+        EVENT_FULL, // event open, but exceeding event capacity
     }
 
-    public Event(String organizerId, EventStatus status, int eventCapacity) {
+    public Event(String organizerId, int eventCapacity, int waitlistCapacity) {
         this.eventId = UUID.randomUUID().toString();
         this.organizerId = organizerId;
-        this.status = status;
         this.eventCapacity = eventCapacity;
+        this.waitlistCapacity = waitlistCapacity;
     }
 
-    public boolean hasWaitlist() {
-        return waitlistCapacity != null;
-    }
-
-    public boolean isRegistrationOpen() {
-        return status == EventStatus.OPEN;
-    }
-
-    // async call for enrolled counts and waitlist counts
-
-    public void setEnrolledCount(int enrolledCount) {
-        this.enrolledCount = enrolledCount;
-    }
-
-    public int getEnrolledCount() {
-        return enrolledCount;
-    }
-
-    public int getWaitlistCount() {
-        return waitlistCount;
-    }
-
-    public void setWaitlistCount(int waitlistCount) {
-        this.waitlistCount = waitlistCount;
-    }
-
-    public void setEventId(String eventId) {
-        this.eventId = eventId;
-    }
-
+    // pk
     public String getEventId() {
         return eventId;
     }
 
+    // should not be used in theory, to remove in the final stage if there are no required usages
+    // set by firebase as doc id
+    public void setEventId(String eventId) {
+        this.eventId = eventId;
+    }
+
+
+    // fk
     public String getOrganizerId() {
         return organizerId;
+    }
+
+
+    // EventStatus
+    public boolean isRegistrationOpen() {
+        return this.status == EventStatus.REG_OPEN;
     }
 
     public EventStatus getStatus() {
@@ -85,18 +77,7 @@ public class Event {
         this.status = status;
     }
 
-    public String getTitle() { return title; }
-
-    public void setTitle(String title) { this.title = title; }
-
-    public String getPosterUrl() {
-        return posterUrl;
-    }
-
-    public void setPosterUrl(String posterUrl) {
-        this.posterUrl = posterUrl;
-    }
-
+    // how many user allowed to participate in the event
     public int getEventCapacity() {
         return eventCapacity;
     }
@@ -105,14 +86,47 @@ public class Event {
         this.eventCapacity = eventCapacity;
     }
 
+    // how many users are confirmed (waitlisted>invited>accepted) to be participating in the event
+    public int getEnrolledCount() {
+        return enrolledCount;
+    }
+
+    public void setEnrolledCount(int enrolledCount) {
+        this.enrolledCount = enrolledCount;
+    }
+
+
+
+    // how many users allowed to join the waitlist to participate in the event
     public Integer getWaitlistCapacity() {
         return waitlistCapacity;
     }
-
     public void setWaitlistCapacity(Integer waitlistCapacity) {
         this.waitlistCapacity = waitlistCapacity;
     }
 
+    // how many users are currently on the waitlist to participate in the event
+    //      requires firebase
+    public int getWaitlistCount() {
+        return waitlistCount;
+    }
+
+    public void setWaitlistCount(int waitlistCount) {
+        this.waitlistCount = waitlistCount;
+    }
+
+    // users on the waitlist who have been selected (invited) to participate in the event
+    //      requires firebase
+    public void setInvitationCount(int count) {
+        this.invitationCount = count;
+    }
+
+    public int getInvitationCount() {
+        return invitationCount;
+    }
+
+
+    // date of the event
     public Long getEventDateMs() {
         return eventDateMs;
     }
@@ -121,6 +135,7 @@ public class Event {
         this.eventDateMs = eventDateMs;
     }
 
+    // lottery registration window for the event
     public Long getRegStartMs() {
         return regStartMs;
     }
@@ -137,29 +152,31 @@ public class Event {
         this.regEndMs = regEndMs;
     }
 
-    public String getDescription() {
-        return description;
-    }
 
-    public void setDescription(String description) {
-        this.description = description;
-    }
+    // event metadata
+    public String getTitle() { return title; }
 
-    public String getTag() {
-        return tag;
-    }
+    public void setTitle(String title) { this.title = title; }
 
-    public void setTag(String tag) {
-        this.tag = tag;
-    }
+    public String getDescription() {return description;}
 
-    public String getLocation() {
-        return location;
-    }
+    public void setDescription(String description) {this.description = description;}
 
-    public void setLocation(String location) {
-        this.location = location;
-    }
+    public String getCriteriaGuidelines() {return criteriaGuidelines;}
+
+    public void setCriteriaGuidelines(String criteriaGuidelines) {this.criteriaGuidelines = criteriaGuidelines;}
+
+    public String getTag() {return tag;}
+
+    public void setTag(String tag) {this.tag = tag;}
+
+    public String getLocation() {return location;}
+
+    public void setLocation(String location) {this.location = location;}
+
+    public String getPosterUrl() {return posterUrl;}
+
+    public void setPosterUrl(String posterUrl) {this.posterUrl = posterUrl;}
 
 
 }

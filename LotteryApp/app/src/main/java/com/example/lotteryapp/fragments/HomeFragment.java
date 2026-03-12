@@ -24,8 +24,12 @@ public class HomeFragment extends Fragment {
     private MaterialCardView invitationCard;
     private MaterialButton closeInvitation;
     private EventStorage estore = ServiceLocator.getEventStorage();
-    private GridEventAdapter adapter;
-    private List<HomeFragment.DisplayGridEvent> displayGridEvents;
+    private GridEventAdapter openAdapter;
+    private GridEventAdapter upcomingAdapter;
+    private GridEventAdapter fullAdapter;
+    private List<HomeFragment.DisplayGridEvent> displayOpenGridEvents;
+    private List<HomeFragment.DisplayGridEvent> displayUpcomingGridEvents;
+    private List<HomeFragment.DisplayGridEvent> displayFullGridEvents;
 
     @Nullable
     @Override
@@ -37,36 +41,90 @@ public class HomeFragment extends Fragment {
 
         closeInvitation.setOnClickListener(v -> invitationCard.setVisibility(View.GONE));
 
-        RecyclerView recyclerView = view.findViewById(R.id.recycler_view);
-        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        RecyclerView recyclerViewOpen = view.findViewById(R.id.recycler_view_open);
+        recyclerViewOpen.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        RecyclerView recyclerViewUpcoming = view.findViewById(R.id.recycler_view_upcoming);
+        recyclerViewUpcoming.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        RecyclerView recyclerViewFull = view.findViewById(R.id.recycler_view_full);
+        recyclerViewFull.setLayoutManager(new GridLayoutManager(getContext(), 2));
 
-        displayGridEvents = new ArrayList<>();
-        adapter = new GridEventAdapter(displayGridEvents);
-        recyclerView.setAdapter(adapter);
+        displayOpenGridEvents = new ArrayList<>();
+        displayUpcomingGridEvents = new ArrayList<>();
+        displayFullGridEvents = new ArrayList<>();
 
-        loadEvents();
+        openAdapter = new GridEventAdapter(displayOpenGridEvents);
+        upcomingAdapter = new GridEventAdapter(displayUpcomingGridEvents);
+        fullAdapter = new GridEventAdapter(displayFullGridEvents);
+
+        recyclerViewOpen.setAdapter(openAdapter);
+        recyclerViewUpcoming.setAdapter(upcomingAdapter);
+        recyclerViewFull.setAdapter(fullAdapter);
+
+        loadEventsRegOpen();
+        loadEventsRegUpcoming();
+        loadEventsRegFull();
 
         return view;
     }
     @Override
     public void onResume() {
         super.onResume();
-        loadEvents();
+        loadEventsRegOpen();
+        loadEventsRegUpcoming();
+        loadEventsRegFull();
     }
 
-    private void loadEvents() {
-        if (estore == null || adapter == null) return;
+    private void loadEventsRegOpen() {
+        if (estore == null || openAdapter == null) return;
 
-        estore.listOpenEvents(
+        estore.listEventsRegOpen(
                 4,
                 fetchedEvents -> {
-                    displayGridEvents.clear();
+                    displayOpenGridEvents.clear();
                     for (Event e : fetchedEvents) {
-                        displayGridEvents.add(eventToDisplayEvent(e));
+                        displayOpenGridEvents.add(eventToDisplayEvent(e));
                     }
-                    adapter.notifyDataSetChanged();
+                    openAdapter.notifyDataSetChanged();
                 },
-                Throwable::printStackTrace
+                e -> {
+                    android.util.Log.e("HomeFragment", "Failed to load open events", e);
+                }
+        );
+    }
+
+    private void loadEventsRegUpcoming() {
+        if (estore == null || upcomingAdapter == null) return;
+
+        estore.listEventsRegUpcoming(
+                4,
+                fetchedEvents -> {
+                    displayUpcomingGridEvents.clear();
+                    for (Event e : fetchedEvents) {
+                        displayUpcomingGridEvents.add(eventToDisplayEvent(e));
+                    }
+                    upcomingAdapter.notifyDataSetChanged();
+                },
+                e -> {
+                    android.util.Log.e("HomeFragment", "Failed to load upcoming events", e);
+                }
+        );
+    }
+
+    private void loadEventsRegFull() {
+        if (estore == null || fullAdapter == null) return;
+
+        estore.listEventsRegFull(
+                4,
+                fetchedEvents -> {
+                    displayFullGridEvents.clear();
+                    for (Event e : fetchedEvents) {
+                        displayFullGridEvents.add(eventToDisplayEvent(e));
+                    }
+                    fullAdapter.notifyDataSetChanged();
+                },
+                e -> {
+                    android.util.Log.e("HomeFragment", "Failed to load full events", e);
+                }
         );
     }
 
@@ -94,15 +152,38 @@ public class HomeFragment extends Fragment {
     }
 
     private String buildSubtitle(Event event) {
-        int enrolledCount = event.getEnrolledCount();
-        int waitlistCount = event.getWaitlistCount();
-        int eventCapacity = event.getEventCapacity();
-        int waitlistCapacity = event.getWaitlistCapacity();
+        Event.EventStatus status = event.getStatus();
 
-        if (enrolledCount < eventCapacity) {
-            return "OPEN | Enrolled: " + enrolledCount + "/" + eventCapacity;
-        } else {
-            return "CLOSED | Waitlist: " + waitlistCount + "/" + waitlistCapacity;
+        StringBuilder sb = new StringBuilder(statusString(status));
+
+        Integer waitlistCap = event.getWaitlistCapacity();
+        if (waitlistCap != null) {
+            sb.append(" | Waitlist: ")
+                    .append(event.getWaitlistCount())
+                    .append("/")
+                    .append(waitlistCap);
         }
+
+        return sb.toString();
+    }
+
+    private String statusString(Event.EventStatus status) {
+        switch (status) {
+            case REG_OPEN:
+                return "Open for registration";
+            case REG_CLOSED:
+                return "Closed for registration";
+            case REG_FULL:
+                return "Waitlist full";
+            case REG_UPCOMING:
+                return "Register soon";
+            case EVENT_CLOSED:
+                return "Event date passed";
+            case EVENT_OPEN:
+                return "Invitations Sent";
+            case EVENT_FULL:
+                return "Event is full";
+        }
+        return null;
     }
 }
