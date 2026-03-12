@@ -12,6 +12,7 @@ import android.view.View;
 
 import androidx.fragment.app.FragmentActivity;
 
+import com.example.lotteryapp.activities.AdminActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
 import com.example.lotteryapp.fragments.ProfileFragment;
 import com.example.lotteryapp.services.ServiceLocator;
@@ -147,5 +148,48 @@ public class ProfileFragmentUnitTest {
         Intent started = org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity();
         assertNotNull(started);
         assertEquals(UserDetailsActivity.class.getName(), started.getComponent().getClassName());
+    }
+
+    // verify clicking the admin browse row opens AdminActivity for admins
+    @Test
+    public void clickAdminBrowseLaunchesAdminActivity() {
+        doAnswer(invocation -> {
+            OnSuccessListener<Boolean> success = invocation.getArgument(1);
+            success.onSuccess(true);
+            return null;
+        }).when(mockAdminStorage).isAdmin(eq("test-uid"), any(), any());
+
+        // create an activity to host the fragment
+        FragmentActivity activity = Robolectric.buildActivity(FragmentActivity.class)
+                .create()
+                .start()
+                .resume()
+                .get();
+
+        // attach the fragment
+        ProfileFragment fragment = new ProfileFragment();
+        activity.getSupportFragmentManager()
+                .beginTransaction()
+                .add(android.R.id.content, fragment)
+                .commitNow();
+
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks(); // run UI task queue
+
+        // has view
+        View root = fragment.getView();
+        assertNotNull(root);
+
+        // has view item_admin_browse
+        View adminBrowse = root.findViewById(R.id.item_admin_browse);
+        assertNotNull(adminBrowse);
+
+        // click on adminBrowse
+        adminBrowse.performClick();
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+
+        // assert that AdminActivity launches after click
+        Intent started = org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity();
+        assertNotNull(started);
+        assertEquals(AdminActivity.class.getName(), started.getComponent().getClassName());
     }
 }
