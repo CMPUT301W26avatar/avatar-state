@@ -2,6 +2,7 @@ package com.example.lotteryapp.services.storage;
 import androidx.annotation.NonNull;
 
 import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.services.UserNameService;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentReference;
@@ -28,9 +29,8 @@ public class UserStorage {
         return db.collection("users").document(uuid);
     }
 
-    public void setNewUser(User user) {
-        final String uuid = user.getUUID();
-        final DocumentReference ref = db.collection("users").document(uuid);
+    public void setNewUser(String UUID) {
+        final DocumentReference ref = db.collection("users").document(UUID);
         // Transaction so createdAt is only set once.
         db.runTransaction(new Transaction.Function<Void>() {
             @Override
@@ -38,8 +38,33 @@ public class UserStorage {
                 DocumentSnapshot snapshot = transaction.get(ref);
                 if (!snapshot.exists()) {
                     Map<String, Object> data = new HashMap<>();
-                    data.put("deviceID", uuid);
+                    data.put("deviceID", UUID);
                     data.put("isAdmin", false); // Default to false
+                    data.put("name", UserNameService.generateUserName());
+                    data.put("createdAt", FieldValue.serverTimestamp());
+                    data.put("updatedAt", FieldValue.serverTimestamp());
+                    transaction.set(ref, data);
+                } else {
+                    transaction.update(ref, "updatedAt", FieldValue.serverTimestamp());
+                }
+                return null;
+            }
+        });
+    }
+
+    public void setNewUser(String UUID, String name, String email) {
+        final DocumentReference ref = db.collection("users").document(UUID);
+        // Transaction so createdAt is only set once.
+        db.runTransaction(new Transaction.Function<Void>() {
+            @Override
+            public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
+                DocumentSnapshot snapshot = transaction.get(ref);
+                if (!snapshot.exists()) {
+                    Map<String, Object> data = new HashMap<>();
+                    data.put("deviceID", UUID);
+                    data.put("isAdmin", false); // Default to false
+                    data.put("name", name);
+                    data.put("email", email);
                     data.put("createdAt", FieldValue.serverTimestamp());
                     data.put("updatedAt", FieldValue.serverTimestamp());
                     transaction.set(ref, data);
@@ -179,4 +204,8 @@ public class UserStorage {
         }, onFailure);
     }
 
+
+    public void updateFcmToken(String uuid, String token) {
+        userDoc(uuid).update("fcmToken", token);
+    }
 }

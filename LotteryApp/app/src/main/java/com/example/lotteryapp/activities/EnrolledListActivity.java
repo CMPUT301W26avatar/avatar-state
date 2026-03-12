@@ -19,6 +19,8 @@ import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.google.android.material.button.MaterialButton;
 
+import org.w3c.dom.Text;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -108,8 +110,8 @@ public class EnrolledListActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             Entrant entrant = entrants.get(position);
-            holder.tvEntrantId.setText(entrant.getEntrantId());
-            holder.tvStatus.setText(entrant.getStatus().name());
+            holder.tvEntrantName.setText(entrant.getEntrantId());
+            holder.tvEntrantEmail.setText(entrant.getStatus().name());
         }
 
         @Override
@@ -118,13 +120,13 @@ public class EnrolledListActivity extends AppCompatActivity {
         }
 
         static class ViewHolder extends RecyclerView.ViewHolder {
-            TextView tvEntrantId;
-            TextView tvStatus;
+            TextView tvEntrantName;
+            TextView tvEntrantEmail;
 
             ViewHolder(View itemView) {
                 super(itemView);
-                tvEntrantId = itemView.findViewById(R.id.tv_entrant_id);
-                tvStatus = itemView.findViewById(R.id.tv_entrant_status);
+                tvEntrantName = itemView.findViewById(R.id.tv_entrant_name);
+                tvEntrantEmail = itemView.findViewById(R.id.tv_entrant_email);
             }
         }
     }

@@ -1,9 +1,12 @@
 package com.example.lotteryapp.activities;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -33,14 +36,20 @@ public class AdminActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_admin);
 
-        MaterialToolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        toolbar.setNavigationOnClickListener(v -> finish());
+        ImageButton btnCloseAdmin = findViewById(R.id.btn_close_admin);
+        MaterialButton btnPromote = findViewById(R.id.btn_admin_promote);
 
         TabLayout tabLayout = findViewById(R.id.tab_layout);
         ViewPager2 viewPager = findViewById(R.id.view_pager);
         EditText etFilter = findViewById(R.id.et_filter);
         MaterialButton btnSort = findViewById(R.id.btn_sort);
+
+        btnCloseAdmin.setOnClickListener(v -> finish());
+
+        btnPromote.setOnClickListener(v -> {
+            Intent intent = new Intent(this, PromoteNewAdminActivity.class);
+            startActivity(intent);
+        });
 
         viewPager.setAdapter(new FragmentStateAdapter(this) {
             @NonNull

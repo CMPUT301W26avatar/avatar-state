@@ -33,20 +33,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    
     testOptions {
-        managedDevices {
-      localDevices {
-        create("pixel2api30") {
-          device = "Pixel 2"
-          // Use only API levels 27 and higher.
-          apiLevel = 36
-          // To include Google services, use "google/aosp/aosp-atd".
-          systemImageSource = "aosp"
-        }
-      }
+        unitTests.isIncludeAndroidResources = true
     }
-   }
 }
 
 dependencies {
@@ -57,6 +46,12 @@ dependencies {
     implementation(libs.constraintlayout)
 
     testImplementation(libs.junit)
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("org.mockito:mockito-core:5.12.0")
+    testImplementation("org.mockito:mockito-inline:5.2.0")
+    testImplementation("androidx.test:core:1.5.0")
+
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 
@@ -77,10 +72,13 @@ dependencies {
     // Firebase BOM
 
     // Import the Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
-    androidTestImplementation(platform("com.google.firebase:firebase-bom:34.3.0"))
+    implementation(platform(libs.firebase.bom.v3430))
+    androidTestImplementation(platform(libs.google.firebase.bom))
 
-    implementation("com.google.firebase:firebase-firestore")
-    implementation("com.google.firebase:firebase-auth")
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.messaging)
 
+    implementation(libs.play.services.phenotype)
+    implementation(libs.play.services.auth)
 }

@@ -2,6 +2,7 @@ package com.example.lotteryapp.services;
 
 import androidx.annotation.Nullable;
 
+import com.example.lotteryapp.services.storage.AdminStorage;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
@@ -20,9 +21,12 @@ public final class ServiceLocator {
     private static @Nullable FirebaseService overrideFirebaseService = null;
 
     private static @Nullable AuthService overrideAuthService = null;
+    private static @Nullable UserNameService overrideUserNameService = null;
     private static @Nullable EventStorage overrideEventStorage = null;
     private static @Nullable UserStorage overrideUserStorage = null;
     private static @Nullable EventPoolStorage overrideEventPoolStorage = null;
+
+    private static @Nullable AdminStorage overrideAdminStorage = null;
 
     private static @Nullable UserIdProvider overrideUserIdProvider = null;
 
@@ -70,6 +74,11 @@ public final class ServiceLocator {
         return new EventPoolStorage(getFirebase().getDb());
     }
 
+    public static AdminStorage getAdminStorage() {
+        if (overrideAdminStorage != null) return overrideAdminStorage;
+        return new AdminStorage(getFirebase().getDb());
+    }
+
     // ---- Test-only overrides ----
 
     public static void setFirebaseServiceForTests(@Nullable FirebaseService svc) {
@@ -78,6 +87,10 @@ public final class ServiceLocator {
 
     public static void setEventStorageForTests(@Nullable EventStorage s) {
         overrideEventStorage = s;
+    }
+
+    public static void setAdminStorageForTests(@Nullable AdminStorage s) {
+        overrideAdminStorage = s;
     }
 
     public static void setUserStorageForTests(@Nullable UserStorage s) {
@@ -99,5 +112,8 @@ public final class ServiceLocator {
         overrideUserStorage = null;
         overrideEventPoolStorage = null;
         overrideUserIdProvider = null;
+        overrideAdminStorage = null;
+        overrideAuthService = null;
+        overrideUserNameService = null;
     }
 }

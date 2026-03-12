@@ -190,6 +190,30 @@
                 android:textAllCaps="false"
                 app:icon="@drawable/ic_close" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_apply_admin"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="8dp"
+                android:text="Apply to be an Administrator"
+                android:textAllCaps="false"
+                android:visibility="visible"
+                app:icon="@drawable/ic_close" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_open_admin"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="8dp"
+                android:visibility="gone"
+                android:text="Open Administrator Menu"
+                android:textAllCaps="false"
+                app:icon="@drawable/ic_close" />
+
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 

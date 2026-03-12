@@ -68,7 +68,7 @@ public class SearchFragment extends Fragment {
     }
 
     private void loadPopularEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
-        estore.listOpenEvents(limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
+        estore.listEventsRegOpen(limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
             displayGridEvents.clear();
                 for (Event event : fetchedEvents) {
                     displayGridEvents.add(eventToDisplayEvent(event));
@@ -80,7 +80,7 @@ public class SearchFragment extends Fragment {
     }
 
     private void loadSuggestedEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
-        estore.listOpenEvents(limit, fetchedEvents -> { // replace listOpenEvents with listSuggestedEvents when implemented
+        estore.listEventsRegOpen(limit, fetchedEvents -> { // replace listOpenEvents with listSuggestedEvents when implemented
                 displayGridEvents.clear();
                 for (Event event : fetchedEvents) {
                     displayGridEvents.add(eventToDisplayEvent(event));
@@ -102,15 +102,38 @@ public class SearchFragment extends Fragment {
     }
 
     private String buildSubtitle(Event event) {
-        int enrolledCount = event.getEnrolledCount();
-        int waitlistCount = event.getWaitlistCount();
-        int eventCapacity = event.getEventCapacity();
-        int waitlistCapacity = event.getWaitlistCapacity();
+        Event.EventStatus status = event.getStatus();
 
-        if (enrolledCount < eventCapacity) {
-            return "OPEN | Enrolled: " + enrolledCount + "/" + eventCapacity;
-        } else {
-            return "CLOSED | Waitlist: " + waitlistCount + "/" + waitlistCapacity;
+        StringBuilder sb = new StringBuilder(statusString(status));
+
+        Integer waitlistCap = event.getWaitlistCapacity();
+        if (waitlistCap != null) {
+            sb.append(" | Waitlist: ")
+                    .append(event.getWaitlistCount())
+                    .append("/")
+                    .append(waitlistCap);
         }
+
+        return sb.toString();
+    }
+
+    private String statusString(Event.EventStatus status) {
+        switch (status) {
+            case REG_OPEN:
+                return "Open for registration";
+            case REG_CLOSED:
+                return "Closed for registration";
+            case REG_FULL:
+                return "Waitlist full";
+            case REG_UPCOMING:
+                return "Register soon";
+            case EVENT_CLOSED:
+                return "Event date passed";
+            case EVENT_OPEN:
+                return "Invitations Sent";
+            case EVENT_FULL:
+                return "Event is full";
+        }
+        return null;
     }
 }

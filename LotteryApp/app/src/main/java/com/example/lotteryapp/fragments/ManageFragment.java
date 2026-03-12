@@ -27,13 +27,14 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.example.lotteryapp.activities.EnrolledListActivity;
 
+import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 public class ManageFragment extends Fragment {
-    private int waitlistLimit = -1; // sentinel for unlimited waitlist capacity
+    //private Integer waitlistLimit = -1; // sentinel for unlimited waitlist capacity
     private Long startDateMs;
     private Long endDateMs;
     private Long eventDateMs;
@@ -214,11 +215,23 @@ public class ManageFragment extends Fragment {
 
         view.findViewById(R.id.btn_clear_all).setOnClickListener(v -> {
             // Logic to clear fields
-            ((EditText)view.findViewById(R.id.et_event_name)).setText("");
-            ((EditText)view.findViewById(R.id.et_description)).setText("");
-            ((EditText)view.findViewById(R.id.et_location)).setText("");
+            etEventName.setText("");
+            etDescription.setText("");
+            etLocation.setText("");
+            etEventCapacity.setText("");
+            etWaitlistCapacity.setText("");
+            //Clear waitlist
+            switchWaitlist.setChecked(false);
+            layoutWaitlistCapacity.setVisibility(View.GONE);
             etDate.setText("");
             etRegDates.setText("");
+            etEventCapacity.setText("");
+
+            eventDateMs = null;
+            startDateMs = null;
+            endDateMs = null;
+            //NOTE: need to implement clearing image
+            //edit organizers
             ((EditText)view.findViewById(R.id.et_organizers)).setText("");
         });
 
@@ -227,7 +240,8 @@ public class ManageFragment extends Fragment {
             String description = etDescription.getText().toString().trim();
             String location = etLocation.getText().toString().trim();
             String capacityText = etEventCapacity.getText().toString().trim();
-            boolean waitlistEnabled = switchWaitlist.isChecked();
+            String waitlistText = etWaitlistCapacity.getText().toString().trim();
+            boolean waitlistHasLimit = switchWaitlist.isChecked();
 
             // input entry enforcement
 
@@ -242,11 +256,20 @@ public class ManageFragment extends Fragment {
                 return;
             }
 
+            int waitlistCapacity = Integer.parseInt(waitlistText);
+
+            if (waitlistCapacity <= 0) {
+                Toast.makeText(requireContext(), "Capacity must be greater than 0", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+
+
+
             if (startDateMs == null || endDateMs == null) {
                 Toast.makeText(requireContext(), "Registration period is required", Toast.LENGTH_SHORT).show();
                 return;
             }
-
 
             if (startDateMs >= endDateMs) {
                 Toast.makeText(requireContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
@@ -267,14 +290,17 @@ public class ManageFragment extends Fragment {
             // call database connector
             EventStorage eventStorage = ServiceLocator.getEventStorage();
 
-            Event event = new Event(organizerId, Event.EventStatus.OPEN, eventCapacity);
+            Event event = new Event(organizerId, eventCapacity, waitlistCapacity);
 
             event.setTitle(title);
             event.setEventDateMs(eventDateMs);
             event.setRegStartMs(startDateMs);
             event.setRegEndMs(endDateMs);
             event.setEventCapacity(eventCapacity);
-            event.setWaitlistCapacity(waitlistLimit);
+            event.setWaitlistCapacity(waitlistCapacity);
+            event.setInvitationCount(0);
+            String criteriaGuidelines = getString(R.string.criteriaGuidelines);
+            event.setCriteriaGuidelines(criteriaGuidelines);
 
             if (!description.isEmpty()) {
                 setOptionalString(event, "setDescription", description);
@@ -282,6 +308,17 @@ public class ManageFragment extends Fragment {
 
             if (!location.isEmpty()) {
                 setOptionalString(event, "setLocation", location);
+            }
+
+            long now = System.currentTimeMillis();
+            if (now < startDateMs) {
+                event.setStatus(Event.EventStatus.REG_UPCOMING);
+            } else if (now <= endDateMs) {
+                event.setStatus(Event.EventStatus.REG_OPEN);
+            } else if (now < eventDateMs) {
+                event.setStatus(Event.EventStatus.REG_CLOSED);
+            } else {
+                event.setStatus(Event.EventStatus.EVENT_CLOSED);
             }
 
             eventStorage.upsertEvent(event);
@@ -304,6 +341,7 @@ public class ManageFragment extends Fragment {
         EditText etLocation = view.findViewById(R.id.et_location);
         EditText etEventCapacity = view.findViewById(R.id.et_event_capacity);
         EditText etWaitlistCapacity = view.findViewById(R.id.et_waitlist_capacity);
+        EditText etOrganizers = view.findViewById(R.id.et_organizers);
 
         View layoutWaitlistCapacity = view.findViewById(R.id.layout_waitlist_capacity);
         MaterialSwitch switchWaitlist = view.findViewById(R.id.switch_waitlist);
@@ -315,10 +353,9 @@ public class ManageFragment extends Fragment {
         etEventName.setText(event.getTitle());
         etDescription.setText(event.getDescription());
         etLocation.setText(event.getLocation());
-
-
         etEventCapacity.setText(String.valueOf(event.getEventCapacity()));
-
+        etOrganizers.setText(String.valueOf(event.getOrganizerId()));
+        //NOTE: Implement image
 
         if (event.getWaitlistCapacity() > 0) {
             switchWaitlist.setChecked(true);
@@ -348,6 +385,8 @@ public class ManageFragment extends Fragment {
 
             switchWaitlist.setChecked(false);
             layoutWaitlistCapacity.setVisibility(View.GONE);
+
+            //NOTE: implement clearing image
 
             eventDateMs = null;
             startDateMs = null;
