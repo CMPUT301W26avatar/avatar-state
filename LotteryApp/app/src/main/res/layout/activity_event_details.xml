@@ -261,7 +261,10 @@
                 app:cornerRadius="12dp"
                 app:icon="@drawable/ic_leave" />
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> parent of 2615175 (declining invitation now reflects to db, and joining waitlist becomes disabled)
             <LinearLayout
                 android:id="@+id/invitations_layout"
                 android:layout_width="match_parent"
@@ -286,7 +289,6 @@
                     android:text="Decline Invitation"
                     app:cornerRadius="12dp"
                     app:icon="@drawable/ic_close"  />
-
             </LinearLayout>
         </FrameLayout>
 

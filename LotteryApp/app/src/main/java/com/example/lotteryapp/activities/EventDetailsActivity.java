@@ -24,7 +24,6 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
 import java.text.SimpleDateFormat;
-import java.util.List;
 import java.util.Locale;
 
 public class EventDetailsActivity extends AppCompatActivity {
@@ -46,7 +45,6 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialButton btnDecline;
     private MaterialButton btnDeleteImage;
     private MaterialButton btnRemoveEvent;
-    private MaterialButton btnBeginLotterySelection;
     private ImageView ivEventPoster;
 
     // Admin Tech Details Views
@@ -57,7 +55,6 @@ public class EventDetailsActivity extends AppCompatActivity {
     private String eventId;
     private String currentUserId;
     private boolean isAdminMode = false;
-    private Event currentEvent;
 
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
@@ -105,9 +102,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         populateFromIntentExtras();
 
         loadEvent();
+        setupAdminActions();
     }
 
-    // associate all xml components to their application counterparts
     private void bindViews() {
         tvName = findViewById(R.id.tv_event_name);
         tvLocation = findViewById(R.id.tv_location);
@@ -138,6 +135,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminPosterUrl = findViewById(R.id.tv_admin_poster_url);
     }
 
+<<<<<<< HEAD
     // render/load event to the screen
     private void loadEvent() {
         eventStorage.getEvent(
@@ -173,6 +171,8 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
 
+=======
+>>>>>>> parent of 2615175 (declining invitation now reflects to db, and joining waitlist becomes disabled)
     /**
      * Checks if user is admin
      *      shows button to access admin actions
@@ -206,6 +206,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
     }
 
+<<<<<<< HEAD
     /**
      * Checks if user is entrant
 
@@ -274,6 +275,8 @@ public class EventDetailsActivity extends AppCompatActivity {
             showJoinDisabled("Registration Closed");
         }
     }
+=======
+>>>>>>> parent of 2615175 (declining invitation now reflects to db, and joining waitlist becomes disabled)
 
     private void populateFromIntentExtras() {
         String name = getIntent().getStringExtra("event_name");
@@ -305,6 +308,29 @@ public class EventDetailsActivity extends AppCompatActivity {
             String criteriaGuidelines = getString(R.string.criteriaGuidelines);
             tvCriteriaGuidelines.setText("Criteria/Guidelines: " + criteriaGuidelines);
         }
+    }
+
+    private void loadEvent() {
+        eventStorage.getEvent(
+                eventId,
+                event -> {
+                    android.util.Log.d("EventDetailsActivity",
+                            "Event loaded: id=" + event.getEventId()
+                                    + ", title=" + event.getTitle()
+                                    + ", eventDateMs=" + event.getEventDateMs()
+                                    + ", regStartMs=" + event.getRegStartMs()
+                                    + ", regEndMs=" + event.getRegEndMs()
+                                    + ", capacity=" + event.getEventCapacity());
+
+                    populateInfo(event);
+                    configureActions(event);
+                },
+                e -> {
+                    android.util.Log.e("EventDetailsActivity",
+                            "Failed to load event: " + e.getMessage(), e);
+                    e.printStackTrace();
+                }
+        );
     }
 
     private void populateInfo(Event event) {
@@ -373,6 +399,43 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminPosterUrl.setText("posterUrl: " + (event.getPosterUrl() != null ? "\"" + event.getPosterUrl() + "\"" : "null"));
     }
 
+    private void renderActions(Event event, Entrant.EntrantStatus status) {
+        btnJoin.setVisibility(View.GONE);
+        btnLeave.setVisibility(View.GONE);
+        invitations_layout.setVisibility(View.GONE);
+
+        if (status == Entrant.EntrantStatus.WAITLISTED) {
+            btnLeave.setVisibility(View.VISIBLE);
+            btnLeave.setEnabled(true);
+            btnLeave.setOnClickListener(v -> leaveWaitlist());
+            return;
+        }
+
+        if (status == Entrant.EntrantStatus.INVITED) {
+            invitations_layout.setVisibility(View.VISIBLE);
+            btnAccept.setOnClickListener(v -> acceptInvitation());
+            btnDecline.setOnClickListener(v -> declineInvitation());
+            return;
+        }
+
+        if (status == ENROLLED) {
+            btnJoin.setVisibility(View.VISIBLE);
+            btnJoin.setEnabled(true);
+            btnJoin.setText("Unenroll");
+            btnJoin.setOnClickListener(v -> unenroll());
+            return;
+        }
+
+        if (event.isRegistrationOpen()) {
+            btnJoin.setVisibility(View.VISIBLE);
+            btnJoin.setEnabled(true);
+            btnJoin.setText("Join Waitlist");
+            btnJoin.setOnClickListener(v -> joinWaitlist());
+        } else {
+            showJoinDisabled("Registration Closed");
+        }
+    }
+
     private void showJoinDisabled(String text) {
         btnJoin.setVisibility(View.VISIBLE);
         btnJoin.setEnabled(false);
@@ -381,7 +444,106 @@ public class EventDetailsActivity extends AppCompatActivity {
         invitations_layout.setVisibility(View.GONE);
     }
 
+    private void configureActions(Event event) {
+        if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
+            showJoinDisabled("Registration Unavailable");
+            return;
+        }
 
+        eventPoolStorage.getEntrantStatus(
+                event.getEventId(),
+                currentUserId,
+                status -> {
+                    currentStatus = status;
+                    renderActions(event, status);
+                },
+                e -> {
+                    currentStatus = null;
+                    renderActions(event, null);
+                }
+        );
+    }
+    /*
+    //Check whether user is waitlisted
+    private void refreshJoiningState(String eventId) {
+        eventPoolStorage.getEntrantStatus(
+                eventId,
+                currentUserId,
+                status -> {
+                    //is waitlisted
+                    isWaitlisted = Entrant.EntrantStatus.WAITLISTED.name().equals(status);
+                    waitlistButton();
+                },
+                e -> {
+                    //is not waitlisted
+                    isWaitlisted = false;
+                    waitlistButton();
+                }
+        );
+    }
+
+    // poll for event status
+    private void checkEnrollment(String eventId) {
+        eventPoolStorage.getEntrantStatus(
+                eventId,
+                currentUserId,
+                status -> {
+                    //is enrolled already, only display unenroll button
+                    isEnrolled = ENROLLED.name().equals(status);
+                    if (isEnrolled) {
+                        UnenrollButton();
+                    }
+                },
+                e -> {
+                    //is not enrolled yet, display accept or decline messages
+                    isEnrolled = false;
+                }
+        );
+    }
+
+    //Check if user received invitation
+    private void checkInvitation(String eventId) {
+        eventPoolStorage.getEntrantStatus(
+                eventId,
+                currentUserId,
+                status -> {
+                    if (isInvited) {
+                        enrollButton();
+                    }
+                },
+                e -> {
+                    isInvited = false;
+                }
+        );
+    }*/
+    /*
+    private void waitlistButton() {
+
+        if (!currentStatus.equals(WAITLISTED)) {
+            //set button visibilities
+            btnJoin.setVisibility(View.VISIBLE);
+            btnLeave.setVisibility(View.GONE);
+            //enable/disable buttons
+            btnJoin.setEnabled(true);
+            btnLeave.setEnabled(false);
+            btnJoin.setText("Join Waitlist");
+            btnJoin.setOnClickListener(v -> {
+                joinWaitlist();
+            });
+        }
+        else {
+            //set button visibilities
+            btnJoin.setVisibility(View.GONE);
+            btnLeave.setVisibility(View.VISIBLE);
+            //enable/disable buttons
+            btnJoin.setEnabled(false);
+            btnLeave.setEnabled(true);
+            btnJoin.setText("Leave Waitlist");
+            btnLeave.setOnClickListener(v -> {
+                leaveWaitlist();
+            });
+        }
+    }*/
 
     private void joinWaitlist() {
         //Add user to waitlist collection
@@ -424,6 +586,36 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    private void acceptInvitationButton() {
+        //Set button visibility
+        btnLeave.setVisibility(View.GONE);
+        btnJoin.setVisibility(View.GONE);
+        btnRemoveEvent.setVisibility(View.GONE);
+        invitations_layout.setVisibility(View.VISIBLE);
+
+        btnAccept.setOnClickListener(v -> {
+            acceptInvitation();
+        });
+
+        btnDecline.setOnClickListener(v -> {
+            declineInvitation();
+        });
+    }
+
+    /*
+    private void unenrollButton() {
+        //Set button visibility
+        btnLeave.setVisibility(View.GONE);
+        btnLeave.setEnabled(false);
+        btnJoin.setVisibility(View.VISIBLE);
+        btnJoin.setEnabled(true);
+        btnJoin.setText("Unenroll");
+        invitations_layout.setVisibility(View.GONE);
+        btnJoin.setOnClickListener(v -> {
+            unenroll();
+        });
+    }*/
+
     private void acceptInvitation() {
         Entrant entrant = new Entrant(currentUserId, eventId, ENROLLED);
 
@@ -446,24 +638,20 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
     private void declineInvitation() {
-        btnDecline.setEnabled(false);
+        btnJoin.setEnabled(false);
 
-        eventPoolStorage.removeFromInvited(
+        eventPoolStorage.removeFromWaitlist(
                 eventId,
                 currentUserId,
                 unused -> {
-                    Toast.makeText(this, "Invitation declined", Toast.LENGTH_SHORT).show();
-
+                    Toast.makeText(this, "Unenrolled!", Toast.LENGTH_SHORT).show();
                     currentStatus = DECLINED;
-                    invitations_layout.setVisibility(View.GONE);
-                    renderEntrantActions(currentEvent, DECLINED);
-
-                    btnDecline.setEnabled(true);
+                    loadEvent();
                 },
                 e -> {
-                    Toast.makeText(this, "Failed to decline invitation", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Failed to unenroll", Toast.LENGTH_SHORT).show();
                     Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
-                    btnDecline.setEnabled(true);
+                    btnJoin.setEnabled(true);
                 }
         );
     }
@@ -487,4 +675,8 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
 
     }
+<<<<<<< HEAD
+=======
+
+>>>>>>> parent of 2615175 (declining invitation now reflects to db, and joining waitlist becomes disabled)
 }

@@ -21,7 +21,10 @@ public final class ServiceLocator {
     private static @Nullable FirebaseService overrideFirebaseService = null;
 
     private static @Nullable AuthService overrideAuthService = null;
+<<<<<<< HEAD
     private static @Nullable UserNameService overrideUserNameService = null;
+=======
+>>>>>>> parent of 2615175 (declining invitation now reflects to db, and joining waitlist becomes disabled)
     private static @Nullable EventStorage overrideEventStorage = null;
     private static @Nullable UserStorage overrideUserStorage = null;
     private static @Nullable EventPoolStorage overrideEventPoolStorage = null;
