@@ -305,6 +305,56 @@ public class EventPoolStorage {
                 }).addOnSuccessListener(onSuccess)
                 .addOnFailureListener(onFailure);
     }
+
+    public void removeFromInvited(
+            String eventId,
+            String entrantId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        DocumentReference eventRef = db.collection("events").document(eventId);
+        DocumentReference invitedRef = invitedDoc(eventId, entrantId);
+        DocumentReference declinedRef = declinedDoc(eventId, entrantId);
+
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+
+                    DocumentSnapshot eventSnap = transaction.get(eventRef);
+                    DocumentSnapshot invitedSnap = transaction.get(invitedRef);
+
+                    if (!eventSnap.exists()) {
+                        throw new IllegalStateException("Event does not exist");
+                    }
+
+                    if (!invitedSnap.exists()) {
+                        throw new IllegalStateException("Entrant is not invited");
+                    }
+
+                    int invitationCount = eventSnap.getLong("invitationCount") != null
+                            ? eventSnap.getLong("invitationCount").intValue() : 0;
+
+                    Map<String, Object> data = mapEntrantData(
+                            eventId,
+                            entrantId,
+                            DECLINED.name()
+                    );
+
+                    // preserve original timestamp
+                    data.put("joinedAt", invitedSnap.get("joinedAt"));
+
+                    transaction.delete(invitedRef);
+                    transaction.set(declinedRef, data);
+
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("invitationCount", Math.max(0, invitationCount - 1));
+
+                    transaction.update(eventRef, updates);
+
+                    return null;
+
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
     // delete the entrant from the enrolled subcollection
     public void unenroll(
             String eventId,
