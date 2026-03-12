@@ -21,6 +21,7 @@ public final class ServiceLocator {
     private static @Nullable FirebaseService overrideFirebaseService = null;
 
     private static @Nullable AuthService overrideAuthService = null;
+    private static @Nullable UserNameService overrideUserNameService = null;
     private static @Nullable EventStorage overrideEventStorage = null;
     private static @Nullable UserStorage overrideUserStorage = null;
     private static @Nullable EventPoolStorage overrideEventPoolStorage = null;

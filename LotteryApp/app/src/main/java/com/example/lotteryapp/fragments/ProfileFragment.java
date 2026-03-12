@@ -106,9 +106,15 @@ public class ProfileFragment extends Fragment {
         View btnLogout = view.findViewById(R.id.btn_logout);
         if (btnLogout != null) {
             btnLogout.setOnClickListener(v -> {
-                ServiceLocator.getAuthService().userSignOut();
-                Intent intent = new Intent(requireContext(), LoginActivity.class);
-                startActivity(intent);
+                boolean isSignedOut = ServiceLocator.getAuthService().userSignOut();
+                if (isSignedOut) {
+                    Toast.makeText(getContext(), "Logging Out...", Toast.LENGTH_SHORT).show();
+                    Intent intent = new Intent(requireContext(), LoginActivity.class);
+                    startActivity(intent);
+                } else {
+                    Toast.makeText(getContext(), "Failed to log out. Please try again.", Toast.LENGTH_SHORT).show();
+                }
+
                 if (getActivity() != null) {
                     getActivity().finish();
                 }
