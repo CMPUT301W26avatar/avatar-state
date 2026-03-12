@@ -5,6 +5,7 @@ import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -47,6 +48,29 @@ public class AuthService {
          });
     }
 
+    /**
+     * Signs in to user's previous session if a session exists.
+     * </br>
+     * This will only sign in if the previous session was w/ a credential sign in
+     * and NOT w/ an anonymous sign in.
+     * @return false if no previous session was found.
+     */
+    public boolean signInPrevSession() {
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) {
+            return false; // Do nothing, there is no prev. session
+        }
+
+        if (user.isAnonymous()) {
+            return false; // Do nothing for anon user.
+        }
+
+        // Sign in user w/ their previous session (Cred. sign in)
+        final String UUID = auth.getCurrentUser().getUid();
+        userStore.setNewUser(UUID);
+        return true;
+    }
+
     public void userSignInCred(String email, String password, Context context) {
         if (!email.contains("@")) {
             Toast.makeText(context, "Please use a valid email", Toast.LENGTH_SHORT).show();
@@ -75,21 +99,17 @@ public class AuthService {
         });
     }
 
-    public boolean userSignOut() {
+    public void userSignOut() {
         FirebaseUser currUser = auth.getCurrentUser();
         if (currUser == null) {
-            // TODO: Error handling here
-            Log.e("LogOut", "getCurrentUser() is null, failed to log out");
-            return false;
+            return; // Do nothing, the user was never signed in
         }
 
         if (currUser.isAnonymous()) {
-            // TODO: Maybe custom anonymous sign out here?
             Log.e("LogOut", "Signed Out Anonymously");
         } else {
+            Log.e("LogOut", "Signed Out Creds");
             auth.signOut();
-        };
-
-        return true;
+        }
     };
 }

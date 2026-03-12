@@ -60,6 +60,9 @@ public class LoginActivity extends AppCompatActivity {
 
         AuthService auth = ServiceLocator.getAuthService();
         setupListeners(auth);
+        if (auth.signInPrevSession()) {
+            gotoMain();
+        }
 
     }
 }
