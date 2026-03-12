@@ -6,13 +6,28 @@ public class User {
     public String phoneNumber;
     public String location;
     private boolean isAdmin;
+
+    private boolean isAnon;
+
+    public boolean isAnon() {
+        return isAnon;
+    }
+
+    public void setAnon(boolean anon) {
+        isAnon = anon;
+    }
+
     private String profilePicUrl;
 
     public User(String deviceID) {
         if (deviceID == null || deviceID.trim().isEmpty()) {
             throw new IllegalArgumentException("userId required");
         }
+
         this.uuid = deviceID;
+        if (isAnon) {
+            // this.name = createAnonymousName();
+        }
     }
 
     public String getUUID() {
