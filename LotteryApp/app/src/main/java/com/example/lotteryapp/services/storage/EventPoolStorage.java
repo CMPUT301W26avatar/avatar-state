@@ -289,4 +289,50 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /**
+     * Perform the lottery draw to select winners.
+     * Picks up to 'capacity' random entrants from the ENROLLED pool and marks them as SELECTED.
+     * Marks the rest as NOT_SELECTED.
+     */
+    public void drawWinners(String eventId, int capacity, OnSuccessListener<Void> onSuccess, OnFailureListener onFailure) {
+        db.collection("events").document(eventId).collection("entries")
+                .whereEqualTo("status", Entrant.EntrantStatus.ENROLLED.name())
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<QueryDocumentSnapshot> enrolled = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        enrolled.add(doc);
+                    }
+
+                    if (enrolled.isEmpty()) {
+                        onSuccess.onSuccess(null);
+                        return;
+                    }
+
+                    // Shuffle for randomness
+                    java.util.Collections.shuffle(enrolled);
+
+                    int winnersCount = Math.min(capacity, enrolled.size());
+
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+
+                    for (int i = 0; i < enrolled.size(); i++) {
+                        QueryDocumentSnapshot doc = enrolled.get(i);
+                        String newStatus = (i < winnersCount)
+                                ? Entrant.EntrantStatus.SELECTED.name()
+                                : Entrant.EntrantStatus.NOT_SELECTED.name();
+
+                        batch.update(doc.getReference(), "status", newStatus);
+                        batch.update(doc.getReference(), "updatedAt", FieldValue.serverTimestamp());
+                    }
+
+                    batch.commit().addOnSuccessListener(onSuccess).addOnFailureListener(onFailure);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+
+
 }
+
+
