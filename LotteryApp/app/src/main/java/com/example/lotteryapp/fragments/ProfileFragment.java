@@ -19,9 +19,24 @@ import com.example.lotteryapp.activities.NotificationSettingsActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.AdminStorage;
+/**
+ * ProfileFragment displays user information and a settings tab menu.
+ *      only settings tabs for halfway user stories have been set up for now
+ *          Details -> UserDetailsActivity
+ *          Notifications -> NotificationSettingsActivity
+ *          and if admin,
+ *              Admin Browse -> AdminActivity
+ *      logout button sends the user to LoginActivity
+ *      apply to be an administrator button sends a promotion request to current admin
+ */
 
 public class ProfileFragment extends Fragment {
 
+    /**
+     * Inflates the fragment layout and set up UI elements
+     *      settings tabs
+     *      buttons
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -39,6 +54,9 @@ public class ProfileFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Setup on click listeners for settings tabs
+     */
     private void setupListeners(View view) {
 
         // if is Admin, opens the Admin Browse tab
@@ -116,13 +134,7 @@ public class ProfileFragment extends Fragment {
         }
 
         /*
-        If the user is not an admin, the "request to be an admin" button is shown as visible.
-            - If there is no current admin, launches the AdminActivity with the current user as the new admin
-            - If there is a current admin, adds the user to a collection of requests
-                - The current admin can then check the requests collection in a list, and click on one of the requests to promote this person to be a new admin.
-         TO CHANGE:
-            - Only one current admin -> multiple concurrent admins
-            - Promoting an admin forces current admin to step down -> promoting an admin just adds them as another concurrent admin
+                            admin logic
          */
         
         // pass current user uuid into AdminStorage.isAdmin()
@@ -192,6 +204,9 @@ public class ProfileFragment extends Fragment {
         });
     }
 
+    /**
+     * reload the Fragment in case user is promoted to admin, or changes profile picture
+     */
     private void refreshProfileFragment() {
         requireActivity()
                 .getSupportFragmentManager()
@@ -200,7 +215,9 @@ public class ProfileFragment extends Fragment {
                 .commit();
     }
 
-    // replaced with AdminStorage.isAdmin()
+    /**
+     * Asynchronous call to firebase via AdminStorage for whether or not the user is an admin
+     */
     private void checkAdminStatus(View view) {
         String uid = ServiceLocator.uid();
         AdminStorage astore = ServiceLocator.getAdminStorage();
@@ -210,6 +227,10 @@ public class ProfileFragment extends Fragment {
             }}, e -> e.printStackTrace());
     }
 
+    /**
+     * Set admin UI elements to visible
+     *      set up settings tab for Admin Browse
+     */
     private void showAdminSection(View view) {
         View adminLabel = view.findViewById(R.id.tv_admin_label);
         View adminCard = view.findViewById(R.id.card_admin);
@@ -231,6 +252,9 @@ public class ProfileFragment extends Fragment {
         }
     }
 
+    /**
+     * helper for initializing settings tab UI elements
+     */
     private void setupSettingItem(View view, String title) {
         if (view != null) {
             TextView tv = view.findViewById(R.id.tv_settings_name);
