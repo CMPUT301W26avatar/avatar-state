@@ -13,8 +13,17 @@ import com.example.lotteryapp.R;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.google.android.material.button.MaterialButton;
 
+/**
+ * Manages login functionality
+ * sets up three buttons for logging in, logging in as a guest or registeration.
+ *
+ */
 public class LoginActivity extends AppCompatActivity {
 
+    /**
+     * Set up login button and obtains user input for login authentication
+     * @param auth
+     */
     private void credLoginListener(AuthService auth) {
         MaterialButton btnLogin = findViewById(R.id.btn_login);
         btnLogin.setOnClickListener(v -> {
@@ -29,6 +38,10 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Set up guest login button
+     * @param auth
+     */
     private void anonLoginListener(AuthService auth) {
         MaterialButton btnGuestLogin = findViewById(R.id.btn_guest_login);
         btnGuestLogin.setOnClickListener(v -> {
@@ -37,6 +50,10 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Manages registation button, starts new sign up activity
+     * @param auth
+     */
     private void setupListeners(AuthService auth) {
         TextView tvRegister = findViewById(R.id.tv_register);
 
@@ -48,11 +65,14 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Once successfully authenticated, this function starts main activity
+     */
     private void gotoMain() {
         startActivity(new Intent(LoginActivity.this, MainActivity.class));
         finish();
     }
-
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
