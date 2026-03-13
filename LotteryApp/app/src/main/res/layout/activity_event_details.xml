@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?attr/colorSurface"
@@ -74,8 +73,8 @@
                         android:layout_width="8dp"
                         android:layout_height="8dp"
                         android:layout_margin="4dp"
-                        android:background="@drawable/bg_tag"
-                        android:alpha="0.3" />
+                        android:alpha="0.3"
+                        android:background="@drawable/bg_tag" />
 
                     <View
                         android:layout_width="8dp"
@@ -87,22 +86,22 @@
                         android:layout_width="8dp"
                         android:layout_height="8dp"
                         android:layout_margin="4dp"
-                        android:background="@drawable/bg_tag"
-                        android:alpha="0.3" />
+                        android:alpha="0.3"
+                        android:background="@drawable/bg_tag" />
 
                     <View
                         android:layout_width="8dp"
                         android:layout_height="8dp"
                         android:layout_margin="4dp"
-                        android:background="@drawable/bg_tag"
-                        android:alpha="0.3" />
+                        android:alpha="0.3"
+                        android:background="@drawable/bg_tag" />
 
                     <View
                         android:layout_width="8dp"
                         android:layout_height="8dp"
                         android:layout_margin="4dp"
-                        android:background="@drawable/bg_tag"
-                        android:alpha="0.3" />
+                        android:alpha="0.3"
+                        android:background="@drawable/bg_tag" />
                 </LinearLayout>
 
             </androidx.constraintlayout.widget.ConstraintLayout>
@@ -175,66 +174,105 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="48dp"
                     android:text="Criteria/Guidelines"
-                    android:textStyle="bold"
-                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textStyle="bold" />
 
                 <!-- List of Entrants/Waitlist/Declined/ETC -->
                 <LinearLayout
                     android:id="@+id/list_of_x_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="48dp"
                     android:orientation="vertical"
                     android:visibility="gone"> <!-- Default GONE, VISIBLE when user is an ORGANIZER -->
-                    <LinearLayout
-                        android:id="@+id/list_of_entrants"
+                    <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
+                        android:layout_height="wrap_content">
 
                         <com.google.android.material.textview.MaterialTextView
                             android:id="@+id/tv_list_of_entrants"
-                            android:layout_width="0dp"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginEnd="16dp"
                             android:text="Entrants"
                             android:textAppearance="?attr/textAppearanceHeadlineSmall"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            app:layout_constraintBottom_toTopOf="@+id/list_of_entrants"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
 
-                    </LinearLayout>
+                        <LinearLayout
+                            android:id="@+id/list_of_entrants"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/tv_list_of_entrants">
 
-                    <LinearLayout
-                        android:id="@+id/list_of_waitlisted"
+
+                        </LinearLayout>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
+                        android:layout_height="wrap_content">
 
                         <com.google.android.material.textview.MaterialTextView
                             android:id="@+id/tv_list_of_waitlisted"
-                            android:layout_width="0dp"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginEnd="16dp"
                             android:text="Waitlisted"
                             android:textAppearance="?attr/textAppearanceHeadlineSmall"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            app:layout_constraintBottom_toTopOf="@+id/list_of_waitlisted"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
 
-                    </LinearLayout>
+                        <LinearLayout
+                            android:id="@+id/list_of_waitlisted"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/tv_list_of_waitlisted">
 
-                    <LinearLayout
-                        android:id="@+id/list_of_cancelled"
+                        </LinearLayout>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical">
+                        android:layout_height="wrap_content">
 
                         <com.google.android.material.textview.MaterialTextView
                             android:id="@+id/tv_list_of_cancelled"
-                            android:layout_width="0dp"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginEnd="16dp"
                             android:text="Cancelled Entrants"
                             android:textAppearance="?attr/textAppearanceHeadlineSmall"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"
+                            app:layout_constraintBottom_toTopOf="@+id/list_of_cancelled"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
 
-                    </LinearLayout>
+                        <LinearLayout
+                            android:id="@+id/list_of_cancelled"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/tv_list_of_cancelled">
+
+                        </LinearLayout>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
                 </LinearLayout>
 
 
