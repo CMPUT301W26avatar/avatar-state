@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">LotteryApp</string>
+
+    <string name="title_invited_entrants">Invited Entrants</string>
+    <string name="msg_no_entrants_found">No entrants found</string>
+    <string name="hint_entrant_name">Entrant Name</string>
+    <string name="hint_entrant_email">email@example.com</string>
     <string name="criteriaGuidelines">Once the registration period ends, a number of waitlisted users are
         randomly selected by the app and will be sent invitations for enrollment. You may accept or decline your invitation.
         Note that if you choose to decline your invitation, you will not have further opportunity to enroll in this event.

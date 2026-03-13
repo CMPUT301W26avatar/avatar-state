@@ -21,7 +21,7 @@
             android:id="@+id/tv_entrant_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Entrant Name"
+            android:text="@string/hint_entrant_name"
             android:textAppearance="?attr/textAppearanceTitleMedium"
             android:textStyle="bold" />
 
@@ -30,7 +30,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="email@example.com"
+            android:text="@string/hint_entrant_email"
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?attr/colorOnSurfaceVariant" />
 

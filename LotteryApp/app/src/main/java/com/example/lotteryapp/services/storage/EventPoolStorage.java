@@ -545,6 +545,63 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /**
+     * Perform the lottery draw to select winners.
+     * Picks up to capacity random entrants from WAITLISTED pool and mark them as INVITED.
+     * the rest = NOT_INVITED.
+     */
+    public void drawWinners(String eventId, int capacity, OnSuccessListener<Integer> onSuccess, OnFailureListener onFailure) {
+        db.collection("events").document(eventId).collection("waitlisted")
+                .whereEqualTo("status", Entrant.EntrantStatus.WAITLISTED.name())
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<QueryDocumentSnapshot> waitlisted = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        waitlisted.add(doc);
+                    }
+
+                    if (waitlisted.isEmpty()) {
+                        onSuccess.onSuccess(0);
+                        return;
+                    }
+
+                    // Shuffle for randomness
+                    java.util.Collections.shuffle(waitlisted);
+
+                    int winnersCount = Math.min(capacity, waitlisted.size());
+
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+
+                    for (int i = 0; i < waitlisted.size(); i++) {
+                        QueryDocumentSnapshot doc = waitlisted.get(i);
+                        String entrantId = doc.getString("entrantId");
+
+                        if (i < winnersCount) {
+                            //Move winner to 'invited' collection
+                            DocumentReference invitedRef = invitedDoc(eventId, entrantId);
+                            Map<String, Object> data = mapEntrantData(eventId, entrantId, Entrant.EntrantStatus.INVITED.name());
+                            data.put("joinedAt", doc.get("joinedAt")); // Preserve original join time
+                            batch.set(invitedRef, data);
+                            batch.delete(doc.getReference());
+                        } else {
+                            // ppl not selected are placed in NOT_INVITED in waitlisted collection
+                            batch.update(doc.getReference(), "status", Entrant.EntrantStatus.NOT_INVITED.name());
+                            // Add/update updatedAt timestamp if it doesn't exist
+                            batch.update(doc.getReference(), "updatedAt", FieldValue.serverTimestamp());
+                        }
+                    }
+
+                    //Update event invitation count
+                    DocumentReference eventRef = db.collection("events").document(eventId);
+                    batch.update(eventRef, "invitationCount", FieldValue.increment(winnersCount));
+
+                    batch.commit().addOnSuccessListener(unused -> onSuccess.onSuccess(winnersCount)).addOnFailureListener(onFailure);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+
+
     // DATABASE DELETE ENTRY (status unknown)
     // helper: holds different logic for deleting an entrant from each subcollection
     private void deleteEntryByStatus(
@@ -684,3 +741,5 @@ public class EventPoolStorage {
         }).addOnFailureListener(onFailure);
     }
 }
+
+
