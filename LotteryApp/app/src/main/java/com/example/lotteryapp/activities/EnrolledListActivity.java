@@ -27,7 +27,9 @@ import java.util.List;
 /**
  * US 02.06.03
  * Displays final list of entrants enrolled in specified event.
- * POV: Organizer
+ * Accessible by the organzier through Manage Events screen.
+ * Gets enrolled enrants from EventPoolStorage and displays them.
+ * Shows empty message of none enrolled.
  */
 public class EnrolledListActivity extends AppCompatActivity {
     public static final String EXTRA_EVENT_ID = "eventId";
