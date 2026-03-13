@@ -101,6 +101,7 @@ public final class ServiceLocator {
         overrideEventPoolStorage = s;
     }
 
+
     public static void setUserIdProviderForTests(@Nullable UserIdProvider p) {
         overrideUserIdProvider = p;
     }

@@ -19,9 +19,19 @@ import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.DocumentSnapshot;
 
+/**
+ * Displays and edits a user's profile details.
+ * - This activity supports two modes:
+ *      User mode: the signed-in user can view and update their own profile.</li>
+ *      Admin mode: an administrator can view another user's profile and perform
+ */
+
 public class UserDetailsActivity extends AppCompatActivity {
 
+    /** Intent extra key for the target user id. */
     public static final String EXTRA_USER_ID = "userId";
+
+    /** Intent extra key indicating whether the activity is opened in admin mode. */
     public static final String EXTRA_ADMIN_MODE = "isAdminMode";
 
     private EditText etName;
@@ -40,6 +50,10 @@ public class UserDetailsActivity extends AppCompatActivity {
     private String uid;
     private boolean isAdminMode = false;
 
+    /**
+     * Initializes the activity, resolves the active user id, binds views,
+     * loads the profile, and wires up button actions.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -70,10 +84,13 @@ public class UserDetailsActivity extends AppCompatActivity {
 
         btnSave.setOnClickListener(v -> saveProfile());
         btnUserDel.setOnClickListener(v -> userRemoveProfile());
-        
+
         setupAdminActions();
     }
 
+    /**
+     * Associate xml components with their application counterparts
+     */
     private void bindViews() {
         etName = findViewById(R.id.et_name);
         etPhone = findViewById(R.id.et_phone);
@@ -93,15 +110,13 @@ public class UserDetailsActivity extends AppCompatActivity {
      *      shows button to access admin actions
      *      delete profile button
      *      delete image button
-     *
-     *      NOTE: no tested idk if this even works
      */
     private void setupAdminActions() {
         if (isAdminMode) {
             btnRemoveProfile.setVisibility(View.VISIBLE);
             tvDeviceId.setVisibility(View.VISIBLE);
             tvDeviceIdLabel.setVisibility(View.VISIBLE);
-            
+
             btnRemoveProfile.setOnClickListener(v -> {
                 ustore.deleteUser(uid, unused -> {
                     Toast.makeText(this, "Profile Removed", Toast.LENGTH_SHORT).show();
@@ -119,6 +134,11 @@ public class UserDetailsActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Loads the user's profile data from storage and populates the UI fields.
+     *      In admin mode, this also enables the delete-picture button when the
+     *      user has an existing profile image
+     */
     private void loadProfile() {
         ustore.getUserProfile(
                 uid,
@@ -148,6 +168,12 @@ public class UserDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Populates profile fields from a Firestore document snapshot.
+     *      This helper is only used when raw document data is available instead of
+     *      a mapped user model object.
+     */
+
     private void populateFields(@NonNull DocumentSnapshot doc) {
         if (!doc.exists()) {
             return;
@@ -164,6 +190,10 @@ public class UserDetailsActivity extends AppCompatActivity {
         etLocation.setText(location != null ? location : "");
     }
 
+    /**
+     * Validates the input fields and saves the updated profile to storage.
+     *      If the save succeeds in normal user mode, the activity closes.
+     */
     private void saveProfile() {
         String name = etName.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
@@ -175,7 +205,7 @@ public class UserDetailsActivity extends AppCompatActivity {
             return;
         }
 
-        ustore.updateUserProfile(
+        ustore.upsertUserProfile(
                 uid,
                 name,
                 email,
@@ -198,6 +228,11 @@ public class UserDetailsActivity extends AppCompatActivity {
         );
     }
 
+/**
+ * Remove profile metadata for a user.
+ *      Keeps the user document, user id is saved
+ *      User is sent back to ProfileFragment upon successful delete
+ */
     private void userRemoveProfile() {
 
         String uuid = ServiceLocator.uid(); // get current user id

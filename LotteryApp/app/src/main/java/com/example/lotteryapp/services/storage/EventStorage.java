@@ -20,10 +20,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/*
-    Connection between activities and database (FirebaseService).
-        Call via ServiceLocator
-        Handles read/writes into the Firebase database for Event items.
+/** Database storage and retrieval layer with respect to Admins
+ * Admins have they own firebase collection "admin" with subcollections "current" and "requested"
+ * Call via ServiceLocator
  */
 
 public class EventStorage {
@@ -34,12 +33,19 @@ public class EventStorage {
         this.db = db;
     }
 
+    /** firebase retrieval
+     * returns an Event document by the parameter eventId
+     * Synchronous
+     */
     private DocumentReference eventDoc(String eventId) {
         return db.collection("events").document(eventId);
     }
 
-    // create/update Events
-    //      Transaction ensures createdAt is only set once
+    /** firebase storage
+     * Takes in an Event as a parameter and creates/upserts it into the database
+     * Transaction ensures the createdAt value is only set once.
+     * Synchronous
+     */
     public void upsertEvent(Event event) {
         final DocumentReference ref = eventDoc(event.getEventId());
         db.runTransaction(new Transaction.Function<Void>() {
@@ -59,7 +65,11 @@ public class EventStorage {
             }
         });
     }
-    // upsertsEvent: helper - maps document fields into a dict.
+
+    /** firebase storage
+     * Maps the attributes of an event into a Map to pass into the database (ref.update)
+     * Synchronous
+     */
     private Map<String, Object> eventToMap(Event event) {
         Map<String, Object> data = new HashMap<>();
         data.put("eventId", event.getEventId());
@@ -84,7 +94,11 @@ public class EventStorage {
     }
 
 
-    // read event from Firebase
+    /** firebase retrieval
+     * Returns a single Event from the database as a Document inside of OnSuccess
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns Document pertaining to Event, asynchronously
+     */
     public void getEvent(
             String eventId,
             OnSuccessListener<Event> onSuccess,
@@ -102,7 +116,11 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // getEvent: helper - converts a Firebase document into an Event object
+    /** firebase retrieval helper
+     * Returns a single Event from the parameter doc (database DocumentSnapshot)
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns Event outlined in the DocumentSnapshot, asynchronously
+     */
     private Event documentToEvent(DocumentSnapshot doc) {
         String organizerId = doc.getString("organizerId");
 
@@ -166,11 +184,20 @@ public class EventStorage {
         return event;
     }
 
-    // delete event from Firebase
-
+    /** firebase modify
+     * Deletes a single document in firebase keyed by the parameter eventId
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, asynchronously or synchronously
+     */
     public void deleteEvent(String eventId) {
         eventDoc(eventId).delete();
     }
+
+    /** firebase boolean retrieval
+     * Returns true or false for if the current user is the organizer for any event
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns bool, asynchronously
+     */
     public void isUserEventOrganizer(String uuid,
                                      OnSuccessListener<Boolean> onSuccess,
                                      OnFailureListener onFailure
@@ -184,7 +211,11 @@ public class EventStorage {
     }
 
 
-    // return all events from Firebase hosted by organizerId
+    /** firebase retrieval
+     * Returns all events by the organizerId given to the method as a parameter
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns list of Events, asynchronously
+     */
     public void getEventsByOrganizer(String organizerId, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
         db.collection("events").whereEqualTo("organizerId", organizerId).get()
                 .addOnSuccessListener(querySnapshot -> {List<Event> events = new ArrayList<>();
@@ -196,6 +227,11 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /** firebase retrieval
+     * Returns all events in the database
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns list of Events, asynchronously
+     */
     public void getAllEvents(OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
         db.collection("events").get()
                 .addOnSuccessListener(querySnapshot -> {
@@ -207,6 +243,13 @@ public class EventStorage {
                 })
                 .addOnFailureListener(onFailure);
     }
+
+    /** firebase modify
+     * Deletes all events in the database pertaining to the organizerId given as a parameter
+     * for use inside of cascadeDeleteUserProfile
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, asynchronously or synchronously
+     */
     public void delAllOrganizerEvents(String organizerId,
                                       OnSuccessListener<Void> onSuccess,
                                       OnFailureListener onFailure
@@ -229,6 +272,12 @@ public class EventStorage {
                 .addOnFailureListener(onFailure); // query failure
     }
 
+    /** firebase retrieval
+     * Returns all REG_OPEN events in the database
+     *      REG_OPEN: registration window open
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns list of Events, asynchronously
+     */
     public void listEventsRegOpen(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
         // define query
         Query query = db.collection("events")
@@ -249,6 +298,12 @@ public class EventStorage {
         }).addOnFailureListener(onFailure);
     }
 
+    /** firebase retrieval
+     * Returns all REG_CLOSED events in the database
+     *      REG_CLOSED: registration end date passed
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns list of Events, asynchronously
+     */
     public void listEventsRegClosed(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
         Query query = db.collection("events")
                 .whereEqualTo("status", Event.EventStatus.REG_CLOSED.name());
@@ -272,6 +327,12 @@ public class EventStorage {
         }).addOnFailureListener(onFailure);
     }
 
+    /** firebase retrieval
+     * Returns all REG_FULL events in the database
+     *      REG_FULL: registration window open, but waitlist is full
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns list of Events, asynchronously
+     */
     public void listEventsRegFull(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
         Query query = db.collection("events")
                 .whereEqualTo("status", Event.EventStatus.REG_FULL.name());
@@ -295,6 +356,12 @@ public class EventStorage {
         }).addOnFailureListener(onFailure);
     }
 
+    /** firebase retrieval
+     * Returns all REG_UPCOMING events in the database
+     *      REG_UPCOMING: registration start date upcoming
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns list of Events, asynchronously
+     */
     public void listEventsRegUpcoming(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
         Query query = db.collection("events")
                 .whereEqualTo("status", Event.EventStatus.REG_UPCOMING.name());
@@ -317,6 +384,4 @@ public class EventStorage {
             onSuccess.onSuccess(events);
         }).addOnFailureListener(onFailure);
     }
-
-
 }

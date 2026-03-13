@@ -135,7 +135,7 @@ public class UserDetailsActivityUnitTest {
             OnSuccessListener<Void> success = invocation.getArgument(5);
             success.onSuccess(null);
             return null;
-        }).when(mockUserStorage).updateUserProfile(
+        }).when(mockUserStorage).upsertUserProfile(
                 anyString(), anyString(), anyString(), anyString(), anyString(), any(), any()
         );
 
@@ -161,7 +161,7 @@ public class UserDetailsActivityUnitTest {
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks(); // run UI task queue
 
         // assert inserted values are as to be expected
-        verify(mockUserStorage).updateUserProfile(
+        verify(mockUserStorage).upsertUserProfile(
                 eq("1234"),
                 eq("Wambda"),
                 eq("blambda@wambda.com"),
