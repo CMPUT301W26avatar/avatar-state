@@ -21,7 +21,13 @@ import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 
+/**
+ * Obtain user inputs for user registration
+ * manages buttons for signing up and going back to login screen
+ * starts new main activity after successfully signing up
+ */
 public class SignupActivity extends AppCompatActivity {
+
     private void setupListeners(AuthService auth) {
         EditText etName = findViewById(R.id.et_name);
         EditText etEmail = findViewById(R.id.et_email);

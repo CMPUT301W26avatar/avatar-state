@@ -10,8 +10,14 @@ import androidx.fragment.app.Fragment;
 
 import com.example.lotteryapp.R;
 
+/**
+ * to implement
+ */
 public class JoinedFragment extends Fragment {
 
+    /**
+     * to implement
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {

@@ -25,12 +25,25 @@ import com.google.android.material.tabs.TabLayoutMediator;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * AdminActivity provides the administrator interface for managing application content
+ *      tabbed interface
+ *      tabs hold collections of items
+ *      tabs use AdminListFragment
+ * later: support filtering and sorting of items within the currently visible admin list
+ */
+
 public class AdminActivity extends AppCompatActivity {
 
     private final Map<Integer, AdminListFragment> fragments = new HashMap<>();
     private String currentFilter = "";
     private boolean sortAscending = true;
 
+    /**
+     * Initializes the admin screen and sets up UI components
+     *      tab layout and fragments
+     *      AdminList item click listeners
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,6 +65,10 @@ public class AdminActivity extends AppCompatActivity {
         });
 
         viewPager.setAdapter(new FragmentStateAdapter(this) {
+
+            /**
+             * differentiated create fragment for each fragment type
+             */
             @NonNull
             @Override
             public Fragment createFragment(int position) {
@@ -71,6 +88,7 @@ public class AdminActivity extends AppCompatActivity {
                 return fragment;
             }
 
+            /// hardcoded return 3
             @Override
             public int getItemCount() {
                 return 3;
@@ -90,6 +108,7 @@ public class AdminActivity extends AppCompatActivity {
         }).attach();
 
         etFilter.addTextChangedListener(new TextWatcher() {
+            ///  text watcher methods
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override
@@ -104,6 +123,10 @@ public class AdminActivity extends AppCompatActivity {
         btnSort.setOnClickListener(v -> showSortDialog(viewPager.getCurrentItem()));
     }
 
+/**
+ * Applies the current filter string to the fragment displayed in the selected tab
+ * Updates the fragment so its displayed items match the filter text
+ */
     private void applyFilterToCurrent(int position) {
         AdminListFragment fragment = fragments.get(position);
         if (fragment != null) {
@@ -111,6 +134,9 @@ public class AdminActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Show dialog for sorting AdminList items
+     */
     private void showSortDialog(int position) {
         String[] options = {"Ascending (A-Z)", "Descending (Z-A)"};
         new AlertDialog.Builder(this)

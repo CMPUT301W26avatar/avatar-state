@@ -12,6 +12,11 @@ import com.example.lotteryapp.R;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
+/**
+ * Activity for configuring notification preferences
+ *      allows enabling or disabling categories of notifications
+ */
+
 public class NotificationSettingsActivity extends AppCompatActivity {
 
     private static final String PREFS_NAME = "notification_prefs";
@@ -27,6 +32,10 @@ public class NotificationSettingsActivity extends AppCompatActivity {
     private MaterialSwitch switchAdmin;
     private SharedPreferences prefs;
 
+    /**
+     * Initializes notification settings screen
+     *      loads preferences and configures switch controls
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,18 +64,28 @@ public class NotificationSettingsActivity extends AppCompatActivity {
         setupSubSwitch(switchAdmin, KEY_ADMIN_ALERTS);
     }
 
+    /**
+     * Refreshes notification settings when activity resumes
+     */
     @Override
     protected void onResume() {
         super.onResume();
         checkSystemNotificationStatus();
     }
 
+    /**
+     * Checks if system notifications are enabled for the app
+     */
     private void checkSystemNotificationStatus() {
         boolean areEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled();
         switchAll.setChecked(areEnabled);
         updateSubSwitchesState(areEnabled);
     }
 
+    /**
+     * Opens Android system notification settings for the app
+     *      allows the user to enable or disable notifications at the OS level
+     */
     private void openSystemNotificationSettings() {
         Intent intent = new Intent();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -81,6 +100,12 @@ public class NotificationSettingsActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    /**
+     * Initializes a notification category switch
+     *      reads stored preference and updates the setting when changed
+     *      needs MaterialSwitch for the UI toggle, and
+     *      preference String for the stored preference key
+     */
     private void setupSubSwitch(MaterialSwitch sw, String prefKey) {
         sw.setChecked(prefs.getBoolean(prefKey, true));
         sw.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -88,6 +113,10 @@ public class NotificationSettingsActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Enables or disables category switches based on master notification state
+     *      needs boolean enabled for determining if category switches are interactive or not
+     */
     private void updateSubSwitchesState(boolean enabled) {
         float alpha = enabled ? 1.0f : 0.5f;
         switchInvitations.setEnabled(enabled);

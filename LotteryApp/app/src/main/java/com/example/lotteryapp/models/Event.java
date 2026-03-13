@@ -2,6 +2,13 @@ package com.example.lotteryapp.models;
 
 import java.util.UUID;
 
+/** Model class for an Event
+ * - Mostly metadata, any of the Count attributes are updated in real time
+ * - primary key: event ID, foreign key: user ID (organizerId)
+ * - New Event: Pull Event document from Firebase and set EventID as docID.
+ * - Only getters and setters
+ */
+
 public class Event {
     public String eventId;
     public final String organizerId;
@@ -51,8 +58,7 @@ public class Event {
         return eventId;
     }
 
-    // should not be used in theory, to remove in the final stage if there are no required usages
-    // set by firebase as doc id
+    // only used when pulling a new Event from firebase and instantiating it as the document Id
     public void setEventId(String eventId) {
         this.eventId = eventId;
     }
@@ -64,7 +70,6 @@ public class Event {
     }
 
 
-    // EventStatus
     public boolean isRegistrationOpen() {
         return this.status == EventStatus.REG_OPEN;
     }

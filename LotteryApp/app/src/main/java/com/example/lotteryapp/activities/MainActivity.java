@@ -25,8 +25,16 @@ import com.example.lotteryapp.services.ServiceLocator;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.messaging.FirebaseMessaging;
 
+ /** Main activity for the app
+ *      hosts bottom navigation for main fragments and notification banners
+ */
 public class MainActivity extends AppCompatActivity {
 
+    /**
+     * Initializes the main screen and UI components
+     *      fragments, menu layout
+     *      notification banners
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -77,6 +85,10 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Requests notification permission on supported Android versions
+     *      prompts the user if permission has not been granted
+     */
     private void requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -85,6 +97,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Fetches and stores the current FCM token
+     *      updates the signed in user profile with the token
+     */
     private void updateFcmToken() {
         FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
             if (!task.isSuccessful()) {

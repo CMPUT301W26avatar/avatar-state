@@ -33,6 +33,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * ManageFragment displays an event card, a list of managed events, and a create event button.
+ *      event card yet to be implemented
+ *      populates a list of events hosted by the user (as organizer)
+ *          each event in the list is it's own special item with its own UI elements
+ *              Enrolled List -> EnrolledListActivity
+ *              Details -> EventDetailsActivity
+ *              Pencil Icon -> launches dialog for updating event details
+ *      create button launches a dialog for creating an event
+ */
+
 public class ManageFragment extends Fragment {
     //private Integer waitlistLimit = -1; // sentinel for unlimited waitlist capacity
     private Long startDateMs;
@@ -42,6 +53,11 @@ public class ManageFragment extends Fragment {
     private LinearLayout upcomingEventListContainer;
     private EventStorage eventStorage;
 
+    /**
+     * Inflates the fragment layout and set up UI elements
+     *      organizer event cards
+     *      organizer events list
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -58,12 +74,25 @@ public class ManageFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Reloads event lists whenever the fragment comes into view again.
+     *      ensures the dashboard reflects the most recent event(s)
+     */
     @Override
     public void onResume() {
         super.onResume();
         loadUpcomingEvents();
     }
 
+    /**
+     * Populate the list event adapters with user hosted events (as organizer).
+     *      call helper renderUpcomingEvents to:
+     *          call EventStorage.listEventsRegOpen query to fill events list
+     *          add Event to list
+     *          notify change in the list of grid events
+     *
+     * *right now* just calls a simple events by organizer query despite the naming convention and UI elements
+     */
     private void loadUpcomingEvents() {
         String organizerId = ServiceLocator.uid();
         if (organizerId == null || organizerId.trim().isEmpty()) {
@@ -80,6 +109,12 @@ public class ManageFragment extends Fragment {
         );
     }
 
+    /**
+     * helper for accessing the db and updating UI components with the db query
+     *      call EventStorage.listEventsRegOpen query to fill events list
+     *      add Event to list
+     *      notify change in the list of grid events
+     */
     private void renderUpcomingEvents(List<Event> events) {
         upcomingEventListContainer.removeAllViews();
 
@@ -120,7 +155,10 @@ public class ManageFragment extends Fragment {
         }
     }
 
-    // build Event subtitle as event status, event capacity and waitlist capacity
+    /**
+     * Status-based string builder for DisplayEventGrid subtitles
+     *      need Event param
+     */
     private String buildSubtitle(Event event) {
         String status = event.getStatus().toString();
         StringBuilder sb = new StringBuilder(status);
@@ -135,7 +173,10 @@ public class ManageFragment extends Fragment {
         return sb.toString();
     }
 
-    // launches EventDetailsActivity on details button press
+    /**
+     * logic that should follow the Details button press on each event item in list
+     *      launch EventDetailsActivity
+     */
     private void openEventDetails(Event event) {
         if (event == null || event.getEventId() == null || event.getEventId().trim().isEmpty()) {
             Toast.makeText(requireContext(), "Missing event ID", Toast.LENGTH_SHORT).show();
@@ -147,6 +188,14 @@ public class ManageFragment extends Fragment {
         startActivity(intent);
     }
 
+    /**
+     * Displays a full-screen dialog for creating a new event
+     *      enter event detail fields
+     *      mandatory: event capacity, title, reg start/end and event date
+     *      optional: description, location, waitlist capacity, geolocational data
+     *
+     *      can also clear all fields
+     */
     private void showCreateEventDialog() {
         Dialog dialog = new Dialog(requireContext(), android.R.style.Theme_Material_Light_NoActionBar_Fullscreen);
         View view = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_create_event, null);
@@ -263,9 +312,6 @@ public class ManageFragment extends Fragment {
                 return;
             }
 
-
-
-
             if (startDateMs == null || endDateMs == null) {
                 Toast.makeText(requireContext(), "Registration period is required", Toast.LENGTH_SHORT).show();
                 return;
@@ -331,6 +377,16 @@ public class ManageFragment extends Fragment {
     }
 
 
+
+    /**
+     * Displays a full-screen dialog for updating an existing event
+     *      enter event detail fields
+     *      mandatory: event capacity, title, reg start/end and event date (saved from create)
+     *      optional: description, location, waitlist capacity, geolocational data
+     *      unable to: edit event date, or reg start/end
+     *
+     *      can also clear all fields
+     */
     private void showUpdateEventDialog(Event event) {
         Dialog dialog = new Dialog(requireContext(), android.R.style.Theme_Material_Light_NoActionBar_Fullscreen);
         View view = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_update_event, null);
@@ -476,7 +532,9 @@ public class ManageFragment extends Fragment {
         dialog.show();
     }
 
-    // optional Field helper
+    /**
+     * helper for parsing fields where input is optional
+    */
     private void setOptionalString(Event event, String methodName, String value) {
         try {
             java.lang.reflect.Method method = event.getClass().getMethod(methodName, String.class);

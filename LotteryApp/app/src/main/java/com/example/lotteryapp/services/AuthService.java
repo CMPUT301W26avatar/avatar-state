@@ -15,6 +15,10 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+/**
+ * User authentication service
+ *      uses device Id to key the user
+ */
 public class AuthService {
     private final FirebaseFirestore db;
     private final UserStorage userStore;
@@ -35,6 +39,9 @@ public class AuthService {
         // TODO: Can also just remove this
     };
 
+    /**
+     * Authenticate a user anonymously by device Id using FirebaseAuth
+     */
     public void userSignUp(String name, String email, String password, Context context) {
          auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener(task ->  {
              if (task.isSuccessful() && auth.getCurrentUser() != null) {
@@ -50,10 +57,9 @@ public class AuthService {
 
     /**
      * Signs in to user's previous session if a session exists.
-     * </br>
-     * This will only sign in if the previous session was w/ a credential sign in
-     * and NOT w/ an anonymous sign in.
-     * @return false if no previous session was found.
+     *      This will only sign in if the previous session was w/ a credential sign in
+     *          and NOT w/ an anonymous sign in.
+     *      returns false if no previous session was found.
      */
     public boolean signInPrevSession() {
         FirebaseUser user = auth.getCurrentUser();
@@ -71,6 +77,9 @@ public class AuthService {
         return true;
     }
 
+    /**
+     * Set secondary sign-in credentials for the user
+     */
     public void userSignInCred(String email, String password, Context context) {
         if (!email.contains("@")) {
             Toast.makeText(context, "Please use a valid email", Toast.LENGTH_SHORT).show();
@@ -88,6 +97,9 @@ public class AuthService {
         });
     }
 
+    /**
+     * Anonymous device id sign in via FirebaseAuth
+     */
     public void userSignInAnon(Context context) {
         auth.signInAnonymously().addOnCompleteListener(task -> {
             if (task.isSuccessful() && auth.getCurrentUser() != null) {
@@ -99,6 +111,9 @@ public class AuthService {
         });
     }
 
+    /**
+     * Sign the user out via FirebaseAuth
+     */
     public void userSignOut() {
         FirebaseUser currUser = auth.getCurrentUser();
         if (currUser == null) {

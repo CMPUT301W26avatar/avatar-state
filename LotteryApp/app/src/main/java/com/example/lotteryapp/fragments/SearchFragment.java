@@ -20,12 +20,34 @@ import com.google.android.material.search.SearchView;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * SeachFragment displays the search dashboard of the application.
+ *      has a search bar in the
+ *
+ * has sections of grid events
+ * - displays events in a grid (DisplayGridEvent), db query determines the type
+ *      - load Events from EventStorage,
+ *          - Event -turns-into> DisplayGridEvent,
+ *          - Events -into-> adapter
+ *          - adapter notifies of a change in the list
+ *      - GridEvents -into-> recyclerViews
+ *      - HomeFragment loads recyclerViews
+ *
+ *  *sections currently just use basic open event queries despite what the UI says*
+ *
+ *  add more buttons in the top right corner of grid event sections show all events
+ *      by that particular query/filter (to implement)
+ */
+
 public class SearchFragment extends Fragment {
 
     private EventStorage estore = ServiceLocator.getEventStorage();
     private GridEventAdapter suggestedAdapter, popularAdapter;
     private List<HomeFragment.DisplayGridEvent> suggestedEvents, popularEvents;
 
+    /**
+     * Inflates the HomeFragment layout and initializes UI components.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -60,6 +82,10 @@ public class SearchFragment extends Fragment {
         return view;
     }
 
+    /**
+     * Reloads event lists whenever the fragment comes into view again.
+     *      ensures the dashboard reflects the most recent event(s)
+     */
     @Override
     public void onResume() {
         super.onResume();
@@ -67,6 +93,14 @@ public class SearchFragment extends Fragment {
         loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
     }
 
+    /**
+     * only queries open events despite the naming convention -> for later implementation
+     * Populate the grid event adapters with the most recent events with open registration window.
+     *      (regStart < time.now < regEnd && waitlistCapacity > waitlistCount)
+     *      call EventStorage.listEventsRegOpen query to fill events list
+     *      convert Event to DisplayGridEvent
+     *      notify change in the list of grid events
+     */
     private void loadPopularEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
         estore.listEventsRegOpen(limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
             displayGridEvents.clear();
@@ -79,6 +113,14 @@ public class SearchFragment extends Fragment {
         );
     }
 
+    /**
+     * only queries open events despite the naming convention -> for later implementation
+     * Populate the grid event adapters with the most recent events with open registration window.
+     *      (regStart < time.now < regEnd && waitlistCapacity > waitlistCount)
+     *      call EventStorage.listEventsRegOpen query to fill events list
+     *      convert Event to DisplayGridEvent
+     *      notify change in the list of grid events
+     */
     private void loadSuggestedEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
         estore.listEventsRegOpen(limit, fetchedEvents -> { // replace listOpenEvents with listSuggestedEvents when implemented
                 displayGridEvents.clear();
@@ -91,6 +133,15 @@ public class SearchFragment extends Fragment {
         );
     }
 
+    /**
+     * Simple event model for the UI
+     *      Displays the
+     *          title,
+     *          description,
+     *          tag (to implement),
+     *          and a subtitle (EventStatus based String)
+     *       for an event
+     */
     private HomeFragment.DisplayGridEvent eventToDisplayEvent(Event event) {
         return new HomeFragment.DisplayGridEvent(
                 event.getEventId(),
@@ -101,6 +152,9 @@ public class SearchFragment extends Fragment {
         );
     }
 
+    /**
+     * Converts an Event parameter into a DisplayGridEvent
+     */
     private String buildSubtitle(Event event) {
         Event.EventStatus status = event.getStatus();
 
@@ -117,6 +171,10 @@ public class SearchFragment extends Fragment {
         return sb.toString();
     }
 
+    /**
+     * Status-based string builder for DisplayEventGrid subtitles
+     *      need Event param
+     */
     private String statusString(Event.EventStatus status) {
         switch (status) {
             case REG_OPEN:

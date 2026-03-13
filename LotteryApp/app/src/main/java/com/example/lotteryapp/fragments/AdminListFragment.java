@@ -29,7 +29,10 @@ import com.google.android.material.button.MaterialButton;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
+/**
+ * fragment for displaying admin lists inside of AdminActivity
+ *      shows events profiles, images or requested admins
+ */
 public class AdminListFragment extends Fragment {
 
     public static final String TYPE_EVENTS = "events";
@@ -49,6 +52,10 @@ public class AdminListFragment extends Fragment {
     private String filterText = "";
     private boolean sortAscending = true;
 
+    /**
+     * creates and returns fragment for the given admin list type
+     *      needs String type for selecting which admin list to show
+     */
     public static AdminListFragment newInstance(String type) {
         AdminListFragment fragment = new AdminListFragment();
         Bundle args = new Bundle();
@@ -57,6 +64,9 @@ public class AdminListFragment extends Fragment {
         return fragment;
     }
 
+    /**
+     * initializes fragment state from arguments
+     */
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -65,6 +75,9 @@ public class AdminListFragment extends Fragment {
         }
     }
 
+    /**
+     * inflates the fragment layout and sets up the recycler view
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -80,22 +93,35 @@ public class AdminListFragment extends Fragment {
         return view;
     }
 
+    /**
+     * reloads fragment data when the fragment becomes active
+     */
     @Override
     public void onResume() {
         super.onResume();
         loadData();
     }
 
+    /**
+     * sets the current filter text
+     */
     public void setFilter(String filter) {
         this.filterText = filter.toLowerCase();
         applyFilterAndSort();
     }
 
+    /**
+     * sets the current sort order
+     */
     public void setSortAscending(boolean ascending) {
         this.sortAscending = ascending;
         applyFilterAndSort();
     }
 
+    /**
+     * loads data for the current fragment type
+     *      calls EventStorage.getAllUsers() for users
+     */
     private void loadData() {
         // TODO: Implement loading all user profiles from Firestore "users" collection
         if (TYPE_PROFILES.equals(type)) {
@@ -184,11 +210,15 @@ public class AdminListFragment extends Fragment {
     private class AdminAdapter extends RecyclerView.Adapter<AdminAdapter.ViewHolder> {
         private List<Object> displayItems = new ArrayList<>();
 
+        /**
+         * Replaces the displayed items in the adapter
+         */
         public void setItems(List<Object> items) {
             this.displayItems = items;
             notifyDataSetChanged();
         }
 
+        ///  create new view holder
         @NonNull
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -196,6 +226,7 @@ public class AdminListFragment extends Fragment {
             return new ViewHolder(view);
         }
 
+        /// bind data to new view holder
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             Object item = displayItems.get(position);
@@ -209,6 +240,9 @@ public class AdminListFragment extends Fragment {
             });
         }
 
+        /**
+         * Opens the EventDetailsActivity screen for the selected Event
+         */
         private void openDetails(Object item) {
             if (item instanceof Event) {
                 Intent intent = new Intent(getContext(), EventDetailsActivity.class);
@@ -224,7 +258,10 @@ public class AdminListFragment extends Fragment {
                 startActivity(intent);
             }
         }
-
+        /**
+         * Shows the promote admin dialog for a requested admin
+         *      get requested admins from firbase via AdminStorage
+         */
         private void showPromoteNewAdminDialog(User user) {
             View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_promote_admin, null);
 
@@ -272,6 +309,9 @@ public class AdminListFragment extends Fragment {
             dialog.show();
         }
 
+        /**
+         * Returns the number of displayed items
+         */
         @Override
         public int getItemCount() {
             return displayItems.size();

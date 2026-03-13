@@ -136,12 +136,25 @@
                             android:text="Description. Lorem ipsum dolor sit amet consectetur adipiscing elit, sed do"
                             android:textAppearance="?attr/textAppearanceBodyMedium" />
 
+                        <!-- should this button be view waitlist? -->
                         <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_view_invitee_list"
                             style="@style/Widget.Material3.Button.OutlinedButton"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="16dp"
                             android:text="View Invitee List"
+                            android:textAllCaps="false" />
+
+
+                        <!-- below is the button for view list of all invited entrants for user story 02.06.01 -->
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_view_invited_entrants"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="View Invited Entrants"
                             android:textAllCaps="false" />
 
                     </LinearLayout>

@@ -19,6 +19,17 @@ import com.google.android.material.card.MaterialCardView;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * HomeFragment displays the main event dashboard of the application.
+ *
+ * displays events in a grid (DisplayGridEvent), db query determines the type
+ *      load Events from EventStorage,
+ *          Event -turns-into> DisplayGridEvent,
+ *          Events -into-> adapter
+ *          adapter notifies of a change in the list
+ *      GridEvents -into-> recyclerViews
+ *      HomeFragment loads recyclerViews
+ */
 public class HomeFragment extends Fragment {
 
     private MaterialCardView invitationCard;
@@ -31,6 +42,9 @@ public class HomeFragment extends Fragment {
     private List<HomeFragment.DisplayGridEvent> displayUpcomingGridEvents;
     private List<HomeFragment.DisplayGridEvent> displayFullGridEvents;
 
+    /**
+     * Inflates the HomeFragment layout and initializes UI components.
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -66,6 +80,10 @@ public class HomeFragment extends Fragment {
 
         return view;
     }
+    /**
+     * Reloads event lists whenever the fragment comes into view again.
+     *      ensures the dashboard reflects the most recent event(s)
+     */
     @Override
     public void onResume() {
         super.onResume();
@@ -74,6 +92,13 @@ public class HomeFragment extends Fragment {
         loadEventsRegFull();
     }
 
+    /**
+     * Populate the grid event adapters with the most recent events with open registration window.
+     *      (regStart < time.now < regEnd && waitlistCapacity > waitlistCount)
+     *      call EventStorage.listEventsRegOpen query to fill events list
+     *      convert Event to DisplayGridEvent
+     *      notify change in the list of grid events
+     */
     private void loadEventsRegOpen() {
         if (estore == null || openAdapter == null) return;
 
@@ -92,6 +117,13 @@ public class HomeFragment extends Fragment {
         );
     }
 
+    /**
+     * Populate the grid event adapters with the most recent events with upcoming registration window.
+     *      (time.now < regStart)
+     *      call EventStorage.listEventsRegOpen query to fill events list
+     *      convert Event to DisplayGridEvent
+     *      notify change in the list of grid events
+     */
     private void loadEventsRegUpcoming() {
         if (estore == null || upcomingAdapter == null) return;
 
@@ -110,6 +142,15 @@ public class HomeFragment extends Fragment {
         );
     }
 
+    /**
+     * Populate the grid event adapters with the most recent events that are full.
+     *      (waitlistCapacity = waitlistCount)
+     *      call EventStorage.listEventsRegOpen query to fill events list
+     *      convert Event to DisplayGridEvent
+     *      notify change in the list of grid events
+     *
+     *      ** later: Popular Events should return events ordered by descending (waitlistCount/waitlistCapacity)**
+     */
     private void loadEventsRegFull() {
         if (estore == null || fullAdapter == null) return;
 
@@ -128,7 +169,15 @@ public class HomeFragment extends Fragment {
         );
     }
 
-    // Simple Event model for the UI
+    /**
+     * Simple event model for the UI
+     *      Displays the
+     *          title,
+     *          description,
+     *          tag (to implement),
+     *          and a subtitle (EventStatus based String)
+     *       for an event
+     */
     public static class DisplayGridEvent {
         public String eventId, title, subtitle, description, tag;
 
@@ -141,6 +190,9 @@ public class HomeFragment extends Fragment {
         }
     }
 
+    /**
+     * Converts an Event parameter into a DisplayGridEvent
+     */
     private HomeFragment.DisplayGridEvent eventToDisplayEvent(Event event) {
         return new HomeFragment.DisplayGridEvent(
                 event.getEventId(),
@@ -151,6 +203,10 @@ public class HomeFragment extends Fragment {
         );
     }
 
+    /**
+     * Status-based string builder for DisplayEventGrid subtitles
+     *      need Event param
+     */
     private String buildSubtitle(Event event) {
         Event.EventStatus status = event.getStatus();
 
@@ -167,6 +223,9 @@ public class HomeFragment extends Fragment {
         return sb.toString();
     }
 
+    /**
+     * Subtitle builder helper for status logic
+     */
     private String statusString(Event.EventStatus status) {
         switch (status) {
             case REG_OPEN:

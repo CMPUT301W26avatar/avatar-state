@@ -22,12 +22,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Manages the event pool and lottery lifecycle.
- * Firestore path: events/{eventId}/entries/{entrantId}
- *
- * US 02.06.03 - organizer views all entrants
- * US 02.01.01 - organizer sets registration period
+/** Database storage and retrieval layer with respect to Event subcollections of Entrants
+ * Events have their own subcollections for waitlisted, invited, enrolled and declined Entrants
+ * Call via ServiceLocator
  */
 
 public class EventPoolStorage {
@@ -38,25 +35,39 @@ public class EventPoolStorage {
         this.db = db;
     }
 
-    // helpers: return a single document for a certain entrant (entrantId) in every subcollection of an event (eventId)
+    /** firebase retrieval helper
+     * - returns a document of the waitlisted subcollection for a certain unique entrantId
+     */
     private DocumentReference waitlistedDoc(String eventId, String entrantId) {
         return db.collection("events")
                 .document(eventId)
                 .collection("waitlisted")
                 .document(entrantId);
     }
+
+    /** firebase retrieval helper
+     * - returns a document of the invited subcollection for a certain unique entrantId
+     */
     private DocumentReference invitedDoc(String eventId, String entrantId) {
         return db.collection("events")
                 .document(eventId)
                 .collection("invited")
                 .document(entrantId);
     }
+
+    /** firebase retrieval helper
+     * - returns a document of the enrolled subcollection for a certain unique entrantId
+     */
     private DocumentReference enrolledDoc(String eventId, String entrantId) {
         return db.collection("events")
                 .document(eventId)
                 .collection("enrolled")
                 .document(entrantId);
     }
+
+    /** firebase retrieval helper
+     * - returns a document of the waitlisted subcollection for a certain unique entrantId
+     */
     private DocumentReference declinedDoc(String eventId, String entrantId) {
         return db.collection("events")
                 .document(eventId)
@@ -64,7 +75,9 @@ public class EventPoolStorage {
                 .document(entrantId);
     }
 
-    // helper: return a dict/map of entrant data to upsert into the database
+    /** firebase storage helper
+     * - takes database fields to store as parameters, and returns a Map with those fields
+     */
     private Map<String, Object> mapEntrantData(String eventId, String entrantId, String status) {
         Map<String, Object> data = new HashMap<>();
         data.put("entrantId", entrantId);
@@ -74,7 +87,11 @@ public class EventPoolStorage {
         return data;
     }
 
-    // add an entrant to the waitlisted subcollection
+    /** firebase storage
+     * Stores a single entrant inside of the waitlisted subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void waitlistForEvent(
             String eventId,
             Entrant entrant,
@@ -89,8 +106,6 @@ public class EventPoolStorage {
         db.runTransaction((Transaction.Function<Void>) transaction -> {
                     DocumentSnapshot eventSnap = transaction.get(eventRef);
                     DocumentSnapshot waitlistedSnap = transaction.get(entrantWaitlistedRef);
-                    DocumentSnapshot invitedSnap = transaction.get(entrantInvitedRef);
-                    DocumentSnapshot enrolledSnap = transaction.get(entrantEnrolledRef);
 
                     if (!eventSnap.exists()) {
                         throw new IllegalStateException("Event does not exist");
@@ -135,7 +150,12 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // add an entrant to the invited subcollection, and remove them from the waitlisted subcollection
+    /** firebase storage
+     * Stores a single entrant inside of the invited subcollection
+     * Removes the aforementioned entrant from the waitlisted subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void inviteToEvent(
             String eventId,
             Entrant entrant,
@@ -196,7 +216,12 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // add an entrant to the enrolled subcollection, and remove them from the invited subcollection
+    /** firebase storage
+     * Stores a single entrant inside of the enrolled subcollection
+     * Removes the aforementioned entrant from the invited subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void enrollInEvent(
             String eventId,
             Entrant entrant,
@@ -261,7 +286,11 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // add an entrant to the declined subcollection, and remove them from the invited subcollection
+    /** firebase storage
+     * Removes a single entrant from the waitlisted subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void removeFromWaitlist(
             String eventId,
             String entrantId,
@@ -306,6 +335,12 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /** firebase storage
+     * Stores a single entrant inside of the declined subcollection
+     * Removes the aforementioned entrant from the invited subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void removeFromInvited(
             String eventId,
             String entrantId,
@@ -355,7 +390,11 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // delete the entrant from the enrolled subcollection
+    /** firebase storage
+     * Removes a single entrant from the enrolled subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void unenroll(
             String eventId,
             String entrantId,
@@ -391,9 +430,13 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    // BASIC DB QUERIES
 
-    // DATABASE BASIC QUERIES
-    // for querying whether an Entrant is WAITLISTED, INVITED, ...
+    /** firebase retrieval
+     * Returns the status of an Entrant inside of events (all subcollections)
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns the status of the Entrant onSuccess, asynchronously
+     */
     public void getEntrantStatus(
             String eventId,
             String entrantId,
@@ -440,10 +483,15 @@ public class EventPoolStorage {
 
 
     // DATABASE LIST QUERIES
-    // return a list of entrants in the waitlisted subcollection asynchronously
+
+    /** firebase retrieval
+     * Returns all Entrants inside of the waitlisted subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns a list of Entrants, asynchronously
+     */
     public void getWaitlistedEntrants(String eventId,
-                                    OnSuccessListener<List<Entrant>> onSuccess,
-                                    OnFailureListener onFailure) {
+                                      OnSuccessListener<List<Entrant>> onSuccess,
+                                      OnFailureListener onFailure) {
         db.collection("events")
                 .document(eventId)
                 .collection("waitlisted")
@@ -466,10 +514,14 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // return a list of entrants in the invited subcollection asynchronously
+    /** firebase retrieval
+     * Returns all Entrants inside of the invited subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns a list of Entrants, asynchronously
+     */
     public void getInvitedEntrants(String eventId,
-                                    OnSuccessListener<List<Entrant>> onSuccess,
-                                    OnFailureListener onFailure) {
+                                   OnSuccessListener<List<Entrant>> onSuccess,
+                                   OnFailureListener onFailure) {
         db.collection("events")
                 .document(eventId)
                 .collection("invited")
@@ -492,7 +544,11 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // return a list of entrants in the declined subcollection asynchronously
+    /** firebase retrieval
+     * Returns all Entrants inside of the declined subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns a list of Entrants, asynchronously
+     */
     public void getDeclinedEntrants(String eventId,
                                     OnSuccessListener<List<Entrant>> onSuccess,
                                     OnFailureListener onFailure) {
@@ -518,8 +574,11 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // return a list of entrants in the enrolled subcollection asynchronously
-
+    /** firebase retrieval
+     * Returns all Entrants inside of the enrolled subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns a list of Entrants, asynchronously
+     */
     public void getEnrolledEntrants(String eventId,
                                     OnSuccessListener<List<Entrant>> onSuccess,
                                     OnFailureListener onFailure) {
@@ -546,8 +605,70 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /**
+     * Perform the lottery draw to select winners.
+     * Picks up to capacity random entrants from WAITLISTED pool and mark them as INVITED.
+     * the rest = NOT_INVITED.
+     */
+    public void drawWinners(String eventId, int capacity, OnSuccessListener<Integer> onSuccess, OnFailureListener onFailure) {
+        db.collection("events").document(eventId).collection("waitlisted")
+                .whereEqualTo("status", Entrant.EntrantStatus.WAITLISTED.name())
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<QueryDocumentSnapshot> waitlisted = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        waitlisted.add(doc);
+                    }
+
+                    if (waitlisted.isEmpty()) {
+                        onSuccess.onSuccess(0);
+                        return;
+                    }
+
+                    // Shuffle for randomness
+                    java.util.Collections.shuffle(waitlisted);
+
+                    int winnersCount = Math.min(capacity, waitlisted.size());
+
+                    com.google.firebase.firestore.WriteBatch batch = db.batch();
+
+                    for (int i = 0; i < waitlisted.size(); i++) {
+                        QueryDocumentSnapshot doc = waitlisted.get(i);
+                        String entrantId = doc.getString("entrantId");
+
+                        if (i < winnersCount) {
+                            //Move winner to 'invited' collection
+                            DocumentReference invitedRef = invitedDoc(eventId, entrantId);
+                            Map<String, Object> data = mapEntrantData(eventId, entrantId, Entrant.EntrantStatus.INVITED.name());
+                            data.put("joinedAt", doc.get("joinedAt")); // Preserve original join time
+                            batch.set(invitedRef, data);
+                            batch.delete(doc.getReference());
+                        } else {
+                            // ppl not selected are placed in NOT_INVITED in waitlisted collection
+                            batch.update(doc.getReference(), "status", Entrant.EntrantStatus.NOT_INVITED.name());
+                            // Add/update updatedAt timestamp if it doesn't exist
+                            batch.update(doc.getReference(), "updatedAt", FieldValue.serverTimestamp());
+                        }
+                    }
+
+                    //Update event invitation count
+                    DocumentReference eventRef = db.collection("events").document(eventId);
+                    batch.update(eventRef, "invitationCount", FieldValue.increment(winnersCount));
+
+                    batch.commit().addOnSuccessListener(unused -> onSuccess.onSuccess(winnersCount)).addOnFailureListener(onFailure);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+
+
     // DATABASE DELETE ENTRY (status unknown)
-    // helper: holds different logic for deleting an entrant from each subcollection
+    /** firebase delete single
+     * Deletes a singular Entrant from one of the event subcollections
+     * - differentiated logic for each subcollection (status)
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     private void deleteEntryByStatus(
             String eventId,
             String entrantId,
@@ -562,62 +683,66 @@ public class EventPoolStorage {
         DocumentReference declinedRef = declinedDoc(eventId, entrantId);
 
         db.runTransaction((Transaction.Function<Void>) transaction -> {
-            DocumentSnapshot eventSnap = transaction.get(eventRef);
+                    DocumentSnapshot eventSnap = transaction.get(eventRef);
 
-            if (!eventSnap.exists()) {
-                throw new IllegalStateException("Event does not exist");
-            }
+                    if (!eventSnap.exists()) {
+                        throw new IllegalStateException("Event does not exist");
+                    }
 
-            int waitlistCount = eventSnap.getLong("waitlistCount") != null
-                    ? eventSnap.getLong("waitlistCount").intValue() : 0;
-            int invitationCount = eventSnap.getLong("invitationCount") != null
-                    ? eventSnap.getLong("invitationCount").intValue() : 0;
-            int enrolledCount = eventSnap.getLong("enrolledCount") != null
-                    ? eventSnap.getLong("enrolledCount").intValue() : 0;
-            int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null
-                    ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
+                    int waitlistCount = eventSnap.getLong("waitlistCount") != null
+                            ? eventSnap.getLong("waitlistCount").intValue() : 0;
+                    int invitationCount = eventSnap.getLong("invitationCount") != null
+                            ? eventSnap.getLong("invitationCount").intValue() : 0;
+                    int enrolledCount = eventSnap.getLong("enrolledCount") != null
+                            ? eventSnap.getLong("enrolledCount").intValue() : 0;
+                    int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null
+                            ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
 
-            Map<String, Object> updates = new HashMap<>();
+                    Map<String, Object> updates = new HashMap<>();
 
-            switch (status) {
-                case WAITLISTED:
-                    transaction.delete(waitlistedRef);
-                    waitlistCount = Math.max(0, waitlistCount - 1);
-                    updates.put("waitlistCount", waitlistCount);
-                    updates.put("status",
-                        waitlistCount >= waitlistCapacity
-                                ? Event.EventStatus.REG_CLOSED.name()
-                                : Event.EventStatus.REG_OPEN.name()
-                    );
-                    break;
+                    switch (status) {
+                        case WAITLISTED:
+                            transaction.delete(waitlistedRef);
+                            waitlistCount = Math.max(0, waitlistCount - 1);
+                            updates.put("waitlistCount", waitlistCount);
+                            updates.put("status",
+                                    waitlistCount >= waitlistCapacity
+                                            ? Event.EventStatus.REG_CLOSED.name()
+                                            : Event.EventStatus.REG_OPEN.name()
+                            );
+                            break;
 
-                case INVITED:
-                    transaction.delete(invitedRef);
-                    invitationCount = Math.max(0, invitationCount - 1);
-                    updates.put("invitationCount", invitationCount);
-                    break;
+                        case INVITED:
+                            transaction.delete(invitedRef);
+                            invitationCount = Math.max(0, invitationCount - 1);
+                            updates.put("invitationCount", invitationCount);
+                            break;
 
-                case ENROLLED:
-                    transaction.delete(enrolledRef);
-                    enrolledCount = Math.max(0, enrolledCount - 1);
-                    updates.put("enrolledCount", enrolledCount);
-                    break;
+                        case ENROLLED:
+                            transaction.delete(enrolledRef);
+                            enrolledCount = Math.max(0, enrolledCount - 1);
+                            updates.put("enrolledCount", enrolledCount);
+                            break;
 
-                case DECLINED:
-                    transaction.delete(declinedRef);
-                    break;
-            }
+                        case DECLINED:
+                            transaction.delete(declinedRef);
+                            break;
+                    }
 
-            if (!updates.isEmpty()) {
-                transaction.update(eventRef, updates);
-            }
+                    if (!updates.isEmpty()) {
+                        transaction.update(eventRef, updates);
+                    }
 
-            return null;
-        }).addOnSuccessListener(onSuccess)
-        .addOnFailureListener(onFailure);
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
     }
 
-    // deletes the selected Entrant from all subcollections, in all events
+    /** firebase delete cascade
+     * Deletes a singular Entrant from all of the event subcollections
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void delAllUserEntries(
             String entrantId,
             OnSuccessListener<Void> onSuccess,
@@ -646,42 +771,142 @@ public class EventPoolStorage {
                 String eventId = eventDoc.getId();
 
                 getEntrantStatus(eventId, entrantId, status -> {
-                    if (failed[0]) {
-                        return;
-                    }
+                            if (failed[0]) {
+                                return;
+                            }
 
-                    if (status == null) {
-                        if (remainingEvents.decrementAndGet() == 0) {
-                            tryFinish.run();
+                            if (status == null) {
+                                if (remainingEvents.decrementAndGet() == 0) {
+                                    tryFinish.run();
+                                }
+                                return;
+                            }
+
+                            deleteEntryByStatus(eventId, entrantId, status, unused -> {
+                                if (failed[0]) {
+                                    return;
+                                }
+
+                                if (remainingEvents.decrementAndGet() == 0) {
+                                    tryFinish.run();
+                                }
+
+                            }, e -> {
+                                if (!failed[0]) {
+                                    failed[0] = true;
+                                    onFailure.onFailure(e);
+                                }
+
+                            });
+                        }, e -> {
+                            if (!failed[0]) {
+                                failed[0] = true;
+                                onFailure.onFailure(e);
+                            }
+
                         }
-                        return;
-                    }
-
-                    deleteEntryByStatus(eventId, entrantId, status, unused -> {
-                        if (failed[0]) {
-                            return;
-                        }
-
-                        if (remainingEvents.decrementAndGet() == 0) {
-                            tryFinish.run();
-                        }
-
-                    }, e -> {
-                        if (!failed[0]) {
-                            failed[0] = true;
-                            onFailure.onFailure(e);
-                        }
-
-                    });
-                    }, e -> {
-                        if (!failed[0]) {
-                            failed[0] = true;
-                            onFailure.onFailure(e);
-                        }
-
-                    }
                 );
             }
         }).addOnFailureListener(onFailure);
     }
+
+    /** firebase retrieval
+     * Select a random number of Entrants from the waitlisted collection to send invites to.
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns count of invites sent (entrants selected), asynchronously
+     */
+    public void drawWinners(
+            String eventId,
+            int capacity,
+            OnSuccessListener<Integer> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (capacity <= 0) {
+            onSuccess.onSuccess(null);
+            return;
+        }
+
+        DocumentReference eventRef = db.collection("events").document(eventId);
+
+        db.collection("events")
+                .document(eventId)
+                .collection("waitlisted")
+                .whereEqualTo("status", Entrant.EntrantStatus.WAITLISTED.name())
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<QueryDocumentSnapshot> waitlisted = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        waitlisted.add(doc);
+                    }
+
+                    if (waitlisted.isEmpty()) {
+                        onSuccess.onSuccess(null);
+                        return;
+                    }
+
+                    java.util.Collections.shuffle(waitlisted);
+
+                    int winnersCount = Math.min(capacity, waitlisted.size());
+
+                    db.runTransaction(transaction -> {
+                                DocumentSnapshot eventSnap = transaction.get(eventRef);
+
+                                long currentInvitationCount = eventSnap.getLong("invitationCount") != null
+                                        ? eventSnap.getLong("invitationCount")
+                                        : 0L;
+
+                                long currentWaitlistCount = eventSnap.getLong("waitlistCount") != null
+                                        ? eventSnap.getLong("waitlistCount")
+                                        : 0L;
+
+                                for (int i = 0; i < waitlisted.size(); i++) {
+                                    QueryDocumentSnapshot doc = waitlisted.get(i);
+                                    String entrantId = doc.getString("entrantId");
+
+                                    if (entrantId == null || entrantId.trim().isEmpty()) {
+                                        continue;
+                                    }
+
+                                    DocumentReference waitlistedRef = waitlistedDoc(eventId, entrantId);
+                                    DocumentReference invitedRef = invitedDoc(eventId, entrantId);
+
+                                    if (i < winnersCount) {
+                                        // Winner: remove from waitlist and add to invited
+                                        transaction.delete(waitlistedRef);
+
+                                        Map<String, Object> invitedData = new HashMap<>();
+                                        invitedData.put("entrantId", entrantId);
+                                        invitedData.put("eventId", eventId);
+                                        invitedData.put("status", Entrant.EntrantStatus.INVITED.name());
+                                        invitedData.put("updatedAt", FieldValue.serverTimestamp());
+
+                                        Object joinedAt = doc.get("joinedAt");
+                                        if (joinedAt != null) {
+                                            invitedData.put("joinedAt", joinedAt);
+                                        }
+                                        invitedData.put("invitedAt", FieldValue.serverTimestamp());
+
+                                        transaction.set(invitedRef, invitedData);
+                                    } else {
+                                        // Not invited this round: keep in waitlist, just mark status
+                                        transaction.update(waitlistedRef,
+                                                "status", Entrant.EntrantStatus.NOT_INVITED.name(),
+                                                "updatedAt", FieldValue.serverTimestamp());
+                                    }
+                                }
+
+                                Map<String, Object> eventUpdates = new HashMap<>();
+                                eventUpdates.put("invitationCount", currentInvitationCount + winnersCount);
+                                eventUpdates.put("waitlistCount", Math.max(0, currentWaitlistCount - winnersCount));
+
+                                transaction.update(eventRef, eventUpdates);
+
+                                return null;
+                            }).addOnSuccessListener(result -> onSuccess.onSuccess(winnersCount))
+                            .addOnFailureListener(onFailure);
+                })
+                .addOnFailureListener(onFailure);
+    }
 }
+
+
