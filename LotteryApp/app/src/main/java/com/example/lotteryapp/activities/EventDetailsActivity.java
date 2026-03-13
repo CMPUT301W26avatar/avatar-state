@@ -1,17 +1,22 @@
 package com.example.lotteryapp.activities;
 
+import static android.view.View.VISIBLE;
+import static androidx.core.content.ContentProviderCompat.requireContext;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.ENROLLED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
 
 import android.os.Bundle;
+import android.os.PersistableBundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.lotteryapp.R;
@@ -26,6 +31,7 @@ import com.google.android.material.textview.MaterialTextView;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 public class EventDetailsActivity extends AppCompatActivity {
 
@@ -103,7 +109,6 @@ public class EventDetailsActivity extends AppCompatActivity {
 
         // prefill any passed UI extras while backend data loads
         populateFromIntentExtras();
-
         loadEvent();
     }
 
@@ -158,6 +163,15 @@ public class EventDetailsActivity extends AppCompatActivity {
                     } else {
                         setupEntrantActions(currentEvent);
                     }
+
+                    if (isOrganizer(event)) {
+                        LinearLayout listOfX = findViewById(R.id.list_of_x_container);
+                        listOfX.setVisibility(VISIBLE);
+
+                        listEntrants(eventId);
+                        listWaitlisted(eventId);
+                        listCancelled(eventId);
+                    }
                 },
                 e -> {
                     android.util.Log.e("EventDetailsActivity",
@@ -172,6 +186,86 @@ public class EventDetailsActivity extends AppCompatActivity {
         return event.getOrganizerId().equals(currentUserId);
     }
 
+    private void renderEntrants(LinearLayout linLay, List<Entrant> entrants) {
+        if (entrants == null || entrants.isEmpty()) {
+            TextView emptyView = new TextView(getBaseContext());
+            emptyView.setText("No Entrants");
+            linLay.addView(emptyView);
+            return;
+        }
+
+        LayoutInflater inflater = getLayoutInflater();
+
+        for (Entrant entrant : entrants) {
+            View row = inflater.inflate(R.layout.item_entrant, linLay, false);
+
+            TextView entrantName = row.findViewById(R.id.tv_entrant_name);
+            TextView entrantEmail = row.findViewById(R.id.tv_entrant_email);
+
+            ServiceLocator.getUserStorage().getUserProfile(
+                    entrant.getEntrantId(),
+                    user -> {
+                        String name = user.getName();
+                        entrantName.setText(Objects.requireNonNullElse(name, "UNKNOWN NAME :("));
+
+                        String email = user.getEmail();
+                        entrantEmail.setText(Objects.requireNonNullElse(email, "UNKNOWN EMAIL :("));
+                    },
+                    e -> {}
+            );
+
+            linLay.addView(row);
+        }
+    }
+
+    private void listEntrants(String eventId) {
+        LinearLayout enrolledEntrants = findViewById(R.id.list_of_entrants);
+        TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
+        tvEntrants.setText("Current Entrants");
+
+        eventPoolStorage.getEnrolledEntrants(
+                eventId,
+                entrants -> {
+                    renderEntrants(enrolledEntrants, entrants);
+                },
+                e -> {
+                    Log.e("EventDetailsActivity", "Failed to get enrolled entrants");
+                    e.printStackTrace();
+                }
+        );
+    }
+    private void listWaitlisted(String eventId) {
+        LinearLayout waitlistedEntrants = findViewById(R.id.list_of_entrants);
+        TextView tvWaitlisted = findViewById(R.id.tv_list_of_waitlisted);
+        tvWaitlisted.setText("Waitlisted Entrants");
+
+        eventPoolStorage.getWaitlistedEntrants(
+                eventId,
+                entrants -> {
+                    renderEntrants(waitlistedEntrants, entrants);
+                },
+                e -> {
+                    Log.e("EventDetailsActivity", "Failed to get waitlisted entrants");
+                    e.printStackTrace();
+                }
+        );
+    }
+    private void listCancelled(String eventId) {
+        LinearLayout cancelledEntrants = findViewById(R.id.list_of_entrants);
+        TextView tvCancelled = findViewById(R.id.tv_list_of_cancelled);
+        tvCancelled.setText("Cancelled Entrants");
+
+        eventPoolStorage.getDeclinedEntrants(
+                eventId,
+                entrants -> {
+                    renderEntrants(cancelledEntrants, entrants);
+                },
+                e -> {
+                    Log.e("EventDetailsActivity", "Failed to get declined entrants");
+                    e.printStackTrace();
+                }
+        );
+    }
 
     /**
      * Checks if user is admin
@@ -180,30 +274,33 @@ public class EventDetailsActivity extends AppCompatActivity {
      *      delete image button
      */
     private void setupAdminActions() {
-        if (isAdminMode) {
-            btnRemoveEvent.setVisibility(View.VISIBLE);
-            btnRemoveEvent.setEnabled(true);
-            btnJoin.setEnabled(false);
-            btnJoin.setVisibility(View.GONE);
-            layoutAdminInfo.setVisibility(View.VISIBLE);
-            btnDeleteImage.setVisibility(View.VISIBLE);
-            
-            btnRemoveEvent.setOnClickListener(v -> {
-                eventStorage.deleteEvent(eventId);
-                Toast.makeText(this, "Event Removed", Toast.LENGTH_SHORT).show();
-                finish();
-            });
-
-            btnDeleteImage.setOnClickListener(v -> {
-                eventStorage.getEvent(eventId, event -> {
-                    event.setPosterUrl(null);
-                    eventStorage.upsertEvent(event);
-                    Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
-                    ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
-                    btnDeleteImage.setVisibility(View.GONE);
-                }, e -> Toast.makeText(this, "Failed to delete image", Toast.LENGTH_SHORT).show());
-            });
+        // Easier to read, not as indented
+        if (!isAdminMode) {
+            return;
         }
+
+        btnRemoveEvent.setVisibility(VISIBLE);
+        btnRemoveEvent.setEnabled(true);
+        btnJoin.setEnabled(false);
+        btnJoin.setVisibility(View.GONE);
+        layoutAdminInfo.setVisibility(VISIBLE);
+        btnDeleteImage.setVisibility(VISIBLE);
+
+        btnRemoveEvent.setOnClickListener(v -> {
+            eventStorage.deleteEvent(eventId);
+            Toast.makeText(this, "Event Removed", Toast.LENGTH_SHORT).show();
+            finish();
+        });
+
+        btnDeleteImage.setOnClickListener(v -> {
+            eventStorage.getEvent(eventId, event -> {
+                event.setPosterUrl(null);
+                eventStorage.upsertEvent(event);
+                Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
+                ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
+                btnDeleteImage.setVisibility(View.GONE);
+            }, e -> Toast.makeText(this, "Failed to delete image", Toast.LENGTH_SHORT).show());
+        });
     }
 
     /**
@@ -238,21 +335,21 @@ public class EventDetailsActivity extends AppCompatActivity {
         invitations_layout.setVisibility(View.GONE);
 
         if (status == Entrant.EntrantStatus.WAITLISTED) {
-            btnLeave.setVisibility(View.VISIBLE);
+            btnLeave.setVisibility(VISIBLE);
             btnLeave.setEnabled(true);
             btnLeave.setOnClickListener(v -> leaveWaitlist());
             return;
         }
 
         if (status == Entrant.EntrantStatus.INVITED) {
-            invitations_layout.setVisibility(View.VISIBLE);
+            invitations_layout.setVisibility(VISIBLE);
             btnAccept.setOnClickListener(v -> acceptInvitation());
             btnDecline.setOnClickListener(v -> declineInvitation());
             return;
         }
 
         if (status == ENROLLED) {
-            btnJoin.setVisibility(View.VISIBLE);
+            btnJoin.setVisibility(VISIBLE);
             btnJoin.setEnabled(true);
             btnJoin.setText("Unenroll");
             btnJoin.setOnClickListener(v -> unenroll());
@@ -266,7 +363,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         if (event.isRegistrationOpen()) {
-            btnJoin.setVisibility(View.VISIBLE);
+            btnJoin.setVisibility(VISIBLE);
             btnJoin.setEnabled(true);
             btnJoin.setText("Join Waitlist");
             btnJoin.setOnClickListener(v -> joinWaitlist());
@@ -350,7 +447,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         if (isAdminMode && event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
-            btnDeleteImage.setVisibility(View.VISIBLE);
+            btnDeleteImage.setVisibility(VISIBLE);
         }
         else {
             btnDeleteImage.setVisibility(View.GONE);
@@ -374,7 +471,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
     private void showJoinDisabled(String text) {
-        btnJoin.setVisibility(View.VISIBLE);
+        btnJoin.setVisibility(VISIBLE);
         btnJoin.setEnabled(false);
         btnJoin.setText(text);
         btnLeave.setVisibility(View.GONE);

@@ -3,6 +3,7 @@ package com.example.lotteryapp.fragments;
 import android.app.Dialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -272,6 +273,8 @@ public class ManageFragment extends Fragment {
             }
 
             String organizerId = ServiceLocator.uid();
+            Log.d("Create Event", "OrganizerID: " + organizerId);
+
             if (organizerId == null || organizerId.trim().isEmpty()) {
                 Toast.makeText(requireContext(), "Organizer not signed in", Toast.LENGTH_SHORT).show();
                 return;
