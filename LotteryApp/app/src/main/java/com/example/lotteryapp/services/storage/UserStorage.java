@@ -171,7 +171,7 @@ public class UserStorage {
      */
     public void upsertUserProfile(String uuid, String name, String email, String phoneNumber, String location,
                                   OnSuccessListener<Void> ok, OnFailureListener fail) {
-        updateUserProfile(uuid, name, email, phoneNumber, location, null, ok, fail);
+        updateUserProfile(uuid, name, email, phoneNumber, location, ok, fail);
     }
 
     /** firebase modify
@@ -180,8 +180,11 @@ public class UserStorage {
      * - returns nothing, asynchronously or synchronously
      */
 
-    public void updateUserProfile(String uuid, String name, String email, String phoneNumber, String location, String profilePicUrl,
+    public void updateUserProfile(String uuid, String name, String email, String phoneNumber, String location, /*String profilePicUrl,*/
                                   OnSuccessListener<Void> ok, OnFailureListener fail) {
+        // **
+        // add an additional anyString() to UserDetailsActivityUnitTest when you uncomment profilePicUrl
+        // **
         Map<String, Object> update = new HashMap<>();
 
         if (name != null) {
@@ -196,9 +199,10 @@ public class UserStorage {
         if (location != null) {
             update.put("location", location);
         }
+        /*
         if (profilePicUrl != null || name == null) { // name==null is a hack to allow clearing profilePicUrl if we pass it as null explicitly
              update.put("profilePicUrl", profilePicUrl);
-        }
+        }*/
         update.put("updatedAt", FieldValue.serverTimestamp());
         update.put("deviceID", uuid);
 
