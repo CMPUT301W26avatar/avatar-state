@@ -89,6 +89,10 @@ public final class ServiceLocator {
         overrideEventStorage = s;
     }
 
+    public static void setAdminStorageForTests(@Nullable AdminStorage s) {
+        overrideAdminStorage = s;
+    }
+
     public static void setUserStorageForTests(@Nullable UserStorage s) {
         overrideUserStorage = s;
     }
@@ -112,5 +116,8 @@ public final class ServiceLocator {
         overrideUserStorage = null;
         overrideEventPoolStorage = null;
         overrideUserIdProvider = null;
+        overrideAdminStorage = null;
+        overrideAuthService = null;
+        overrideUserNameService = null;
     }
 }
