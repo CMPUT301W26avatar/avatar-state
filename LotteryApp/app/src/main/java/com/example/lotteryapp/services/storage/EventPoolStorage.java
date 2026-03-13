@@ -526,6 +526,7 @@ public class EventPoolStorage {
         db.collection("events")
                 .document(eventId)
                 .collection("enrolled")
+
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
                     List<Entrant> entrants = new ArrayList<>();
