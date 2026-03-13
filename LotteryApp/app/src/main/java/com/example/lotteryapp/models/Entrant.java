@@ -1,5 +1,13 @@
 package com.example.lotteryapp.models;
 
+/** Model class for a User relationship with Event
+ * - A user can only exist as an Entrant one time in the entirety of the Event.
+ * - An Entrant has its status (EntrantStatus) cycled through as they perform actions in the app
+ *      i.e. User selects "Accept Invitation": goes from INVITED -> ENROLLED, etc.
+ * - No setters for eventId or entrantId!
+ */
+
+
 public class Entrant {
     private final String entrantId;
     private final String eventId;

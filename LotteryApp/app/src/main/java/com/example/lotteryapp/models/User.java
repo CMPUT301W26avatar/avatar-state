@@ -1,4 +1,14 @@
 package com.example.lotteryapp.models;
+
+/** Model class for a User
+ *  - Metadata only
+ *  - primary key: user Id (device Id)
+ *  - A user can be an Entrant, Organizer and /or Admin
+ *  - A user cannot be an Entrant and an Organizer of the same event
+ *      Constructor only needs device_id (from AuthService)
+ *  - Only consists of getters and setters
+ */
+
 public class User {
     private final String uuid;
     public String name;

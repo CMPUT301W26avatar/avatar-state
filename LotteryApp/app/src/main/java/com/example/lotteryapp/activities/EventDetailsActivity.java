@@ -33,11 +33,15 @@ public class EventDetailsActivity extends AppCompatActivity {
     private LinearLayout invitations_layout;
     private MaterialTextView tvName;
     private static final String MY_TAG = "InvitationDebug";
+
+    // text views
     private MaterialTextView tvLocation;
     private MaterialTextView tvDescription;
     private MaterialTextView tvDate;
     private MaterialTextView tvRegEndDate;
     private MaterialTextView tvCriteriaGuidelines;
+
+    // buttons
     private MaterialButton btnClose;
     private MaterialButton btnJoin;
     private MaterialButton btnLeave;
@@ -46,6 +50,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialButton btnDeleteImage;
     private MaterialButton btnRemoveEvent;
     private MaterialButton btnBeginLotterySelection;
+    // poster
     private ImageView ivEventPoster;
 
     // Admin Tech Details Views
@@ -57,6 +62,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private String currentUserId;
     private boolean isAdminMode = false;
     private Event currentEvent;
+    // services
 
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
@@ -65,13 +71,14 @@ public class EventDetailsActivity extends AppCompatActivity {
     private final SimpleDateFormat sdf =
             new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_event_details);
 
         isAdminMode = getIntent().getBooleanExtra("isAdminMode", false);
-        
+
         bindViews();
 
         btnClose.setOnClickListener(v -> finish());
@@ -106,7 +113,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         loadEvent();
     }
 
-    // associate all xml components to their application counterparts
+    /**
+    * Associate all of the xml components with their application counterparts
+    */
     private void bindViews() {
         tvName = findViewById(R.id.tv_event_name);
         tvLocation = findViewById(R.id.tv_location);

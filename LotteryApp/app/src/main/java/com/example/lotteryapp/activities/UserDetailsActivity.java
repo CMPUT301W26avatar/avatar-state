@@ -175,7 +175,7 @@ public class UserDetailsActivity extends AppCompatActivity {
             return;
         }
 
-        ustore.updateUserProfile(
+        ustore.upsertUserProfile(
                 uid,
                 name,
                 email,

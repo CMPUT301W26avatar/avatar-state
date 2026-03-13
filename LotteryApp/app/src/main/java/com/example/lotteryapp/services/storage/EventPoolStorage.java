@@ -22,12 +22,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Manages the event pool and lottery lifecycle.
- * Firestore path: events/{eventId}/entries/{entrantId}
- *
- * US 02.06.03 - organizer views all entrants
- * US 02.01.01 - organizer sets registration period
+/** Database storage and retrieval layer with respect to Event subcollections of Entrants
+ * Events have their own subcollections for waitlisted, invited, enrolled and declined Entrants
+ * Call via ServiceLocator
  */
 
 public class EventPoolStorage {
@@ -38,7 +35,9 @@ public class EventPoolStorage {
         this.db = db;
     }
 
-    // helpers: return a single document for a certain entrant (entrantId) in every subcollection of an event (eventId)
+    /** firebase retrieval helper
+     * - returns a document of the waitlisted subcollection for a certain unique entrantId
+     */
     private DocumentReference waitlistedDoc(String eventId, String entrantId) {
         return db.collection("events")
                 .document(eventId)
@@ -46,6 +45,9 @@ public class EventPoolStorage {
                 .document(entrantId);
     }
 
+    /** firebase retrieval helper
+     * - returns a document of the invited subcollection for a certain unique entrantId
+     */
     private DocumentReference invitedDoc(String eventId, String entrantId) {
         return db.collection("events")
                 .document(eventId)
@@ -53,6 +55,9 @@ public class EventPoolStorage {
                 .document(entrantId);
     }
 
+    /** firebase retrieval helper
+     * - returns a document of the enrolled subcollection for a certain unique entrantId
+     */
     private DocumentReference enrolledDoc(String eventId, String entrantId) {
         return db.collection("events")
                 .document(eventId)
@@ -60,6 +65,9 @@ public class EventPoolStorage {
                 .document(entrantId);
     }
 
+    /** firebase retrieval helper
+     * - returns a document of the waitlisted subcollection for a certain unique entrantId
+     */
     private DocumentReference declinedDoc(String eventId, String entrantId) {
         return db.collection("events")
                 .document(eventId)
@@ -67,7 +75,9 @@ public class EventPoolStorage {
                 .document(entrantId);
     }
 
-    // helper: return a dict/map of entrant data to upsert into the database
+    /** firebase storage helper
+     * - takes database fields to store as parameters, and returns a Map with those fields
+     */
     private Map<String, Object> mapEntrantData(String eventId, String entrantId, String status) {
         Map<String, Object> data = new HashMap<>();
         data.put("entrantId", entrantId);
@@ -77,7 +87,11 @@ public class EventPoolStorage {
         return data;
     }
 
-    // add an entrant to the waitlisted subcollection
+    /** firebase storage
+     * Stores a single entrant inside of the waitlisted subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void waitlistForEvent(
             String eventId,
             Entrant entrant,
@@ -92,8 +106,6 @@ public class EventPoolStorage {
         db.runTransaction((Transaction.Function<Void>) transaction -> {
                     DocumentSnapshot eventSnap = transaction.get(eventRef);
                     DocumentSnapshot waitlistedSnap = transaction.get(entrantWaitlistedRef);
-                    DocumentSnapshot invitedSnap = transaction.get(entrantInvitedRef);
-                    DocumentSnapshot enrolledSnap = transaction.get(entrantEnrolledRef);
 
                     if (!eventSnap.exists()) {
                         throw new IllegalStateException("Event does not exist");
@@ -138,7 +150,12 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // add an entrant to the invited subcollection, and remove them from the waitlisted subcollection
+    /** firebase storage
+     * Stores a single entrant inside of the invited subcollection
+     * Removes the aforementioned entrant from the waitlisted subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void inviteToEvent(
             String eventId,
             Entrant entrant,
@@ -199,7 +216,12 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // add an entrant to the enrolled subcollection, and remove them from the invited subcollection
+    /** firebase storage
+     * Stores a single entrant inside of the enrolled subcollection
+     * Removes the aforementioned entrant from the invited subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void enrollInEvent(
             String eventId,
             Entrant entrant,
@@ -264,7 +286,11 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // add an entrant to the declined subcollection, and remove them from the invited subcollection
+    /** firebase storage
+     * Removes a single entrant from the waitlisted subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void removeFromWaitlist(
             String eventId,
             String entrantId,
@@ -309,6 +335,12 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /** firebase storage
+     * Stores a single entrant inside of the declined subcollection
+     * Removes the aforementioned entrant from the invited subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void removeFromInvited(
             String eventId,
             String entrantId,
@@ -358,7 +390,11 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // delete the entrant from the enrolled subcollection
+    /** firebase storage
+     * Removes a single entrant from the enrolled subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void unenroll(
             String eventId,
             String entrantId,
@@ -394,9 +430,13 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    // BASIC DB QUERIES
 
-    // DATABASE BASIC QUERIES
-    // for querying whether an Entrant is WAITLISTED, INVITED, ...
+    /** firebase retrieval
+     * Returns the status of an Entrant inside of events (all subcollections)
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns the status of the Entrant onSuccess, asynchronously
+     */
     public void getEntrantStatus(
             String eventId,
             String entrantId,
@@ -441,51 +481,14 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // mass inviter: calls inviteToEvent for all entries returned by SelectionService
-    public void inviteSelectedEntrants(
-            String eventId,
-            List<Entrant> selectedEntrants,
-            OnSuccessListener<Integer> onSuccess,
-            OnFailureListener onFailure
-    ) {
-        if (selectedEntrants == null || selectedEntrants.isEmpty()) {
-            onSuccess.onSuccess(0);
-            return;
-        }
-
-        AtomicInteger remaining = new AtomicInteger(selectedEntrants.size());
-        AtomicInteger successCount = new AtomicInteger(0);
-        boolean[] failed = {false};
-
-        for (Entrant entrant : selectedEntrants) {
-            if (entrant == null || entrant.getEntrantId() == null) {
-                if (remaining.decrementAndGet() == 0 && !failed[0]) {
-                    onSuccess.onSuccess(successCount.get());
-                }
-                continue;
-            }
-            inviteToEvent(
-                    eventId,
-                    entrant,
-                    unused -> {
-                        successCount.incrementAndGet();
-                        if (remaining.decrementAndGet() == 0 && !failed[0]) {
-                            onSuccess.onSuccess(successCount.get());
-                        }
-                    },
-                    e -> {
-                        if (!failed[0]) {
-                            failed[0] = true;
-                            onFailure.onFailure(e);
-                        }
-                    }
-            );
-        }
-    }
-
 
     // DATABASE LIST QUERIES
-    // return a list of entrants in the waitlisted subcollection asynchronously
+
+    /** firebase retrieval
+     * Returns all Entrants inside of the waitlisted subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns a list of Entrants, asynchronously
+     */
     public void getWaitlistedEntrants(String eventId,
                                       OnSuccessListener<List<Entrant>> onSuccess,
                                       OnFailureListener onFailure) {
@@ -511,7 +514,11 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // return a list of entrants in the invited subcollection asynchronously
+    /** firebase retrieval
+     * Returns all Entrants inside of the invited subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns a list of Entrants, asynchronously
+     */
     public void getInvitedEntrants(String eventId,
                                    OnSuccessListener<List<Entrant>> onSuccess,
                                    OnFailureListener onFailure) {
@@ -537,7 +544,11 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // return a list of entrants in the declined subcollection asynchronously
+    /** firebase retrieval
+     * Returns all Entrants inside of the declined subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns a list of Entrants, asynchronously
+     */
     public void getDeclinedEntrants(String eventId,
                                     OnSuccessListener<List<Entrant>> onSuccess,
                                     OnFailureListener onFailure) {
@@ -563,8 +574,11 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // return a list of entrants in the enrolled subcollection asynchronously
-
+    /** firebase retrieval
+     * Returns all Entrants inside of the enrolled subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns a list of Entrants, asynchronously
+     */
     public void getEnrolledEntrants(String eventId,
                                     OnSuccessListener<List<Entrant>> onSuccess,
                                     OnFailureListener onFailure) {
@@ -591,7 +605,12 @@ public class EventPoolStorage {
     }
 
     // DATABASE DELETE ENTRY (status unknown)
-    // helper: holds different logic for deleting an entrant from each subcollection
+    /** firebase delete single
+     * Deletes a singular Entrant from one of the event subcollections
+     * - differentiated logic for each subcollection (status)
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     private void deleteEntryByStatus(
             String eventId,
             String entrantId,
@@ -661,7 +680,11 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    // deletes the selected Entrant from all subcollections, in all events
+    /** firebase delete cascade
+     * Deletes a singular Entrant from all of the event subcollections
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void delAllUserEntries(
             String entrantId,
             OnSuccessListener<Void> onSuccess,
@@ -729,6 +752,11 @@ public class EventPoolStorage {
         }).addOnFailureListener(onFailure);
     }
 
+    /** firebase retrieval
+     * Select a random number of Entrants from the waitlisted collection to send invites to.
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns count of invites sent (entrants selected), asynchronously
+     */
     public void drawWinners(
             String eventId,
             int capacity,
