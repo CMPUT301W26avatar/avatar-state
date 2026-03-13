@@ -1,5 +1,6 @@
 package com.example.lotteryapp.activities;
 
+import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 import static androidx.core.content.ContentProviderCompat.requireContext;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
@@ -164,13 +165,16 @@ public class EventDetailsActivity extends AppCompatActivity {
                         setupEntrantActions(currentEvent);
                     }
 
+                    LinearLayout listOfX = findViewById(R.id.list_of_x_container);
+                    listOfX.setVisibility(VISIBLE);
                     if (isOrganizer(event)) {
-                        LinearLayout listOfX = findViewById(R.id.list_of_x_container);
                         listOfX.setVisibility(VISIBLE);
 
                         listEntrants(eventId);
                         listWaitlisted(eventId);
                         listCancelled(eventId);
+                    } else {
+                        listOfX.setVisibility(GONE);
                     }
                 },
                 e -> {
@@ -186,18 +190,18 @@ public class EventDetailsActivity extends AppCompatActivity {
         return event.getOrganizerId().equals(currentUserId);
     }
 
-    private void renderEntrants(LinearLayout linLay, List<Entrant> entrants) {
+    private void renderEntrants(LinearLayout linearLayout, TextView textView, List<Entrant> entrants) {
         if (entrants == null || entrants.isEmpty()) {
-            TextView emptyView = new TextView(getBaseContext());
-            emptyView.setText("No Entrants");
-            linLay.addView(emptyView);
+            linearLayout.setVisibility(GONE);
+            textView.setVisibility(GONE);
             return;
         }
 
-        LayoutInflater inflater = getLayoutInflater();
+        Log.d("RenderEntrants", "Size of Entrants: " + entrants.size());
 
+        LayoutInflater inflater = getLayoutInflater();
         for (Entrant entrant : entrants) {
-            View row = inflater.inflate(R.layout.item_entrant, linLay, false);
+            View row = inflater.inflate(R.layout.item_entrant, linearLayout, false);
 
             TextView entrantName = row.findViewById(R.id.tv_entrant_name);
             TextView entrantEmail = row.findViewById(R.id.tv_entrant_email);
@@ -214,7 +218,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                     e -> {}
             );
 
-            linLay.addView(row);
+            linearLayout.addView(row);
         }
     }
 
@@ -226,7 +230,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         eventPoolStorage.getEnrolledEntrants(
                 eventId,
                 entrants -> {
-                    renderEntrants(enrolledEntrants, entrants);
+                    renderEntrants(enrolledEntrants, tvEntrants, entrants);
                 },
                 e -> {
                     Log.e("EventDetailsActivity", "Failed to get enrolled entrants");
@@ -235,14 +239,14 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
     private void listWaitlisted(String eventId) {
-        LinearLayout waitlistedEntrants = findViewById(R.id.list_of_entrants);
+        LinearLayout waitlistedEntrants = findViewById(R.id.list_of_waitlisted);
         TextView tvWaitlisted = findViewById(R.id.tv_list_of_waitlisted);
         tvWaitlisted.setText("Waitlisted Entrants");
 
         eventPoolStorage.getWaitlistedEntrants(
                 eventId,
                 entrants -> {
-                    renderEntrants(waitlistedEntrants, entrants);
+                    renderEntrants(waitlistedEntrants, tvWaitlisted, entrants);
                 },
                 e -> {
                     Log.e("EventDetailsActivity", "Failed to get waitlisted entrants");
@@ -251,14 +255,14 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
     private void listCancelled(String eventId) {
-        LinearLayout cancelledEntrants = findViewById(R.id.list_of_entrants);
+        LinearLayout cancelledEntrants = findViewById(R.id.list_of_cancelled);
         TextView tvCancelled = findViewById(R.id.tv_list_of_cancelled);
         tvCancelled.setText("Cancelled Entrants");
 
         eventPoolStorage.getDeclinedEntrants(
                 eventId,
                 entrants -> {
-                    renderEntrants(cancelledEntrants, entrants);
+                    renderEntrants(cancelledEntrants, tvCancelled, entrants);
                 },
                 e -> {
                     Log.e("EventDetailsActivity", "Failed to get declined entrants");
@@ -282,7 +286,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnRemoveEvent.setVisibility(VISIBLE);
         btnRemoveEvent.setEnabled(true);
         btnJoin.setEnabled(false);
-        btnJoin.setVisibility(View.GONE);
+        btnJoin.setVisibility(GONE);
         layoutAdminInfo.setVisibility(VISIBLE);
         btnDeleteImage.setVisibility(VISIBLE);
 
@@ -298,7 +302,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 eventStorage.upsertEvent(event);
                 Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
                 ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
-                btnDeleteImage.setVisibility(View.GONE);
+                btnDeleteImage.setVisibility(GONE);
             }, e -> Toast.makeText(this, "Failed to delete image", Toast.LENGTH_SHORT).show());
         });
     }
@@ -330,9 +334,9 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
     private void renderEntrantActions(Event event, Entrant.EntrantStatus status) {
-        btnJoin.setVisibility(View.GONE);
-        btnLeave.setVisibility(View.GONE);
-        invitations_layout.setVisibility(View.GONE);
+        btnJoin.setVisibility(GONE);
+        btnLeave.setVisibility(GONE);
+        invitations_layout.setVisibility(GONE);
 
         if (status == Entrant.EntrantStatus.WAITLISTED) {
             btnLeave.setVisibility(VISIBLE);
@@ -450,7 +454,7 @@ public class EventDetailsActivity extends AppCompatActivity {
             btnDeleteImage.setVisibility(VISIBLE);
         }
         else {
-            btnDeleteImage.setVisibility(View.GONE);
+            btnDeleteImage.setVisibility(GONE);
         }
 
         if (isAdminMode) {
@@ -474,8 +478,8 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnJoin.setVisibility(VISIBLE);
         btnJoin.setEnabled(false);
         btnJoin.setText(text);
-        btnLeave.setVisibility(View.GONE);
-        invitations_layout.setVisibility(View.GONE);
+        btnLeave.setVisibility(GONE);
+        invitations_layout.setVisibility(GONE);
     }
 
 
@@ -552,7 +556,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                     Toast.makeText(this, "Invitation declined", Toast.LENGTH_SHORT).show();
 
                     currentStatus = DECLINED;
-                    invitations_layout.setVisibility(View.GONE);
+                    invitations_layout.setVisibility(GONE);
                     renderEntrantActions(currentEvent, DECLINED);
 
                     btnDecline.setEnabled(true);
