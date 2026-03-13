@@ -547,40 +547,53 @@ public class EventPoolStorage {
 
     /**
      * Perform the lottery draw to select winners.
-     * Picks up to 'capacity' random entrants from the ENROLLED pool and marks them as SELECTED.
-     * Marks the rest as NOT_SELECTED.
+     * Picks up to 'capacity' random entrants from the WAITLISTED pool and marks them as INVITED.
+     * Marks the rest as NOT_INVITED.
      */
     public void drawWinners(String eventId, int capacity, OnSuccessListener<Void> onSuccess, OnFailureListener onFailure) {
-        db.collection("events").document(eventId).collection("entries")
-                .whereEqualTo("status", Entrant.EntrantStatus.ENROLLED.name())
+        db.collection("events").document(eventId).collection("waitlisted")
+                .whereEqualTo("status", Entrant.EntrantStatus.WAITLISTED.name())
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    List<QueryDocumentSnapshot> enrolled = new ArrayList<>();
+                    List<QueryDocumentSnapshot> waitlisted = new ArrayList<>();
                     for (QueryDocumentSnapshot doc : querySnapshot) {
-                        enrolled.add(doc);
+                        waitlisted.add(doc);
                     }
 
-                    if (enrolled.isEmpty()) {
+                    if (waitlisted.isEmpty()) {
                         onSuccess.onSuccess(null);
                         return;
                     }
 
                     // Shuffle for randomness
-                    java.util.Collections.shuffle(enrolled);
+                    java.util.Collections.shuffle(waitlisted);
 
-                    int winnersCount = Math.min(capacity, enrolled.size());
+                    int winnersCount = Math.min(capacity, waitlisted.size());
 
                     com.google.firebase.firestore.WriteBatch batch = db.batch();
 
-                    for (int i = 0; i < enrolled.size(); i++) {
-                        QueryDocumentSnapshot doc = enrolled.get(i);
-                        String newStatus = (i < winnersCount)
-                                ? Entrant.EntrantStatus.SELECTED.name()
-                                : Entrant.EntrantStatus.NOT_SELECTED.name();
+                    for (int i = 0; i < waitlisted.size(); i++) {
+                        QueryDocumentSnapshot doc = waitlisted.get(i);
+                        String entrantId = doc.getString("entrantId");
 
-                        batch.update(doc.getReference(), "status", newStatus);
-                        batch.update(doc.getReference(), "updatedAt", FieldValue.serverTimestamp());
+                        if (i < winnersCount) {
+                            //Move winner to 'invited' collection
+                            DocumentReference invitedRef = invitedDoc(eventId, entrantId);
+                            Map<String, Object> data = mapEntrantData(eventId, entrantId, Entrant.EntrantStatus.INVITED.name());
+                            data.put("joinedAt", doc.get("joinedAt")); // Preserve original join time
+                            batch.set(invitedRef, data);
+                            batch.delete(doc.getReference());
+                        } else {
+                            // ppl not selected are placed in NOT_INVITED in waitlisted collection
+                            batch.update(doc.getReference(), "status", Entrant.EntrantStatus.NOT_INVITED.name());
+                            // Add/update updatedAt timestamp if it doesn't exist
+                            batch.update(doc.getReference(), "updatedAt", FieldValue.serverTimestamp());
+                        }
                     }
+
+                    //Update event invitation count
+                    DocumentReference eventRef = db.collection("events").document(eventId);
+                    batch.update(eventRef, "invitationCount", FieldValue.increment(winnersCount));
 
                     batch.commit().addOnSuccessListener(onSuccess).addOnFailureListener(onFailure);
                 })

@@ -1,5 +1,5 @@
 package com.example.lotteryapp.models;
-//trigger CI update
+
 public class Entrant {
     private final String entrantId;
     private final String eventId;
