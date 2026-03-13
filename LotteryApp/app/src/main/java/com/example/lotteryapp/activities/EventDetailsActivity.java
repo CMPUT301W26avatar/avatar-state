@@ -26,6 +26,13 @@ import com.google.android.material.textview.MaterialTextView;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
 
+/**
+ * Displays the details of a selected event and provides actions
+ * based on the current user's role and status.
+ *      user: join/leave waitlist, accept/decline invitation, unenroll from event
+ *      organizer: begin lottery selection
+ *      admin: remove event , delete image
+ */
 public class EventDetailsActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
@@ -71,7 +78,11 @@ public class EventDetailsActivity extends AppCompatActivity {
     private final SimpleDateFormat sdf =
             new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
 
-
+    /**
+     * Initializes the activity, binds views and reads intent extras,
+     *      validates the event id and signed-in user
+     *      starts loading event data.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -147,7 +158,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminPosterUrl = findViewById(R.id.tv_admin_poster_url);
     }
 
-    /// render/load event to the screen
+    /**
+     * Loads the current event from storage and updates the UI.
+     *      actions set according to User role (entrant, organizer or admin)
+     */
     private void loadEvent() {
         eventStorage.getEvent(
                 eventId,
@@ -178,16 +192,19 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
-    // load event helper: returns a bool for if the current user is the event organizer inside of the Event lambda
+    /**
+     * Determines whether the current user is the organizer of the given event.
+     */
     private boolean isOrganizer(Event event) {
         return event.getOrganizerId().equals(currentUserId);
     }
 
     /**
-     * Checks if user is admin
-     * shows button to access admin actions
-     * delete event button
-     * delete image button
+     * Configures the UI and actions available in admin mode.
+     *      hides all buttons except
+     *          button to access admin actions which include:
+     *              remove event button
+     *              delete image button
      */
     private void setupAdminActions() {
         if (isAdminMode) {
@@ -217,7 +234,9 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
     /**
-     * Checks if user is organizer
+     * Configures the UI and actions available in organizer mode.
+     *      hides all buttons other than
+     *          button to begin the lottery selection
      */
     private void setupOrganizerActions(Event event) {
         btnJoin.setVisibility(View.GONE);
@@ -245,7 +264,9 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
     /**
-     * Checks if user is entrant
+     * Configures the UI and actions available in user mode.
+     *      call EventPoolStorage.getEntrantStatus() query for entrant status
+     *      call to renderEntrantActions for state-based action selection
      */
     private void setupEntrantActions(Event event) {
         if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
@@ -267,6 +288,14 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Determine which actions/buttons are valid to show a User based on their state as an Entrant
+     *      NONE: join waitlist
+     *      WAITLISTED: leave waitlist
+     *      INVITED: accept/decline invitation
+     *      DECLINED: join button closed -> cannot join again
+     *      ENROLLED: unenroll
+     */
     private void renderEntrantActions(Event event, Entrant.EntrantStatus status) {
         btnJoin.setVisibility(View.GONE);
         btnLeave.setVisibility(View.GONE);
@@ -311,7 +340,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
     }
 
-
+    /**
+     * Populates visible fields using intent extras when full backend event data is not yet available.
+     */
     private void populateFromIntentExtras() {
         String name = getIntent().getStringExtra("event_name");
         String location = getIntent().getStringExtra("event_location");
@@ -344,6 +375,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Populates the activity UI with information from the given event.
+     *      needs Event object parameter
+     */
     private void populateInfo(Event event) {
         if (event == null) {
             Toast.makeText(this, "Event not found", Toast.LENGTH_SHORT).show();
@@ -396,7 +431,9 @@ public class EventDetailsActivity extends AppCompatActivity {
             populateAdminTechDetails(event);
         }
     }
-
+    /**
+     * Populates the admin-only technical details section with raw event data
+     */
     private void populateAdminTechDetails(Event event) {
         tvAdminEventId.setText("eventId: \"" + event.getEventId() + "\"");
         tvAdminOrganizerId.setText("organizerId: \"" + event.getOrganizerId() + "\"");
@@ -409,6 +446,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminPosterUrl.setText("posterUrl: " + (event.getPosterUrl() != null ? "\"" + event.getPosterUrl() + "\"" : "null"));
     }
 
+    /**
+     * Disables the join button and displays the parameter text as the reason for it being disabled
+     *  to the user
+     */
     private void showJoinDisabled(String text) {
         btnJoin.setVisibility(View.VISIBLE);
         btnJoin.setEnabled(false);
@@ -417,6 +458,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         invitations_layout.setVisibility(View.GONE);
     }
 
+    /**
+     * Adds the current user to the event waitlist, NONE -> WAITLISTED and added to "waitlisted" collection
+     *      EventPoolStorage for db query
+     */
     private void joinWaitlist() {
         //Add user to waitlist collection
         Entrant entrant = new Entrant(currentUserId, eventId, Entrant.EntrantStatus.WAITLISTED);
@@ -439,6 +484,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Removes the current user from the event waitlist, WAITLISTED -> NONE and removed from "waitlist" colleciton
+     *      EventPoolStorage for db query
+     */
     private void leaveWaitlist() {
         btnLeave.setEnabled(false);
 
@@ -458,6 +507,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Signs a user up for the event, INVITED -> ENROLLED in db and added to "enrolled" collection
+     *      EventPoolStorage for db query
+     */
     private void acceptInvitation() {
         Entrant entrant = new Entrant(currentUserId, eventId, ENROLLED);
 
@@ -479,6 +532,11 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Declines the sign-up invitation, INVITED -> DECLINED in db and
+     *      added to "declined" collection, removed from "invited" collection
+     *      EventPoolStorage for db query
+     */
     private void declineInvitation() {
         btnDecline.setEnabled(false);
 
@@ -498,6 +556,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Removes the current user from the event, ENROLLED -> NONE and removed from "enrolled" colleciton
+     *      EventPoolStorage for db query
+     */
     private void unenroll() {
         btnJoin.setEnabled(false);
 
@@ -518,6 +580,11 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     }
 
+    /**
+     * Starts lottery selection for the given event
+     *      adds all selected entrants to the "invited" subcollection
+     *      status marked INVITED
+     */
     private void beginLotterySelection(Event event) {
         if (event == null) {
             Toast.makeText(this, "Event not loaded", Toast.LENGTH_SHORT).show();
