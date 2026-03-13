@@ -547,8 +547,8 @@ public class EventPoolStorage {
 
     /**
      * Perform the lottery draw to select winners.
-     * Picks up to 'capacity' random entrants from the WAITLISTED pool and marks them as INVITED.
-     * Marks the rest as NOT_INVITED.
+     * Picks up to capacity random entrants from WAITLISTED pool and mark them as INVITED.
+     * the rest = NOT_INVITED.
      */
     public void drawWinners(String eventId, int capacity, OnSuccessListener<Void> onSuccess, OnFailureListener onFailure) {
         db.collection("events").document(eventId).collection("waitlisted")

@@ -120,7 +120,16 @@ public class EventStorage {
 
         String rawStatus = doc.getString("status");
         if (rawStatus != null) {
-            event.setStatus(Event.EventStatus.valueOf(rawStatus));
+            try {
+                //"OPEN" -> "REG_OPEN" to prevent crashes
+                if ("OPEN".equals(rawStatus)) {
+                    event.setStatus(Event.EventStatus.REG_OPEN);
+                } else {
+                    event.setStatus(Event.EventStatus.valueOf(rawStatus));
+                }
+            } catch (IllegalArgumentException e) {
+                event.setStatus(Event.EventStatus.REG_UPCOMING);
+            }
         }
 
         event.setTitle(doc.getString("title"));
