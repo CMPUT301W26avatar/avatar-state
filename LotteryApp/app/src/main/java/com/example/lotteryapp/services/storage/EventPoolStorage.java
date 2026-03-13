@@ -550,7 +550,7 @@ public class EventPoolStorage {
      * Picks up to capacity random entrants from WAITLISTED pool and mark them as INVITED.
      * the rest = NOT_INVITED.
      */
-    public void drawWinners(String eventId, int capacity, OnSuccessListener<Void> onSuccess, OnFailureListener onFailure) {
+    public void drawWinners(String eventId, int capacity, OnSuccessListener<Integer> onSuccess, OnFailureListener onFailure) {
         db.collection("events").document(eventId).collection("waitlisted")
                 .whereEqualTo("status", Entrant.EntrantStatus.WAITLISTED.name())
                 .get()
@@ -561,7 +561,7 @@ public class EventPoolStorage {
                     }
 
                     if (waitlisted.isEmpty()) {
-                        onSuccess.onSuccess(null);
+                        onSuccess.onSuccess(0);
                         return;
                     }
 
@@ -595,7 +595,7 @@ public class EventPoolStorage {
                     DocumentReference eventRef = db.collection("events").document(eventId);
                     batch.update(eventRef, "invitationCount", FieldValue.increment(winnersCount));
 
-                    batch.commit().addOnSuccessListener(onSuccess).addOnFailureListener(onFailure);
+                    batch.commit().addOnSuccessListener(unused -> onSuccess.onSuccess(winnersCount)).addOnFailureListener(onFailure);
                 })
                 .addOnFailureListener(onFailure);
     }
