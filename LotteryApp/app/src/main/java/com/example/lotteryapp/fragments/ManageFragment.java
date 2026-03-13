@@ -25,7 +25,6 @@ import com.example.lotteryapp.services.storage.EventStorage;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
-import com.example.lotteryapp.activities.EnrolledListActivity;
 
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;

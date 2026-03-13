@@ -7,6 +7,7 @@ import android.text.TextWatcher;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -17,6 +18,7 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.fragments.AdminListFragment;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.tabs.TabLayout;
@@ -62,6 +64,31 @@ public class AdminActivity extends AppCompatActivity {
         btnPromote.setOnClickListener(v -> {
             Intent intent = new Intent(this, PromoteNewAdminActivity.class);
             startActivity(intent);
+        });
+
+        MaterialButton btnNotifLog = findViewById(R.id.btn_notification_log);
+        btnNotifLog.setOnClickListener(v -> {
+            ServiceLocator.getNotificationLogStorage().getAllNotificationLogs(
+                    logs -> {
+                        StringBuilder sb = new StringBuilder();
+                        if (logs.isEmpty()) {
+                            sb.append("No notifications have been sent yet!");
+                        } else {
+                            for (com.example.lotteryapp.models.NotificationLog log: logs) {
+                                sb.append("[").append(log.getType()).append("] ")
+                                  .append(log.getTitle()).append("\n")
+                                  .append(log.getMessage()).append("\n")
+                                  .append("Organizer: ").append(log.getOrganizerId()).append("\n");
+                            }
+                        }
+                        new AlertDialog.Builder(this)
+                                .setTitle("Notification Log")
+                                .setMessage(sb.toString())
+                                .setPositiveButton("Close", null)
+                                .show();
+                    },
+                    e -> android.widget.Toast.makeText(this, "Failed to load logs", Toast.LENGTH_SHORT).show()
+            );
         });
 
         viewPager.setAdapter(new FragmentStateAdapter(this) {
