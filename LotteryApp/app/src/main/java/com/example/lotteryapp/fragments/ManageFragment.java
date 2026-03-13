@@ -165,6 +165,7 @@ public class ManageFragment extends Fragment {
 
     /**
      * logic that should follow the Details button press on each event item in list
+     *      launch EventDetailsActivity
      */
     private void openEventDetails(Event event) {
         if (event == null || event.getEventId() == null || event.getEventId().trim().isEmpty()) {
@@ -177,6 +178,14 @@ public class ManageFragment extends Fragment {
         startActivity(intent);
     }
 
+    /**
+     * Displays a full-screen dialog for creating a new event
+     *      enter event detail fields
+     *      mandatory: event capacity, title, reg start/end and event date
+     *      optional: description, location, waitlist capacity, geolocational data
+     *
+     *      can also clear all fields
+     */
     private void showCreateEventDialog() {
         Dialog dialog = new Dialog(requireContext(), android.R.style.Theme_Material_Light_NoActionBar_Fullscreen);
         View view = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_create_event, null);
@@ -358,6 +367,16 @@ public class ManageFragment extends Fragment {
     }
 
 
+
+    /**
+     * Displays a full-screen dialog for updating an existing event
+     *      enter event detail fields
+     *      mandatory: event capacity, title, reg start/end and event date (saved from create)
+     *      optional: description, location, waitlist capacity, geolocational data
+     *      unable to: edit event date, or reg start/end
+     *
+     *      can also clear all fields
+     */
     private void showUpdateEventDialog(Event event) {
         Dialog dialog = new Dialog(requireContext(), android.R.style.Theme_Material_Light_NoActionBar_Fullscreen);
         View view = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_update_event, null);
@@ -503,7 +522,9 @@ public class ManageFragment extends Fragment {
         dialog.show();
     }
 
-    // optional Field helper
+    /**
+     * helper for parsing fields where input is optional
+    */
     private void setOptionalString(Event event, String methodName, String value) {
         try {
             java.lang.reflect.Method method = event.getClass().getMethod(methodName, String.class);
