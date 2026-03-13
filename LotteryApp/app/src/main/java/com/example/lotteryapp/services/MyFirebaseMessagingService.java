@@ -37,6 +37,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String PREFS_NAME = "notification_prefs";
     private static final String CHANNEL_ID = "lottery_notifications";
 
+    /**
+     * Handles an incoming Firebase notification message
+     *      extracts notification title and body from either the noti. or noti. data
+     */
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
@@ -71,6 +75,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
     }
 
+    /**
+     * Called when a new Firebase noti. registration token is generated
+     */
     @Override
     public void onNewToken(@NonNull String token) {
         super.onNewToken(token);
@@ -80,6 +87,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
     }
 
+    /**
+     * Checks whether a notification of the given type is enabled in the users notification preferences
+     */
     private boolean isNotificationEnabled(String type) {
         // TODO: check system-level NotificationManagerCompat.from(this).areNotificationsEnabled()
         // to stay perfectly synchronous with system settings even if SharedPreferences isn't updated.
@@ -106,6 +116,13 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         return true; 
     }
 
+    /**
+     * Sends notification to users
+     *      needs title for notification,
+     *          string for notification body,
+     *          and in the future,
+     *          eventId to link to Event
+     */
     private void sendNotification(String title, String messageBody, String eventId) {
         if (title == null) {
             title = "New Notification";
