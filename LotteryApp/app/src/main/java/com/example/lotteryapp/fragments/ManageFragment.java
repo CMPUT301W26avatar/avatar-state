@@ -3,6 +3,7 @@ package com.example.lotteryapp.fragments;
 import android.app.Dialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,7 +18,6 @@ import androidx.core.util.Pair;
 import androidx.fragment.app.Fragment;
 
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.activities.EnrolledListActivity;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.models.Event;
@@ -25,9 +25,7 @@ import com.example.lotteryapp.services.storage.EventStorage;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
-import com.example.lotteryapp.activities.EnrolledListActivity;
 
-import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -338,6 +336,7 @@ public class ManageFragment extends Fragment {
             event.setEventCapacity(eventCapacity);
             event.setWaitlistCapacity(waitlistCapacity);
             event.setInvitationCount(0);
+            event.setHasDrawnLottery(false); // force waitlisting state
             String criteriaGuidelines = getString(R.string.criteriaGuidelines);
             event.setCriteriaGuidelines(criteriaGuidelines);
 
@@ -360,7 +359,12 @@ public class ManageFragment extends Fragment {
                 event.setStatus(Event.EventStatus.EVENT_CLOSED);
             }
 
-            eventStorage.upsertEvent(event);
+            eventStorage.upsertEvent(
+                    event, unused -> {},
+                    e -> {
+                        Log.e("showCreateEventDialog", "Failed to upsert event", e);
+                    }
+            );
 
             Toast.makeText(requireContext(), "Event created!", Toast.LENGTH_SHORT).show();
 
@@ -517,7 +521,12 @@ public class ManageFragment extends Fragment {
             }
 
             // upsert to database
-            eventStorage.upsertEvent(event);
+            eventStorage.upsertEvent(
+                    event, unused -> {},
+                    e -> {
+                        Log.e("updateEventDialog", "Failed to upsert event", e);
+                    }
+            );
 
             Toast.makeText(requireContext(), "Event updated!", Toast.LENGTH_SHORT).show();
             dialog.dismiss();

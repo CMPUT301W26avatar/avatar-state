@@ -96,8 +96,8 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Initializes the activity, binds views and reads intent extras,
-     *      validates the event id and signed-in user
-     *      starts loading event data.
+     * validates the event id and signed-in user
+     * starts loading event data.
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -140,8 +140,8 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
     /**
-    * Associate all of the xml components with their application counterparts
-    */
+     * Associate all of the xml components with their application counterparts
+     */
     private void bindViews() {
         tvName = findViewById(R.id.tv_event_name);
         tvLocation = findViewById(R.id.tv_location);
@@ -177,7 +177,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Loads the current event from storage and updates the UI.
-     *      actions set according to User role (entrant, organizer or admin)
+     * actions set according to User role (entrant, organizer or admin)
      */
     private void loadEvent() {
         eventStorage.getEvent(
@@ -208,17 +208,14 @@ public class EventDetailsActivity extends AppCompatActivity {
                         Event.EventStatus status = event.getStatus();
                         if (status == REG_OPEN || status == REG_FULL || status == REG_CLOSED) {
                             listWaitlisted(eventId);
-                        }
-                        else if (status == EVENT_OPEN || status == EVENT_FULL) {
+                        } else if (status == EVENT_OPEN || status == EVENT_FULL) {
                             listEntrants(eventId);
                             // showInvitesDashboard
-                        }
-                        else if (status == EVENT_CLOSED) {
+                        } else if (status == EVENT_CLOSED) {
                             tvEntrants.setText("Final Entrants");
                             listEntrants(eventId);
                             //showInvitesDashboard
-                        }
-                        else {
+                        } else {
                             //showInvitesDashboard
                         }
 
@@ -272,7 +269,8 @@ public class EventDetailsActivity extends AppCompatActivity {
                         String email = user.getEmail();
                         entrantEmail.setText(Objects.requireNonNullElse(email, "UNKNOWN EMAIL :("));
                     },
-                    e -> {}
+                    e -> {
+                    }
             );
 
             linearLayout.addView(row);
@@ -295,6 +293,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 }
         );
     }
+
     private void listWaitlisted(String eventId) {
         LinearLayout waitlistedEntrants = findViewById(R.id.list_of_waitlisted);
         TextView tvWaitlisted = findViewById(R.id.tv_list_of_waitlisted);
@@ -311,12 +310,13 @@ public class EventDetailsActivity extends AppCompatActivity {
                 }
         );
     }
+
     /**
      * Configures the UI and actions available in admin mode.
-     *      hides all buttons except
-     *          button to access admin actions which include:
-     *              remove event button
-     *              delete image button
+     * hides all buttons except
+     * button to access admin actions which include:
+     * remove event button
+     * delete image button
      */
     private void setupAdminActions() {
         // Easier to read, not as indented
@@ -340,7 +340,12 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnDeleteImage.setOnClickListener(v -> {
             eventStorage.getEvent(eventId, event -> {
                 event.setPosterUrl(null);
-                eventStorage.upsertEvent(event);
+                eventStorage.upsertEvent(
+                        event, unused -> {},
+                        e -> {
+                            Log.e("EventDetailsActivity:adminMode", "Failed to upsert event", e);
+                        }
+                );
                 Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
                 ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
                 btnDeleteImage.setVisibility(GONE);
@@ -350,8 +355,8 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Configures the UI and actions available in organizer mode.
-     *      hides all buttons other than
-     *          button to begin the lottery selection
+     * hides all buttons other than
+     * button to begin the lottery selection
      */
     private void setupOrganizerActions(Event event) {
         btnJoin.setVisibility(View.GONE);
@@ -370,19 +375,20 @@ public class EventDetailsActivity extends AppCompatActivity {
 
         boolean lotteryAvailable = registrationClosed || registrationFull;
 
-        boolean invitesExist = event.getInvitationCount() > 0;
+        boolean hasSentInvites = event.hasDrawnLottery();
 
-        if (lotteryAvailable) {
+        if (lotteryAvailable && !hasSentInvites) {
             btnBeginLotterySelection.setVisibility(View.VISIBLE);
             btnBeginLotterySelection.setEnabled(true);
             btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
         }
 
-        if (invitesExist) {
+        if (hasSentInvites) {
             btnBeginLotterySelection.setText("Re-draw applicants");
             btnBeginLotterySelection.setVisibility(View.VISIBLE);
             btnBeginLotterySelection.setEnabled(true);
             btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
+
             btnShowInvitesDashboard.setVisibility(View.VISIBLE);
             btnShowInvitesDashboard.setEnabled(true);
             btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
@@ -391,8 +397,8 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Configures the UI and actions available in user mode.
-     *      call EventPoolStorage.getEntrantStatus() query for entrant status
-     *      call to renderEntrantActions for state-based action selection
+     * call EventPoolStorage.getEntrantStatus() query for entrant status
+     * call to renderEntrantActions for state-based action selection
      */
     private void setupEntrantActions(Event event) {
         if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
@@ -416,11 +422,11 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Determine which actions/buttons are valid to show a User based on their state as an Entrant
-     *      NONE: join waitlist
-     *      WAITLISTED: leave waitlist
-     *      INVITED: accept/decline invitation
-     *      DECLINED: join button closed -> cannot join again
-     *      ENROLLED: unenroll
+     * NONE: join waitlist
+     * WAITLISTED: leave waitlist
+     * INVITED: accept/decline invitation
+     * DECLINED: join button closed -> cannot join again
+     * ENROLLED: unenroll
      */
     private void renderEntrantActions(Event event, Entrant.EntrantStatus status) {
         btnJoin.setVisibility(View.GONE);
@@ -503,7 +509,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Populates the activity UI with information from the given event.
-     *      needs Event object parameter
+     * needs Event object parameter
      */
     private void populateInfo(Event event) {
         if (event == null) {
@@ -557,6 +563,7 @@ public class EventDetailsActivity extends AppCompatActivity {
             populateAdminTechDetails(event);
         }
     }
+
     /**
      * Populates the admin-only technical details section with raw event data
      */
@@ -574,7 +581,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Disables the join button and displays the parameter text as the reason for it being disabled
-     *  to the user
+     * to the user
      */
     private void showJoinDisabled(String text) {
         btnJoin.setVisibility(VISIBLE);
@@ -586,7 +593,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Adds the current user to the event waitlist, NONE -> WAITLISTED and added to "waitlisted" collection
-     *      EventPoolStorage for db query
+     * EventPoolStorage for db query
      */
     private void joinWaitlist() {
         //Add user to waitlist collection
@@ -612,7 +619,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Removes the current user from the event waitlist, WAITLISTED -> NONE and removed from "waitlist" colleciton
-     *      EventPoolStorage for db query
+     * EventPoolStorage for db query
      */
     private void leaveWaitlist() {
         btnLeave.setEnabled(false);
@@ -635,7 +642,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Signs a user up for the event, INVITED -> ENROLLED in db and added to "enrolled" collection
-     *      EventPoolStorage for db query
+     * EventPoolStorage for db query
      */
     private void acceptInvitation() {
         Entrant entrant = new Entrant(currentUserId, eventId, ENROLLED);
@@ -660,8 +667,8 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Declines the sign-up invitation, INVITED -> DECLINED in db and
-     *      added to "declined" collection, removed from "invited" collection
-     *      EventPoolStorage for db query
+     * added to "declined" collection, removed from "invited" collection
+     * EventPoolStorage for db query
      */
     private void declineInvitation() {
         btnDecline.setEnabled(false);
@@ -684,7 +691,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Removes the current user from the event, ENROLLED -> NONE and removed from "enrolled" colleciton
-     *      EventPoolStorage for db query
+     * EventPoolStorage for db query
      */
     private void unenroll() {
         btnJoin.setEnabled(false);
@@ -708,14 +715,16 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Starts lottery selection for the given event
-     *      adds all selected entrants to the "invited" subcollection
-     *      status marked INVITED
+     * adds all selected entrants to the "invited" subcollection
+     * status marked INVITED
      */
     private void beginLotterySelection(Event event) {
         if (event == null) {
             Toast.makeText(this, "Event not loaded", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        boolean firstDraw = !event.hasDrawnLottery();
 
         int remainingSpots = event.getEventCapacity()
                 - event.getEnrolledCount()
@@ -730,25 +739,47 @@ public class EventDetailsActivity extends AppCompatActivity {
             btnBeginLotterySelection.setEnabled(false);
         }
 
+        if (firstDraw) {
+            event.setHasDrawnLottery(true);
+            currentEvent = event;
+            setupOrganizerActions(event); // immediate UI update
+
+            eventStorage.upsertEvent(
+                    event,
+                    unused -> runLotteryDraw(event, remainingSpots),
+                    e -> {
+                        Toast.makeText(this, "Failed to save lottery state", Toast.LENGTH_SHORT).show();
+                        Log.e(MY_TAG, "Failed to persist hasDrawnLottery: " + e.getMessage(), e);
+                        if (btnBeginLotterySelection != null) {
+                            btnBeginLotterySelection.setEnabled(true);
+                        }
+                    }
+            );
+        } else {
+            runLotteryDraw(event, remainingSpots);
+        }
+    }
+
+    private void runLotteryDraw(Event event, int remainingSpots) {
         eventPoolStorage.drawWinners(
                 eventId,
                 remainingSpots,
-                invitedCount  -> {
-                    Toast.makeText(this, "Lottery complete: sent " + invitedCount + "invite(s)", Toast.LENGTH_SHORT).show();
+                invitedCount -> {
+                    Toast.makeText(this, "Lottery complete: sent " + invitedCount + " invite(s)", Toast.LENGTH_SHORT).show();
 
-                    btnShowInvitesDashboard.setVisibility(View.VISIBLE);
-                    btnShowInvitesDashboard.setEnabled(true);
-                    btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
-
-                    loadEvent();
+                    currentEvent = event;
+                    setupOrganizerActions(event);
 
                     if (btnBeginLotterySelection != null) {
                         btnBeginLotterySelection.setEnabled(true);
                     }
+
+                    loadEvent();
                 },
                 e -> {
                     Toast.makeText(this, "Failed to run lottery", Toast.LENGTH_SHORT).show();
                     Log.e(MY_TAG, "Lottery selection failed: " + e.getMessage(), e);
+
                     if (btnBeginLotterySelection != null) {
                         btnBeginLotterySelection.setEnabled(true);
                     }
