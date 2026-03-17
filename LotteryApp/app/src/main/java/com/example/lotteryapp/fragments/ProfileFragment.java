@@ -17,6 +17,7 @@ import com.example.lotteryapp.activities.LoginActivity;
 import com.example.lotteryapp.activities.AdminActivity;
 import com.example.lotteryapp.activities.NotificationSettingsActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
+import com.example.lotteryapp.activities.UserPrivacyActivity;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.AdminStorage;
 /**
@@ -109,7 +110,8 @@ public class ProfileFragment extends Fragment {
         View privacyItem = view.findViewById(R.id.item_privacy);
         if (privacyItem != null) {
             privacyItem.setOnClickListener(v -> {
-                // TODO: Add item_privacy logic here
+                Intent intent = new Intent(requireContext(), UserPrivacyActivity.class);
+                startActivity(intent);
             });
         }
 

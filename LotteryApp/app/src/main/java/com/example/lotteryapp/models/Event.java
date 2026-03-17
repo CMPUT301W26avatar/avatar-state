@@ -7,6 +7,8 @@ import java.util.UUID;
  * - primary key: event ID, foreign key: user ID (organizerId)
  * - New Event: Pull Event document from Firebase and set EventID as docID.
  * - Only getters and setters
+ * 
+ * PosterUrl attribute deprecated
  */
 
 public class Event {
@@ -26,7 +28,8 @@ public class Event {
     public Long eventDateMs; // milliseconds
     public Long regStartMs; // milliseconds
     public Long regEndMs; // milliseconds
-    private String location;
+
+    private EventAddress address;
 
 
     private String title;
@@ -51,6 +54,7 @@ public class Event {
         this.organizerId = organizerId;
         this.eventCapacity = eventCapacity;
         this.waitlistCapacity = waitlistCapacity;
+        this.address = null;
     }
 
     // pk
@@ -175,9 +179,13 @@ public class Event {
 
     public void setTag(String tag) {this.tag = tag;}
 
-    public String getLocation() {return location;}
+    public EventAddress getAddress() {
+        return address;
+    }
 
-    public void setLocation(String location) {this.location = location;}
+    public void setAddress(EventAddress address) {
+        this.address = address;
+    }
 
     public String getPosterUrl() {return posterUrl;}
 

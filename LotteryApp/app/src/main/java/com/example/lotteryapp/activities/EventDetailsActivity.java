@@ -15,6 +15,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.models.EventAddress;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
@@ -224,7 +225,7 @@ public class EventDetailsActivity extends AppCompatActivity {
             btnDeleteImage.setOnClickListener(v -> {
                 eventStorage.getEvent(eventId, event -> {
                     event.setPosterUrl(null);
-                    eventStorage.upsertEvent(event);
+                    //eventStorage.upsertEvent(event);
                     Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
                     ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
                     btnDeleteImage.setVisibility(View.GONE);
@@ -392,8 +393,9 @@ public class EventDetailsActivity extends AppCompatActivity {
             tvName.setText(event.getEventId());
         }
 
-        if (event.getLocation() != null && !event.getLocation().trim().isEmpty()) {
-            tvLocation.setText(event.getLocation());
+        EventAddress address = event.getAddress();
+        if (address != null && address.getLocation() != null && !address.getLocation().trim().isEmpty()) {
+            tvLocation.setText(address.getLocation());
         } else {
             tvLocation.setText("Location unavailable");
         }
