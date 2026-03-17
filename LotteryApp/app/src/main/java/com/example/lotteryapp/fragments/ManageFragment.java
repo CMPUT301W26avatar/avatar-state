@@ -133,6 +133,7 @@ public class ManageFragment extends Fragment {
             View btnDetails = row.findViewById(R.id.btn_event_details);
             View btnEdit = row.findViewById(R.id.btn_edit_event);
 
+            //View btnEnrolled = row.findViewById(R.id.btn_view_enrolled);
 
             String title = event.getTitle();
             tvTitle.setText(title != null && !title.trim().isEmpty() ? title : event.getEventId());
@@ -141,6 +142,12 @@ public class ManageFragment extends Fragment {
 
             btnDetails.setOnClickListener(v -> openEventDetails(event));
             btnEdit.setOnClickListener(v -> showUpdateEventDialog(event));
+
+            /*btnEnrolled.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), EnrolledListActivity.class);
+                intent.putExtra(EnrolledListActivity.EXTRA_EVENT_ID, event.getEventId());
+                startActivity(intent);
+            });*/
 
             upcomingEventListContainer.addView(row);
         }

@@ -357,7 +357,7 @@
                     app:icon="@drawable/ic_check_mark" />
 
             </LinearLayout>
-
+            
             <LinearLayout
                 android:id="@+id/invitations_layout"
                 android:layout_width="match_parent"
