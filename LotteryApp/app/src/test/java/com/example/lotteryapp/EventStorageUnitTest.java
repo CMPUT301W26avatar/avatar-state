@@ -45,6 +45,41 @@ public class EventStorageUnitTest {
     }
 
     /**
+     * verify calculateDistance behaves correctly for key scenarios
+     */
+    @Test
+    public void testHaversineInCalculateAddress() {
+        // Edmonton coordinates
+        double lat1 = 53.5461;
+        double lon1 = -113.4938;
+
+        // Same point
+        double sameDistance = eventStorage.calculateDistance(lat1, lon1, lat1, lon1);
+        assertEquals(0.0, sameDistance, 0.001);
+
+        // ~0.5 km away
+        double latNearby = 53.5500;
+        double lonNearby = -113.4900;
+
+        double nearbyDistance = eventStorage.calculateDistance(lat1, lon1, latNearby, lonNearby);
+        assertTrue(nearbyDistance > 0);
+        assertTrue(nearbyDistance < 2); // should be small
+
+        // Calgary
+        double latFar = 51.0447;
+        double lonFar = -114.0719;
+
+        double farDistance = eventStorage.calculateDistance(lat1, lon1, latFar, lonFar);
+        assertTrue(farDistance > 250);
+        assertTrue(farDistance < 350);
+
+        // check symmetry -> distance(A,B) == distance(B,A)
+        double reverseDistance = eventStorage.calculateDistance(latFar, lonFar, lat1, lon1);
+        assertEquals(farDistance, reverseDistance, 0.0001);
+    }
+
+
+    /**
      * verify an Event within the haversine distance is included in the filter, and an Event outside is disincluded
      */
     @Test
