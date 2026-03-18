@@ -384,14 +384,22 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         if (hasSentInvites) {
-            btnBeginLotterySelection.setText("Re-draw applicants");
-            btnBeginLotterySelection.setVisibility(View.VISIBLE);
-            btnBeginLotterySelection.setEnabled(true);
-            btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
+            if (!(event.getStatus() == EVENT_CLOSED)) {
+                btnBeginLotterySelection.setText("Re-draw applicants");
+                btnBeginLotterySelection.setVisibility(View.VISIBLE);
+                btnBeginLotterySelection.setEnabled(true);
+                btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
 
-            btnShowInvitesDashboard.setVisibility(View.VISIBLE);
-            btnShowInvitesDashboard.setEnabled(true);
-            btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
+                btnShowInvitesDashboard.setVisibility(View.VISIBLE);
+                btnShowInvitesDashboard.setEnabled(true);
+                btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
+            } else {
+                btnBeginLotterySelection.setVisibility(View.GONE);
+                btnBeginLotterySelection.setEnabled(false);
+                btnShowInvitesDashboard.setVisibility(View.VISIBLE);
+                btnShowInvitesDashboard.setEnabled(true);
+                btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
+            }
         }
     }
 
