@@ -40,14 +40,14 @@ public class UserStorage {
      * returns a User document by the parameter user Id
      * Synchronous
      */
-    private DocumentReference userDoc(String uuid) {
+    public DocumentReference userDoc(String uuid) {
         return db.collection("users").document(uuid);
     }
 
     /** user default address subdocument
      * /users/{uuid}/geo/default
      */
-    private DocumentReference userDefaultAddressDoc(String uuid) {
+    public DocumentReference userDefaultAddressDoc(String uuid) {
         return userDoc(uuid)
                 .collection("geo")
                 .document("default");
@@ -56,7 +56,7 @@ public class UserStorage {
     /** user current address subdocument
      * /users/{uuid}/geo/current
      */
-    private DocumentReference userCurrentAddressDoc(String uuid) {
+    public DocumentReference userCurrentAddressDoc(String uuid) {
         return userDoc(uuid)
                 .collection("geo")
                 .document("current");

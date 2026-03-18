@@ -5,6 +5,8 @@ import androidx.annotation.Nullable;
 
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
+import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.models.UserAddress;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentReference;
@@ -482,4 +484,148 @@ public class EventStorage {
 
         queryEventsWithAddresses(query, onSuccess, onFailure);
     }
+
+    public void getEventsNearUser(
+            @NonNull String uid,
+            @NonNull User.UserAddressMode userAddressMode,
+            int radiusKm,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (uid.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("uid required"));
+            return;
+        }
+
+        if (radiusKm > 6371) { // primitive int resolves radiusKm > 0 to some 0xF....... which is > 6371 outside of two's complement
+            onFailure.onFailure(new IllegalArgumentException("radiusKm must be greater than 0 and less than the radius of the Earth."));
+            return;
+        }
+
+        userAddressDoc(uid, userAddressMode)
+                .get()
+                .addOnSuccessListener(userAddressSnapshot -> {
+                    if (!userAddressSnapshot.exists()) {
+                        onFailure.onFailure(new Exception(
+                                "User address not found for mode: " + userAddressMode.name()
+                        ));
+                        return;
+                    }
+
+                    UserAddress userAddress = documentToUserAddress(userAddressSnapshot, uid);
+
+                    if (userAddress.getLatitude() == null || userAddress.getLongitude() == null) {
+                        onFailure.onFailure(new Exception(
+                                "User address is missing latitude/longitude for mode: " + userAddressMode.name()
+                        ));
+                        return;
+                    }
+
+                    getAllEvents(events -> {
+                        List<Event> nearbyEvents = filterEventsWithinRadius(
+                                userAddress,
+                                events,
+                                radiusKm
+                        );
+                        onSuccess.onSuccess(nearbyEvents);
+                    }, onFailure);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Filters a list of events to only those within the given radius of the user.
+     */
+    public List<Event> filterEventsWithinRadius(
+            @NonNull UserAddress userAddress,
+            @NonNull List<Event> events,
+            int radiusKm
+    ) {
+        List<Event> nearbyEvents = new ArrayList<>();
+
+        for (Event event : events) {
+            EventAddress eventAddress = event.getAddress();
+            if (eventAddress == null) {
+                continue;
+            }
+
+            Double eventLat = eventAddress.getLatitude();
+            Double eventLng = eventAddress.getLongitude();
+
+            if (eventLat == null || eventLng == null) {
+                continue;
+            }
+
+            double distanceKm = calculateDistance(
+                    userAddress.getLatitude(),
+                    userAddress.getLongitude(),
+                    eventLat,
+                    eventLng
+            );
+
+            if (distanceKm <= radiusKm) {
+                nearbyEvents.add(event);
+            }
+        }
+
+        return nearbyEvents;
+    }
+
+    /**
+     * firebase retrieval helper
+     * Returns the user geo document reference for the selected address mode.
+     */
+    private DocumentReference userAddressDoc(
+            @NonNull String uid,
+            @NonNull User.UserAddressMode userAddressMode
+    ) {
+        String addressDocId = userAddressMode == User.UserAddressMode.CURRENT
+                ? "current"
+                : "default";
+
+        return db.collection("users")
+                .document(uid)
+                .collection("geo")
+                .document(addressDocId);
+    }
+
+    /**
+     * firebase retrieval helper
+     * Builds a UserAddress model from the selected user geo document.
+     */
+    private UserAddress documentToUserAddress(
+            @NonNull DocumentSnapshot doc,
+            @NonNull String uid
+    ) {
+        String location = doc.getString("location");
+        Double latitude = doc.getDouble("latitude");
+        Double longitude = doc.getDouble("longitude");
+
+        return new UserAddress(uid, location, latitude, longitude);
+    }
+
+    /**
+     * distance helper: accurate distance between two points (x,y) over a curve with radius earthRadiusKm
+     */
+    // 3. Calculate the Distance Using the Haversine Formula, Harpal Singh, Last Updated: 01/24/2026
+    // https://www.baeldung.com/java-find-distance-between-points
+    public double calculateDistance(double startLat, double startLong, double endLat, double endLong) {
+
+        final double earthRadiusKm = 6371.0;
+
+        double dLat = Math.toRadians((endLat - startLat));
+        double dLong = Math.toRadians((endLong - startLong));
+
+        startLat = Math.toRadians(startLat);
+        endLat = Math.toRadians(endLat);
+
+        double a = haversine(dLat) + Math.cos(startLat) * Math.cos(endLat) * haversine(dLong);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return earthRadiusKm * c;
+    }
+    public double haversine(double val) {
+        return Math.pow(Math.sin(val / 2), 2);
+    }
+
 }
