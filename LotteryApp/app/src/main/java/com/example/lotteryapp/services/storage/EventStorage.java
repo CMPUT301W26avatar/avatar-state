@@ -5,6 +5,7 @@ import androidx.annotation.Nullable;
 
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
+import com.example.lotteryapp.models.EventJoinedMap;
 import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.models.UserAddress;
 import com.google.android.gms.tasks.OnFailureListener;
@@ -40,7 +41,7 @@ public class EventStorage {
     }
 
     /** firebase retrieval
-     * returns an Event document by the parameter eventId
+     * returns an Event document by the primary key eventId
      * Synchronous
      */
     private DocumentReference eventDoc(String eventId) {
@@ -48,7 +49,8 @@ public class EventStorage {
     }
 
     /** firebase retrieval
-     * returns an EventAddress document by the parameter eventId
+     * returns an EventAddress document by the primary key eventId
+     * Stored under /events/{eventId}/geo/{eventId}
      * Synchronous
      */
     private DocumentReference eventAddressDoc(String eventId) {
@@ -57,11 +59,26 @@ public class EventStorage {
                 .document("address");
     }
 
+    /**
+     * returns an EventAddress document by the composite key eventId+userId.
+     * Stored under /events/{eventId}/joined_map/{uid}
+     * Synchronous
+     */
+    private DocumentReference eventJoinedMapDoc(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return eventDoc(eventId)
+                .collection("joined_map")
+                .document(uid);
+    }
+
+
     /** firebase storage
      * Takes in an Event as a parameter and creates/upserts it into the database.
      * Transaction ensures the createdAt value is only set once.
      * Address is stored separately under /geo/address and does not affect query success.
-     * Synchronous
+     * Asynchronous
      */
     public void upsertEvent(
             Event event,
@@ -117,6 +134,76 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /**
+     * Creates or updates the joined_map document for a user for an event.
+     * The stored address is a snapshot of the user's chosen address at join time.
+     */
+    public void setEventJoinedMap(
+            @NonNull String eventId,
+            @NonNull EventJoinedMap joinedMap,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        UserAddress joinedFrom = joinedMap.getJoinedFrom();
+
+        if (joinedFrom == null) {
+            onFailure.onFailure(new IllegalArgumentException("joinedFrom address required"));
+            return;
+        }
+
+        if (joinedFrom.getUid() == null || joinedFrom.getUid().trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("joinedFrom uid required"));
+            return;
+        }
+
+        Map<String, Object> data = eventJoinedMapToMap(joinedMap);
+        data.put("updatedAt", FieldValue.serverTimestamp());
+
+        eventJoinedMapDoc(eventId, joinedFrom.getUid())
+                .set(data, SetOptions.merge())
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Removes the joined_map document for a user for an event.
+     */
+    public void removeEventJoinedMap(
+            @NonNull String eventId,
+            @NonNull String uid,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        eventJoinedMapDoc(eventId, uid)
+                .delete()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Returns all joined_map entries for an event.
+     */
+    public void getEventJoinedMapEntries(
+            @NonNull String eventId,
+            OnSuccessListener<List<EventJoinedMap>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        eventDoc(eventId)
+                .collection("joined_map")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<EventJoinedMap> entries = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        EventJoinedMap entry = documentToEventJoinedMap(doc, eventId);
+                        if (entry != null) {
+                            entries.add(entry);
+                        }
+                    }
+                    onSuccess.onSuccess(entries);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
     /** firebase storage
      * Maps the attributes of an event into a Map to pass into the database
      * Synchronous
@@ -154,6 +241,30 @@ public class EventStorage {
         data.put("latitude", eventAddress.getLatitude());
         data.put("longitude", eventAddress.getLongitude());
         data.put("radiusKm", eventAddress.getRadiusKm());
+        return data;
+    }
+
+    /**
+     * Maps EventJoinedMap into a flat Firestore payload.
+     * UserAddress fields are stored as a snapshot at join time.
+     */
+    private Map<String, Object> eventJoinedMapToMap(EventJoinedMap joinedMap) {
+        Map<String, Object> data = new HashMap<>();
+        UserAddress joinedFrom = joinedMap.getJoinedFrom();
+
+        data.put("eventId", joinedMap.getEventId());
+        data.put("uid", joinedFrom.getUid());
+        data.put("location", joinedFrom.getLocation());
+        data.put("latitude", joinedFrom.getLatitude());
+        data.put("longitude", joinedFrom.getLongitude());
+
+        if (joinedMap.getJoinedAtMs() != null) {
+            data.put("joinedAtMs", joinedMap.getJoinedAtMs());
+        } else {
+            data.put("joinedAtMs", System.currentTimeMillis());
+        }
+
+        data.put("joinedAt", FieldValue.serverTimestamp());
         return data;
     }
 
@@ -272,11 +383,35 @@ public class EventStorage {
         return address;
     }
 
-    /** firebase retrieval helper
-     * Best-effort address hydration for a list.
-     * Address read failures do not fail the overall event query.
+    /**
+     * Builds one EventJoinedMap from a joined_map document.
      */
-    private void hydrateEventAddressesSafely(
+    @Nullable
+    private EventJoinedMap documentToEventJoinedMap(
+            @NonNull DocumentSnapshot doc,
+            @NonNull String eventId
+    ) {
+        String uid = doc.getString("uid");
+        Double latitude = doc.getDouble("latitude");
+        Double longitude = doc.getDouble("longitude");
+        String location = doc.getString("location");
+        Long joinedAtMs = doc.getLong("joinedAtMs");
+
+        if (uid == null) {
+            return null;
+        }
+
+        UserAddress joinedFrom = new UserAddress(uid, location, latitude, longitude);
+        return new EventJoinedMap(eventId, joinedFrom, joinedAtMs);
+    }
+
+    /**firebase retrieval helper
+     *  Best-effort address population for a list.
+     *  Address read failures do not fail the overall event query.
+     *      - read failures skipped by going Event by Event and performing a recursive call on
+     *        index + 1 when failing
+     */
+    private void populateEventAddressesSafely(
             List<Event> events,
             int index,
             OnSuccessListener<List<Event>> onSuccess
@@ -293,10 +428,10 @@ public class EventStorage {
                     if (addressSnapshot.exists()) {
                         event.setAddress(documentToEventAddress(addressSnapshot, event.getEventId()));
                     }
-                    hydrateEventAddressesSafely(events, index + 1, onSuccess);
+                    populateEventAddressesSafely(events, index + 1, onSuccess);
                 })
                 .addOnFailureListener(e ->
-                        hydrateEventAddressesSafely(events, index + 1, onSuccess)
+                        populateEventAddressesSafely(events, index + 1, onSuccess)
                 );
     }
 
@@ -321,7 +456,7 @@ public class EventStorage {
                         return;
                     }
 
-                    hydrateEventAddressesSafely(events, 0, onSuccess);
+                    populateEventAddressesSafely(events, 0, onSuccess);
                 })
                 .addOnFailureListener(onFailure);
     }
@@ -334,6 +469,8 @@ public class EventStorage {
         eventAddressDoc(eventId).delete();
         eventDoc(eventId).delete();
     }
+
+
 
     /** firebase boolean retrieval
      * Returns true or false for if the current user is the organizer for any event

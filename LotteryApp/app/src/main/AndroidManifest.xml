@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -35,6 +36,7 @@
         <activity android:name=".activities.PromoteNewAdminActivity" />
         <activity android:name=".activities.UserPrivacyActivity" />
         <activity android:name=".activities.NotificationSettingsActivity" />
+        <activity android:name=".activities.EventMapActivity" />
 
         <service
             android:name=".services.MyFirebaseMessagingService"

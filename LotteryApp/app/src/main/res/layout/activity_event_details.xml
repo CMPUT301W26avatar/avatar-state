@@ -141,14 +141,34 @@
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/tv_location"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:id="@+id/layout_location_row"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Location"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/tv_location"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Location"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_view_event_map"
+                        style="@style/Widget.AppCompat.Button"
+                        app:backgroundTint="@color/material_dynamic_primary70"
+                        android:layout_width="80dp"
+                        android:layout_height="wrap_content"
+                        app:cornerRadius="12dp"
+                        android:text="Map"
+                        android:visibility="visible"
+                        />
+                </LinearLayout>
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/tv_description"

@@ -4,6 +4,7 @@ import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.ENROLLED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -16,11 +17,14 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.models.EventAddress;
+import com.example.lotteryapp.models.EventJoinedMap;
+import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
@@ -58,6 +62,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialButton btnDeleteImage;
     private MaterialButton btnRemoveEvent;
     private MaterialButton btnBeginLotterySelection;
+    private MaterialButton btnViewEventMap;
     // poster
     private ImageView ivEventPoster;
 
@@ -71,6 +76,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private boolean isAdminMode = false;
     private Event currentEvent;
     // services
+    private UserStorage userStorage;
 
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
@@ -116,6 +122,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         // get db connections for models from ServiceLocator
+        userStorage = ServiceLocator.getUserStorage();
         eventStorage = ServiceLocator.getEventStorage();
         eventPoolStorage = ServiceLocator.getEventPoolStorage();
 
@@ -144,6 +151,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnDeleteImage = findViewById(R.id.btn_delete_image);
         btnRemoveEvent = findViewById(R.id.btn_remove_event);
         btnBeginLotterySelection = findViewById(R.id.btn_begin_lottery_selection);
+        btnViewEventMap = findViewById(R.id.btn_view_event_map);
         ivEventPoster = findViewById(R.id.iv_event_poster);
 
         // Admin Info
@@ -209,10 +217,15 @@ public class EventDetailsActivity extends AppCompatActivity {
      */
     private void setupAdminActions() {
         if (isAdminMode) {
+
             btnRemoveEvent.setVisibility(View.VISIBLE);
             btnRemoveEvent.setEnabled(true);
+
             btnJoin.setEnabled(false);
             btnJoin.setVisibility(View.GONE);
+
+            btnViewEventMap.setVisibility(View.GONE);
+
             layoutAdminInfo.setVisibility(View.VISIBLE);
             btnDeleteImage.setVisibility(View.VISIBLE);
 
@@ -248,6 +261,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnDeleteImage.setVisibility(View.GONE);
         layoutAdminInfo.setVisibility(View.GONE);
 
+        btnViewEventMap.setVisibility(View.VISIBLE);
+        btnViewEventMap.setOnClickListener(v -> openEventMap());
+
         btnBeginLotterySelection.setVisibility(View.GONE);
         btnBeginLotterySelection.setEnabled(false);
         btnBeginLotterySelection.setOnClickListener(null);
@@ -274,7 +290,6 @@ public class EventDetailsActivity extends AppCompatActivity {
             showJoinDisabled("Registration Unavailable");
             return;
         }
-
         eventPoolStorage.getEntrantStatus(
                 event.getEventId(),
                 currentUserId,
@@ -302,6 +317,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnLeave.setVisibility(View.GONE);
         invitations_layout.setVisibility(View.GONE);
         btnBeginLotterySelection.setVisibility(View.GONE);
+        btnViewEventMap.setVisibility(View.GONE);
 
         if (status == Entrant.EntrantStatus.WAITLISTED) {
             btnLeave.setVisibility(View.VISIBLE);
@@ -448,6 +464,17 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminPosterUrl.setText("posterUrl: " + (event.getPosterUrl() != null ? "\"" + event.getPosterUrl() + "\"" : "null"));
     }
 
+    private void openEventMap() {
+        if (eventId == null || eventId.trim().isEmpty()) {
+            Toast.makeText(this, "Missing event ID", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Intent intent = new Intent(this, EventMapActivity.class);
+        intent.putExtra(EXTRA_EVENT_ID, eventId);
+        startActivity(intent);
+    }
+
     /**
      * Disables the join button and displays the parameter text as the reason for it being disabled
      *  to the user
@@ -465,19 +492,25 @@ public class EventDetailsActivity extends AppCompatActivity {
      *      EventPoolStorage for db query
      */
     private void joinWaitlist() {
-        //Add user to waitlist collection
-        Entrant entrant = new Entrant(currentUserId, eventId, Entrant.EntrantStatus.WAITLISTED);
+        Entrant entrant = new Entrant(currentUserId, eventId, WAITLISTED);
 
         btnJoin.setEnabled(false);
 
         eventPoolStorage.waitlistForEvent(
                 eventId,
                 entrant,
-                unused -> {
-                    Toast.makeText(this, "Waitlisted!", Toast.LENGTH_SHORT).show();
-                    currentStatus = WAITLISTED;
-                    loadEvent();
-                },
+                unused -> upsertJoinedMapForCurrentUser(
+                        () -> {
+                            Toast.makeText(this, "Waitlisted!", Toast.LENGTH_SHORT).show();
+                            currentStatus = WAITLISTED;
+                            loadEvent();
+                        },
+                        () -> {
+                            Toast.makeText(this, "Waitlisted, but failed to save joined map.", Toast.LENGTH_SHORT).show();
+                            currentStatus = WAITLISTED;
+                            loadEvent();
+                        }
+                ),
                 e -> {
                     Toast.makeText(this, "Failed to waitlist", Toast.LENGTH_SHORT).show();
                     Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
@@ -496,11 +529,18 @@ public class EventDetailsActivity extends AppCompatActivity {
         eventPoolStorage.removeFromWaitlist(
                 eventId,
                 currentUserId,
-                unused -> {
-                    Toast.makeText(this, "Left waitlist!", Toast.LENGTH_SHORT).show();
-                    currentStatus = null;
-                    loadEvent();
-                },
+                unused -> removeJoinedMapForCurrentUser(
+                        () -> {
+                            Toast.makeText(this, "Left waitlist!", Toast.LENGTH_SHORT).show();
+                            currentStatus = null;
+                            loadEvent();
+                        },
+                        () -> {
+                            Toast.makeText(this, "Left waitlist, but failed to remove joined map.", Toast.LENGTH_SHORT).show();
+                            currentStatus = null;
+                            loadEvent();
+                        }
+                ),
                 e -> {
                     Toast.makeText(this, "Failed to leave waitlist.", Toast.LENGTH_SHORT).show();
                     Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
@@ -508,6 +548,126 @@ public class EventDetailsActivity extends AppCompatActivity {
                 }
         );
     }
+
+    /**
+     * After the user successfully joins the waitlist, upsert their joined_map document.
+     * This stores a snapshot of the user's address for this event
+     */
+    private void upsertJoinedMapForCurrentUser(
+            Runnable onSuccess,
+            Runnable onFailure
+    ) {
+        userStorage.getUserProfile(
+                currentUserId,
+                user -> {
+                    User.UserAddressMode preferredMode = user.getAddressMode() != null
+                            ? user.getAddressMode()
+                            : User.UserAddressMode.DEFAULT;
+
+                    User.UserAddressMode fallbackMode =
+                            preferredMode == User.UserAddressMode.CURRENT
+                                    ? User.UserAddressMode.DEFAULT
+                                    : User.UserAddressMode.CURRENT;
+
+                    loadAddressForJoinedMap(preferredMode, address -> {
+                        if (isUsableJoinedMapAddress(address)) {
+                            writeJoinedMap(address, onSuccess, onFailure);
+                            return;
+                        }
+
+                        loadAddressForJoinedMap(fallbackMode, fallbackAddress -> {
+                            if (isUsableJoinedMapAddress(fallbackAddress)) {
+                                writeJoinedMap(fallbackAddress, onSuccess, onFailure);
+                            } else {
+                                Log.w(MY_TAG, "No usable address found in either preferred or fallback mode for joined_map upsert");
+                                onFailure.run();
+                            }
+                        }, e -> {
+                            Log.e(MY_TAG, "Fallback address lookup failed for joined_map upsert", e);
+                            onFailure.run();
+                        });
+                    }, e -> {
+                        Log.e(MY_TAG, "Preferred address lookup failed for joined_map upsert", e);
+
+                        loadAddressForJoinedMap(fallbackMode, fallbackAddress -> {
+                            if (isUsableJoinedMapAddress(fallbackAddress)) {
+                                writeJoinedMap(fallbackAddress, onSuccess, onFailure);
+                            } else {
+                                Log.w(MY_TAG, "Preferred lookup failed and fallback address is unusable for joined_map upsert");
+                                onFailure.run();
+                            }
+                        }, fallbackError -> {
+                            Log.e(MY_TAG, "Fallback address lookup also failed for joined_map upsert", fallbackError);
+                            onFailure.run();
+                        });
+                    });
+                },
+                e -> {
+                    Log.e(MY_TAG, "Failed to load user profile for joined_map upsert", e);
+                    onFailure.run();
+                }
+        );
+    }
+
+    /**
+     * Remove the current user's joined_map document for this event.
+     */
+    private void removeJoinedMapForCurrentUser(
+            Runnable onSuccess,
+            Runnable onFailure
+    ) {
+        eventStorage.removeEventJoinedMap(
+                eventId,
+                currentUserId,
+                unused -> onSuccess.run(),
+                e -> {
+                    Log.e(MY_TAG, "Failed to remove joined_map document", e);
+                    onFailure.run();
+                }
+        );
+    }
+
+    private void loadAddressForJoinedMap(
+            User.UserAddressMode addressMode,
+            com.google.android.gms.tasks.OnSuccessListener<com.example.lotteryapp.models.UserAddress> onSuccess,
+            com.google.android.gms.tasks.OnFailureListener onFailure
+    ) {
+        userStorage.getPreferredUserAddress(
+                currentUserId,
+                addressMode,
+                onSuccess,
+                onFailure
+        );
+    }
+
+    private boolean isUsableJoinedMapAddress(com.example.lotteryapp.models.UserAddress address) {
+        return address != null
+                && address.getLatitude() != null
+                && address.getLongitude() != null;
+    }
+
+    private void writeJoinedMap(
+            com.example.lotteryapp.models.UserAddress address,
+            Runnable onSuccess,
+            Runnable onFailure
+    ) {
+        EventJoinedMap joinedMap = new EventJoinedMap(
+                eventId,
+                address,
+                System.currentTimeMillis()
+        );
+
+        eventStorage.setEventJoinedMap(
+                eventId,
+                joinedMap,
+                unused -> onSuccess.run(),
+                e -> {
+                    Log.e(MY_TAG, "Failed to upsert joined_map document", e);
+                    onFailure.run();
+                }
+        );
+    }
+
 
     /**
      * Signs a user up for the event, INVITED -> ENROLLED in db and added to "enrolled" collection
@@ -545,13 +705,20 @@ public class EventDetailsActivity extends AppCompatActivity {
         eventPoolStorage.removeFromWaitlist(
                 eventId,
                 currentUserId,
-                unused -> {
-                    Toast.makeText(this, "Invitation declined!", Toast.LENGTH_SHORT).show();
-                    currentStatus = DECLINED;
-                    loadEvent();
-                },
+                unused -> removeJoinedMapForCurrentUser(
+                        () -> {
+                            Toast.makeText(this, "Invitation declined!", Toast.LENGTH_SHORT).show();
+                            currentStatus = DECLINED;
+                            loadEvent();
+                        },
+                        () -> {
+                            Toast.makeText(this, "Invitation declined, but failed to remove joined map.", Toast.LENGTH_SHORT).show();
+                            currentStatus = DECLINED;
+                            loadEvent();
+                        }
+                ),
                 e -> {
-                    Toast.makeText(this, "Failed to decline invitatoin", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Failed to decline invitation", Toast.LENGTH_SHORT).show();
                     Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnDecline.setEnabled(true);
                 }

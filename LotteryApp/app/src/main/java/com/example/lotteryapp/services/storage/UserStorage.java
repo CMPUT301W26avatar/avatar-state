@@ -169,6 +169,24 @@ public class UserStorage {
                 .addOnFailureListener(fail);
     }
 
+    /**
+     * Returns the preferred user address based on the user's address mode.
+     * CURRENT -> /geo/current
+     * DEFAULT -> /geo/default
+     */
+    public void getPreferredUserAddress(
+            String uuid,
+            User.UserAddressMode addressMode,
+            OnSuccessListener<UserAddress> ok,
+            OnFailureListener fail
+    ) {
+        if (addressMode == User.UserAddressMode.CURRENT) {
+            getCurrentUserAddress(uuid, ok, fail);
+        } else {
+            getDefaultUserAddress(uuid, ok, fail);
+        }
+    }
+
     /** firebase retrieval helper
      * Returns a single User from the parameter doc (database DocumentSnapshot)
      * Only profile metadata is loaded here.
@@ -305,7 +323,8 @@ public class UserStorage {
     }
 
     /** firebase modify helper
-     * Writes the address payload into the given geo subdocument.
+     * Writes the address into the given geo subdocument.
+     * Asynchronous: requires OnSuccess and OnFailure listeners
      */
     private void upsertUserAddressDoc(
             DocumentReference ref,
