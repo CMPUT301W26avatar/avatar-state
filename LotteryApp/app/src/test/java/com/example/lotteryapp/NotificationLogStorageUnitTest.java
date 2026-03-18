@@ -1,5 +1,7 @@
 package com.example.lotteryapp;
 
+import static com.example.lotteryapp.models.NotificationLog.NotificationType.INVITATION;
+import static com.example.lotteryapp.models.NotificationLog.NotificationType.LOTTERY_RESULT;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -73,7 +75,7 @@ public class NotificationLogStorageUnitTest {
         AtomicReference<String> result = new AtomicReference<>();
 
         ServiceLocator.getNotificationLogStorage().logNotification(
-                "event-1", "organizer-1", "Title", "Message", "invitation",
+                "event-1", "organizer-1", "Title", "Message", INVITATION,
                 result::set,
                 e -> {}
         );
@@ -87,8 +89,8 @@ public class NotificationLogStorageUnitTest {
      */
     @Test
     public void getAllLogsReturnsCorrectList() {
-        NotificationLog log1 = new NotificationLog("e1", "o1", "Invited!", "Congrats", "invitation", null);
-        NotificationLog log2 = new NotificationLog("e2", "o2", "Result", "Better luck", "lottery_result", null);
+        NotificationLog log1 = new NotificationLog("e1", "o1", "u1", "Invited!", "Congrats", INVITATION, null);
+        NotificationLog log2 = new NotificationLog("e2", "o2","u2", "Result", "Better luck", LOTTERY_RESULT, null);
         List<NotificationLog> fakeLogs = Arrays.asList(log1, log2);
 
         doAnswer(invocation -> {

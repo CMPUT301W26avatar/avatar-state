@@ -54,7 +54,7 @@ public class NotificationLogStorage {
             String organizerId,
             String title,
             String message,
-            String type,
+            NotificationLog.NotificationType type,
             OnSuccessListener<String> onSuccess,
             OnFailureListener onFailure
     ) {

@@ -11,12 +11,18 @@ public class NotificationLog {
     private String id;
     private String eventId;
     private String organizerId;
+    private String userId;
     private String title;
     private String message;
-    private String type;
+    private NotificationType type;
     private Timestamp timestamp;
-
-    public NotificationLog() {}
+    public enum NotificationType {
+        INVITATION,
+        LOTTERY_RESULT,
+        MESSAGE,
+        COMMENT,
+    }
+    public NotificationLog () {}
 
     /**
      * make NotificationLog
@@ -28,10 +34,24 @@ public class NotificationLog {
      * @param type        either "invitation", "lottery_result", "message", "admin"
      * @param timestamp   timestamp of notif.
      */
-    public NotificationLog(String eventId, String organizerId, String title,
-                           String message, String type, Timestamp timestamp) {
+    // unverified event constructor
+    public NotificationLog(String eventId, String organizerId, String userId, String title,
+                           String message, NotificationType type, Timestamp timestamp) {
         this.eventId = eventId;
         this.organizerId = organizerId;
+        this.userId = userId;
+        this.title = title;
+        this.message = message;
+        this.type = type;
+        this.timestamp = timestamp;
+    }
+
+    // verified event constructor
+    public NotificationLog(Event event, String userId, String title,
+                           String message, NotificationType type, Timestamp timestamp) {
+        this.eventId = event.getEventId();
+        this.organizerId = event.getOrganizerId();
+        this.userId = userId;
         this.title = title;
         this.message = message;
         this.type = type;
@@ -48,8 +68,8 @@ public class NotificationLog {
     public void setTitle(String title) { this.title = title; }
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
+    public NotificationType getType() { return type; }
+    public void setType(NotificationType type) { this.type = type; }
     public Timestamp getTimestamp() { return timestamp; }
     public void setTimestamp(Timestamp timestamp) { this.timestamp = timestamp; }
 }
