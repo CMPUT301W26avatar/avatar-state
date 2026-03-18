@@ -151,6 +151,7 @@ public class EventStorage {
         data.put("location", eventAddress.getLocation());
         data.put("latitude", eventAddress.getLatitude());
         data.put("longitude", eventAddress.getLongitude());
+        data.put("radiusKm", eventAddress.getRadiusKm());
         return data;
     }
 
@@ -258,7 +259,15 @@ public class EventStorage {
         String location = doc.getString("location");
         Double latitude = doc.getDouble("latitude");
         Double longitude = doc.getDouble("longitude");
-        return new EventAddress(eventId, location, latitude, longitude);
+
+        EventAddress address = new EventAddress(eventId, location, latitude, longitude);
+
+        Long radiusKm = doc.getLong("radiusKm");
+        if (radiusKm != null) {
+            address.setRadiusKm(radiusKm.intValue());
+        }
+
+        return address;
     }
 
     /** firebase retrieval helper

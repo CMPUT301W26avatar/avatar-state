@@ -10,6 +10,8 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -195,9 +197,13 @@ public class ManageFragment extends Fragment {
         EditText etRegDates = view.findViewById(R.id.et_reg_dates);
         EditText etEventCapacity = view.findViewById(R.id.et_event_capacity);
         EditText etWaitlistCapacity = view.findViewById(R.id.et_waitlist_capacity);
+        EditText etLocationRadiusKm = view.findViewById(R.id.et_location_radius_km);
 
         View layoutWaitlistCapacity = view.findViewById(R.id.layout_waitlist_capacity);
         MaterialSwitch switchWaitlist = view.findViewById(R.id.switch_waitlist);
+
+        View layoutLocationRadius = view.findViewById(R.id.layout_location_radius);
+        MaterialSwitch switchGeo = view.findViewById(R.id.switch_geolocation);
 
         // use dialog-local holders to keep a fresh state
         //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
@@ -260,10 +266,18 @@ public class ManageFragment extends Fragment {
         });
 
         // set waitlist capacity toggle listener
-        switchWaitlist.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            layoutWaitlistCapacity.setVisibility(isChecked ? View.VISIBLE : View.GONE);
-            if (!isChecked) {
+        switchWaitlist.setOnCheckedChangeListener((buttonView, isWaitlistChecked) -> {
+            layoutWaitlistCapacity.setVisibility(isWaitlistChecked ? View.VISIBLE : View.GONE);
+            if (!isWaitlistChecked) {
                 etWaitlistCapacity.setText("");
+            }
+        });
+
+        // set radius toggle listener
+        switchGeo.setOnCheckedChangeListener((buttonView, isGeoChecked) -> {
+            layoutLocationRadius.setVisibility(isGeoChecked ? View.VISIBLE : View.GONE);
+            if (!isGeoChecked) {
+                etLocationRadiusKm.setText("");
             }
         });
 
@@ -289,6 +303,9 @@ public class ManageFragment extends Fragment {
                 switchWaitlist.setChecked(false);
                 layoutWaitlistCapacity.setVisibility(View.GONE);
 
+                switchGeo.setChecked(false);
+                layoutLocationRadius.setVisibility(View.GONE);
+
                 resolvedLat[0] = null;
                 resolvedLng[0] = null;
                 resolvedLocation[0] = null;
@@ -310,7 +327,9 @@ public class ManageFragment extends Fragment {
             String description = etDescription.getText().toString().trim();
             String locationInput = etLocation.getText().toString().trim();
             String capacityText = etEventCapacity.getText().toString().trim();
+            String radiusText = etLocationRadiusKm.getText().toString().trim();
             boolean waitlistHasLimit = switchWaitlist.isChecked();
+            boolean geoConstraint = switchGeo.isChecked();
 
             // input entry enforcement
 
@@ -360,6 +379,41 @@ public class ManageFragment extends Fragment {
                 }
             }
 
+            // when geolocation restriction is enabled, require both a location and a radius
+            // radius is stored inside the geo/address document, not on the main event doc
+            final Integer locationRadiusKm;
+            if (geoConstraint) {
+                if (locationInput.isEmpty()) {
+                    Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                if (radiusText.isEmpty()) {
+                    Toast.makeText(requireContext(), "Location radius is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                try {
+                    locationRadiusKm = Integer.parseInt(radiusText);
+                } catch (NumberFormatException e) {
+                    Toast.makeText(requireContext(), "Location radius must be a valid number", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                if (locationRadiusKm <= 0) {
+                    Toast.makeText(requireContext(), "Location radius must be greater than 0", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            } else {
+                // if geo restriction is off, do not persist a radius value
+                etLocationRadiusKm.setText("");
+                locationInput = "";
+                resolvedLat[0] = null;
+                resolvedLng[0] = null;
+                resolvedLocation[0] = "";
+                locationRadiusKm = null;
+            }
+
             if (localEventDateMs[0] == null) {
                 Toast.makeText(requireContext(), "Event date is required", Toast.LENGTH_SHORT).show();
                 return;
@@ -387,11 +441,11 @@ public class ManageFragment extends Fragment {
             }
 
             final int finalWaitlistCapacity = waitlistCapacity;
+            final String finalLocationInput = locationInput;
 
             // run the save Event pathway as an atomic transaction to avoid geocoder failures being inserted in the database
             Runnable saveAction = () -> {
                 Event newEvent = new Event(organizerId, eventCapacity, finalWaitlistCapacity);
-                EventAddress eventAddress = new EventAddress(newEvent.getEventId());
 
                 newEvent.setTitle(title);
                 newEvent.setEventDateMs(localEventDateMs[0]);
@@ -405,9 +459,15 @@ public class ManageFragment extends Fragment {
                 newEvent.setCriteriaGuidelines(criteriaGuidelines);
                 setOptionalString(newEvent, "setDescription", description);
 
-                eventAddress.setLocation(resolvedLocation[0] == null ? "" : resolvedLocation[0]);
-                eventAddress.setLatitude(resolvedLat[0]);
-                eventAddress.setLongitude(resolvedLng[0]);
+                // only create a geo/address doc when geolocation restriction is enabled
+                EventAddress eventAddress = null;
+                if (geoConstraint) {
+                    eventAddress = new EventAddress(newEvent.getEventId());
+                    eventAddress.setLocation(resolvedLocation[0] == null ? "" : resolvedLocation[0]);
+                    eventAddress.setLatitude(resolvedLat[0]);
+                    eventAddress.setLongitude(resolvedLng[0]);
+                    eventAddress.setRadiusKm(locationRadiusKm);
+                }
                 newEvent.setAddress(eventAddress);
 
                 long now = System.currentTimeMillis();
@@ -446,14 +506,14 @@ public class ManageFragment extends Fragment {
                 );
             };
 
-            if (locationInput.isEmpty()) {
+            if (!geoConstraint || finalLocationInput.isEmpty()) {
                 resolvedLat[0] = null;
                 resolvedLng[0] = null;
                 resolvedLocation[0] = "";
                 saveAction.run();
             } else {
                 // resolve async geocoder values helper
-                resolveLocationAsync(locationInput, new ResolveLocationCallback() {
+                resolveLocationAsync(finalLocationInput, new ResolveLocationCallback() {
                     @Override
                     public void onResolved(@NonNull String resolvedAddress,
                                            @Nullable Double latitude,
@@ -496,9 +556,14 @@ public class ManageFragment extends Fragment {
         EditText etRegDates = view.findViewById(R.id.et_reg_dates);
         EditText etEventCapacity = view.findViewById(R.id.et_event_capacity);
         EditText etWaitlistCapacity = view.findViewById(R.id.et_waitlist_capacity);
+        EditText etLocationRadiusKm = view.findViewById(R.id.et_location_radius_km);
+
 
         View layoutWaitlistCapacity = view.findViewById(R.id.layout_waitlist_capacity);
         MaterialSwitch switchWaitlist = view.findViewById(R.id.switch_waitlist);
+
+        View layoutLocationRadius = view.findViewById(R.id.layout_location_radius);
+        MaterialSwitch switchGeo = view.findViewById(R.id.switch_geolocation);
 
         // use dialog-local holders to keep a fresh state
         //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
@@ -506,16 +571,18 @@ public class ManageFragment extends Fragment {
         final Long[] localStartDateMs = {event.getRegStartMs()};
         final Long[] localEndDateMs = {event.getRegEndMs()};
 
-        // check for existing address to avoid passing the same value into the geocoder again
+        // read any existing geo/address data so the dialog can be pre-populated
         EventAddress existingAddress = event.getAddress();
+        boolean hadExistingGeo = existingAddress != null;
+
         if (existingAddress == null) {
             existingAddress = new EventAddress(event.getEventId());
-            event.setAddress(existingAddress);
         }
 
         String initialResolvedLocation = existingAddress.getLocation();
         Double initialResolvedLat = existingAddress.getLatitude();
         Double initialResolvedLng = existingAddress.getLongitude();
+        Integer initialRadiusKm = existingAddress.getRadiusKm();
 
         if (initialResolvedLocation == null) {
             initialResolvedLocation = "";
@@ -542,6 +609,15 @@ public class ManageFragment extends Fragment {
         attachLocationWatcher(etLocation, resolvedLat, resolvedLng, resolvedLocation, suppressLocationWatcher);
 
         etEventCapacity.setText(String.valueOf(event.getEventCapacity()));
+
+        // prefill geo controls from the existing address subdocument
+        switchGeo.setChecked(hadExistingGeo);
+        if (initialRadiusKm != null) {
+            etLocationRadiusKm.setText(String.valueOf(initialRadiusKm));
+        } else {
+            etLocationRadiusKm.setText("");
+        }
+
         if (localEventDateMs[0] != null) {
             etDate.setText(formatLocalDate(localEventDateMs[0]));
         }
@@ -616,6 +692,14 @@ public class ManageFragment extends Fragment {
             }
         });
 
+        // set radius toggle listener
+        switchGeo.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            layoutLocationRadius.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+            if (!isChecked) {
+                etLocationRadiusKm.setText("");
+            }
+        });
+
         // set clear all button to clear all fields
         View btnClearAll = view.findViewById(R.id.btn_clear_all);
         if (btnClearAll != null) {
@@ -631,9 +715,13 @@ public class ManageFragment extends Fragment {
                 etWaitlistCapacity.setText("");
                 etDate.setText("");
                 etRegDates.setText("");
+                etLocationRadiusKm.setText("");
 
                 switchWaitlist.setChecked(false);
                 layoutWaitlistCapacity.setVisibility(View.GONE);
+
+                switchGeo.setChecked(false);
+                layoutLocationRadius.setVisibility(View.GONE);
 
                 resolvedLat[0] = null;
                 resolvedLng[0] = null;
@@ -651,7 +739,9 @@ public class ManageFragment extends Fragment {
             String description = etDescription.getText().toString().trim();
             String locationInput = etLocation.getText().toString().trim();
             String capacityText = etEventCapacity.getText().toString().trim();
+            String radiusText = etLocationRadiusKm.getText().toString().trim();
             boolean waitlistHasLimit = switchWaitlist.isChecked();
+            boolean geoConstraint = switchGeo.isChecked();
 
             // input entry enforcement
 
@@ -700,6 +790,40 @@ public class ManageFragment extends Fragment {
                 }
             }
 
+            // when geolocation restriction is enabled, require both a location and a radius
+            // radius is persisted on EventAddress under /geo/address
+            final Integer locationRadiusKm;
+            if (geoConstraint) {
+                if (locationInput.isEmpty()) {
+                    Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                if (radiusText.isEmpty()) {
+                    Toast.makeText(requireContext(), "Location radius is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                try {
+                    locationRadiusKm = Integer.parseInt(radiusText);
+                } catch (NumberFormatException e) {
+                    Toast.makeText(requireContext(), "Location radius must be a valid number", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                if (locationRadiusKm <= 0) {
+                    Toast.makeText(requireContext(), "Location radius must be greater than 0", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            } else {
+                etLocationRadiusKm.setText("");
+                locationInput = "";
+                resolvedLat[0] = null;
+                resolvedLng[0] = null;
+                resolvedLocation[0] = "";
+                locationRadiusKm = null;
+            }
+
             if (localEventDateMs[0] == null) {
                 Toast.makeText(requireContext(), "Event date is required", Toast.LENGTH_SHORT).show();
                 return;
@@ -721,6 +845,7 @@ public class ManageFragment extends Fragment {
             }
 
             final int finalWaitlistCapacity = waitlistCapacity;
+            final String finalLocationInput = locationInput;
 
             // run as one atomic transaction
             // eventStorage.upsertEvent got refactored to require onSuccess and onFailure listeners
@@ -733,9 +858,22 @@ public class ManageFragment extends Fragment {
                 event.setWaitlistCapacity(finalWaitlistCapacity);
 
                 setOptionalString(event, "setDescription", description);
-                event.getAddress().setLocation(resolvedLocation[0] == null ? "" : resolvedLocation[0]);
-                event.getAddress().setLatitude(resolvedLat[0]);
-                event.getAddress().setLongitude(resolvedLng[0]);
+
+                // store geo settings only in the geo/address subdocument
+                EventAddress updatedAddress = null;
+                if (geoConstraint) {
+                    updatedAddress = event.getAddress();
+                    if (updatedAddress == null) {
+                        updatedAddress = new EventAddress(event.getEventId());
+                    }
+
+                    updatedAddress.setLocation(resolvedLocation[0] == null ? "" : resolvedLocation[0]);
+                    updatedAddress.setLatitude(resolvedLat[0]);
+                    updatedAddress.setLongitude(resolvedLng[0]);
+                    updatedAddress.setRadiusKm(locationRadiusKm);
+                }
+
+                event.setAddress(updatedAddress);
 
                 eventStorage.upsertEvent(
                         event,
@@ -763,9 +901,9 @@ public class ManageFragment extends Fragment {
 
             boolean locationUnchanged =
                     resolvedLocation[0] != null &&
-                            locationInput.equals(resolvedLocation[0]);
+                            finalLocationInput.equals(resolvedLocation[0]);
 
-            if (locationInput.isEmpty()) {
+            if (!geoConstraint || finalLocationInput.isEmpty()) {
                 resolvedLat[0] = null;
                 resolvedLng[0] = null;
                 resolvedLocation[0] = "";
@@ -773,7 +911,7 @@ public class ManageFragment extends Fragment {
             } else if (locationUnchanged) {
                 saveAction.run();
             } else {
-                resolveLocationAsync(locationInput, new ResolveLocationCallback() {
+                resolveLocationAsync(finalLocationInput, new ResolveLocationCallback() {
 
                     // resolve async geocoder values helper
                     @Override
@@ -796,6 +934,7 @@ public class ManageFragment extends Fragment {
 
         dialog.show();
     }
+
     /**
      * Attaches a watcher to the location field that invalidates stored resolved coordinates
      *  whenever the user edits the raw text
@@ -837,15 +976,17 @@ public class ManageFragment extends Fragment {
             }
         });
     }
+
     /**
      * Callback for resolving a text address into a displayable address and coordinates.
      */
     private interface ResolveLocationCallback {
-        ///  handles a succesful address resolution
+        // handles a successful address resolution
         void onResolved(@NonNull String resolvedLocation,
                         @Nullable Double latitude,
                         @Nullable Double longitude);
-        ///  handles a failed resolution
+
+        // handles a failed resolution
         void onError(@NonNull String message);
     }
 
@@ -861,6 +1002,7 @@ public class ManageFragment extends Fragment {
             callback.onError("Geocoder is not available on this device");
             return;
         }
+
         // prevent conflicts between the two running processes (app, geocoder)
         //  allows for async callback to be done in one atomic transaction
         new Thread(() -> {
@@ -888,7 +1030,7 @@ public class ManageFragment extends Fragment {
                     );
                 });
 
-            // merge back to main thread with failure
+                // merge back to main thread with failure
             } catch (IOException e) {
                 if (!isAdded()) {
                     return;
@@ -941,7 +1083,6 @@ public class ManageFragment extends Fragment {
 
         return resolved.length() > 0 ? resolved.toString() : fallback;
     }
-
 
     /**
      * Converts a MaterialDatePicker UTC day selection into a local-noon epoch value.

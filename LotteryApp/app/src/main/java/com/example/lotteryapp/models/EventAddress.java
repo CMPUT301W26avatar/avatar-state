@@ -11,12 +11,15 @@ public class EventAddress {
     private String location;
     private Double latitude;
     private Double longitude;
+    private Integer radiusKm;
 
     public EventAddress(String eventId, String location, Double latitude, Double longitude) {
         this.eventId = eventId;
         this.location = location;
         this.latitude = latitude;
         this.longitude = longitude;
+        this.radiusKm = null;
+
     }
 
     public EventAddress(String eventId) {
@@ -49,5 +52,13 @@ public class EventAddress {
 
     public void setLongitude(Double longitude) {
         this.longitude = longitude;
+    }
+
+    public Integer getRadiusKm() {
+        return radiusKm;
+    }
+
+    public void setRadiusKm(Integer radiusKm) {
+        this.radiusKm = radiusKm;
     }
 }
