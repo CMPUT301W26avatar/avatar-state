@@ -44,6 +44,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Unit tests for drawWinners functionality in EventPoolStorage.
+ *
+ * These tests verify:
+ * 1. Correct number of winners are selected based on event capacity
+ * 2. Waitlisted entrants are properly transitioned to invited or not-invited
+ * 3. Selected entrants are removed from the waitlist collection
+ * 4. Lottery selection behaves randomly (not biased toward ordering)
+ * 5. Multiple draw rounds behave correctly (e.g., re-sampling scenarios)
+ *
+ * Robolectric + Mockito are used to simulate Firestore interactions and async behavior.
+ */
 @RunWith(RobolectricTestRunner.class)
 @LooperMode(LooperMode.Mode.PAUSED)
 @Config(sdk = 34)
@@ -60,9 +72,7 @@ public class DrawWinnersUnitTest {
     private QuerySnapshot querySnapshot;
     private WriteBatch batch;
 
-    /**
-     * Maps invited document reference -> entrantId so tests can recover winners.
-     */
+    // maps invited document refs back to entrant IDs so tests can recover winners
     private Map<DocumentReference, String> invitedRefToEntrantId;
 
     @Before
@@ -70,10 +80,18 @@ public class DrawWinnersUnitTest {
         initializeFixture();
     }
 
+    /**
+     * Builds a fresh mocked Firestore fixture for each test/run.
+     *
+     * This allows each test to simulate the EventPoolStorage draw flow
+     * without relying on a real database.
+     */
     private void initializeFixture() {
+        // mock Firestore database and storage layer
         db = mock(FirebaseFirestore.class);
         storage = new EventPoolStorage(db);
 
+        // mock Firestore collections and references
         eventsCollection = mock(CollectionReference.class);
         eventDoc = mock(DocumentReference.class);
         waitlistedCollection = mock(CollectionReference.class);
@@ -82,70 +100,42 @@ public class DrawWinnersUnitTest {
         querySnapshot = mock(QuerySnapshot.class);
         batch = mock(WriteBatch.class);
 
+        // maps invited document refs back to entrant IDs for verification later
         invitedRefToEntrantId = new HashMap<>();
 
+        // setup Firestore structure: events -> eventDoc -> subcollections
         when(db.collection("events")).thenReturn(eventsCollection);
         when(eventsCollection.document(anyString())).thenReturn(eventDoc);
 
         when(eventDoc.collection("waitlisted")).thenReturn(waitlistedCollection);
         when(eventDoc.collection("invited")).thenReturn(invitedCollection);
 
+        // simulate query: only WAITLISTED entrants are selected
         when(waitlistedCollection.whereEqualTo(
                 "status",
                 Entrant.EntrantStatus.WAITLISTED.name()
         )).thenReturn(waitlistedQuery);
 
+        // mock batch writes and commit success
         when(db.batch()).thenReturn(batch);
         when(batch.commit()).thenReturn(Tasks.forResult(null));
     }
 
-    @Test
-    public void drawWinners_largeWaitlist_onlyInvitesEventCapacityEntrants() {
-        String eventId = "event-1";
-        int waitlistSize = 10_000;
-        int eventCapacity = 25;
-
-        List<QueryDocumentSnapshot> docs = buildWaitlistedDocs(waitlistSize);
-        stubQueryResult(docs);
-
-        AtomicInteger successCount = new AtomicInteger(-1);
-        AtomicInteger failureCount = new AtomicInteger(0);
-
-        storage.drawWinners(
-                eventId,
-                eventCapacity,
-                successCount::set,
-                e -> failureCount.incrementAndGet()
-        );
-
-        flushAsyncCallbacks();
-
-        assertEquals(0, failureCount.get());
-        assertEquals(eventCapacity, successCount.get());
-
-        verify(batch, times(eventCapacity)).set(any(DocumentReference.class), any());
-        verify(batch, times(eventCapacity)).delete(any(DocumentReference.class));
-
-        int losers = waitlistSize - eventCapacity;
-        verify(batch, times(losers)).update(any(DocumentReference.class), eq("status"), eq(Entrant.EntrantStatus.NOT_INVITED.name()));
-        verify(batch, times(losers)).update(any(DocumentReference.class), eq("updatedAt"), any(FieldValue.class));
-
-        verify(batch, times(1)).update(eq(eventDoc), eq("invitationCount"), any(FieldValue.class));
-        verify(batch, times(1)).commit();
-    }
-
+    // verify that each draw is capped strictly at eventCapacity
     @Test
     public void onlySelectUpToEventCapacityPerDraw() {
         String eventId = "event-2";
         int waitlistSize = 1000;
         int eventCapacity = 2;
 
+        // create a larger pool than can be selected in a single draw
         List<QueryDocumentSnapshot> docs = buildWaitlistedDocs(waitlistSize);
         stubQueryResult(docs);
 
         AtomicInteger successCount = new AtomicInteger(-1);
         AtomicInteger failureCount = new AtomicInteger(0);
 
+        // run draw
         storage.drawWinners(
                 eventId,
                 eventCapacity,
@@ -155,32 +145,46 @@ public class DrawWinnersUnitTest {
 
         flushAsyncCallbacks();
 
+        // only eventCapacity users should be invited
         assertEquals(0, failureCount.get());
         assertEquals(eventCapacity, successCount.get());
 
+        // invited users are added to invited and removed from waitlisted
         verify(batch, times(eventCapacity)).set(any(DocumentReference.class), any());
         verify(batch, times(eventCapacity)).delete(any(DocumentReference.class));
 
+        // everyone else should be marked as not invited
         int losers = waitlistSize - eventCapacity;
-        verify(batch, times(losers)).update(any(DocumentReference.class), eq("status"), eq(Entrant.EntrantStatus.NOT_INVITED.name()));
-        verify(batch, times(losers)).update(any(DocumentReference.class), eq("updatedAt"), any(FieldValue.class));
+        verify(batch, times(losers)).update(
+                any(DocumentReference.class),
+                eq("status"),
+                eq(Entrant.EntrantStatus.NOT_INVITED.name())
+        );
+        verify(batch, times(losers)).update(
+                any(DocumentReference.class),
+                eq("updatedAt"),
+                any(FieldValue.class)
+        );
 
         verify(batch, times(1)).update(eq(eventDoc), eq("invitationCount"), any(FieldValue.class));
         verify(batch, times(1)).commit();
     }
 
+    // verify that if the waitlist is smaller than event capacity, everyone is invited
     @Test
     public void invitesAllWaitlistedWhen_waitlistCapLessThanEventCap() {
         String eventId = "event-3";
         int waitlistSize = 4;
         int eventCapacity = 10;
 
+        // waitlist size is smaller than the number of available spots
         List<QueryDocumentSnapshot> docs = buildWaitlistedDocs(waitlistSize);
         stubQueryResult(docs);
 
         AtomicInteger successCount = new AtomicInteger(-1);
         AtomicInteger failureCount = new AtomicInteger(0);
 
+        // run draw
         storage.drawWinners(
                 eventId,
                 eventCapacity,
@@ -190,28 +194,42 @@ public class DrawWinnersUnitTest {
 
         flushAsyncCallbacks();
 
+        // all waitlisted entrants should be selected
         assertEquals(0, failureCount.get());
         assertEquals(waitlistSize, successCount.get());
 
+        // all users should be invited and removed from waitlisted
         verify(batch, times(waitlistSize)).set(any(DocumentReference.class), any());
         verify(batch, times(waitlistSize)).delete(any(DocumentReference.class));
 
-        verify(batch, times(0)).update(any(DocumentReference.class), eq("status"), eq(Entrant.EntrantStatus.NOT_INVITED.name()));
-        verify(batch, times(0)).update(any(DocumentReference.class), eq("updatedAt"), any(FieldValue.class));
+        // no one should be marked as not invited because there are no leftovers
+        verify(batch, times(0)).update(
+                any(DocumentReference.class),
+                eq("status"),
+                eq(Entrant.EntrantStatus.NOT_INVITED.name())
+        );
+        verify(batch, times(0)).update(
+                any(DocumentReference.class),
+                eq("updatedAt"),
+                any(FieldValue.class)
+        );
 
         verify(batch, times(1)).update(eq(eventDoc), eq("invitationCount"), any(FieldValue.class));
         verify(batch, times(1)).commit();
     }
 
+    // verify that an empty waitlist produces no writes and reports zero winners
     @Test
     public void lotteryForEmptyWaitlistDoesNothing() {
         String eventId = "event-4";
 
+        // return an empty query result
         stubQueryResult(new ArrayList<>());
 
         AtomicInteger successCount = new AtomicInteger(-1);
         AtomicInteger failureCount = new AtomicInteger(0);
 
+        // run draw against an empty waitlist
         storage.drawWinners(
                 eventId,
                 5,
@@ -221,30 +239,36 @@ public class DrawWinnersUnitTest {
 
         flushAsyncCallbacks();
 
+        // no errors and zero selected winners
         assertEquals(0, failureCount.get());
         assertEquals(0, successCount.get());
 
+        // no batch writes should occur when no entrants exist
         verify(batch, times(0)).set(any(DocumentReference.class), any());
         verify(batch, times(0)).delete(any(DocumentReference.class));
         verify(batch, times(0)).update(any(DocumentReference.class), anyString(), any());
         verify(batch, times(0)).commit();
     }
 
+    // verify randomness: multiple runs should produce different winner sets
     @Test
     public void sequentialDrawsProduceDistinctSelections() {
         int waitlistSize = 30;
         int eventCapacity = 5;
         int runs = 25;
 
+        // store the unique winner sets observed across many independent draws
         Set<Set<String>> distinctWinnerSets = new HashSet<>();
 
         for (int i = 0; i < runs; i++) {
+            // rebuild the fixture each run so previous verifications/state do not leak forward
             initializeFixture();
             stubQueryResult(buildWaitlistedDocs(waitlistSize));
 
             AtomicInteger successCount = new AtomicInteger(-1);
             AtomicInteger failureCount = new AtomicInteger(0);
 
+            // run the draw for this round
             storage.drawWinners(
                     "event-random-" + i,
                     eventCapacity,
@@ -254,27 +278,33 @@ public class DrawWinnersUnitTest {
 
             flushAsyncCallbacks();
 
+            // each draw should succeed and return exactly eventCapacity winners
             assertEquals(0, failureCount.get());
             assertEquals(eventCapacity, successCount.get());
 
+            // recover the actual selected entrant IDs from captured invited writes
             Set<String> winners = captureWinnerIds();
             assertEquals(eventCapacity, winners.size());
 
+            // add the observed winner set to see whether different runs vary
             distinctWinnerSets.add(winners);
         }
 
+        // repeated randomized draws should not always return the exact same winner set
         assertTrue(
                 "Expected multiple different winner sets across repeated runs",
                 distinctWinnerSets.size() > 1
         );
     }
 
+    // verify randomness: multiple runs should not pick only from the front of the collection
     @Test
     public void sequentialDrawsDoNotTargetFrontOfCollection() {
         int waitlistSize = 100;
         int eventCapacity = 5;
         int runs = 30;
 
+        // if randomness is working, at least one run should include someone beyond the first 5 entrants
         boolean selectedSomeoneOutsideFirstFive = false;
 
         for (int i = 0; i < runs; i++) {
@@ -284,6 +314,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger successCount = new AtomicInteger(-1);
             AtomicInteger failureCount = new AtomicInteger(0);
 
+            // run draw for this iteration
             storage.drawWinners(
                     "event-outside-front-" + i,
                     eventCapacity,
@@ -293,9 +324,11 @@ public class DrawWinnersUnitTest {
 
             flushAsyncCallbacks();
 
+            // ensure the draw completed successfully
             assertEquals(0, failureCount.get());
             assertEquals(eventCapacity, successCount.get());
 
+            // inspect selected winners and see whether any were chosen from outside the first eventCapacity
             Set<String> winners = captureWinnerIds();
             for (String winner : winners) {
                 int index = parseEntrantIndex(winner);
@@ -305,6 +338,7 @@ public class DrawWinnersUnitTest {
                 }
             }
 
+            // once we have evidence of selection outside the front slice, we can stop early
             if (selectedSomeoneOutsideFirstFive) {
                 break;
             }
@@ -316,12 +350,14 @@ public class DrawWinnersUnitTest {
         );
     }
 
+    // verify randomness: repeated draws should reach entrants from front, middle, and back regions
     @Test
     public void sequentialDrawsHaveSelectionsAcrossTheWholeCollection() {
         int waitlistSize = 1000;
         int eventCapacity = 10;
         int runs = 40;
 
+        // track whether selections ever hit each major region of the waitlist
         boolean sawFrontRegionWinner = false;   // 0-99
         boolean sawMiddleRegionWinner = false;  // 450-549
         boolean sawBackRegionWinner = false;    // 900-999
@@ -333,6 +369,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger successCount = new AtomicInteger(-1);
             AtomicInteger failureCount = new AtomicInteger(0);
 
+            // run another randomized draw
             storage.drawWinners(
                     "event-regions-" + i,
                     eventCapacity,
@@ -342,9 +379,11 @@ public class DrawWinnersUnitTest {
 
             flushAsyncCallbacks();
 
+            // every run should still return the proper number of winners
             assertEquals(0, failureCount.get());
             assertEquals(eventCapacity, successCount.get());
 
+            // inspect where the chosen winners came from within the synthetic waitlist
             Set<String> winners = captureWinnerIds();
             for (String winner : winners) {
                 int index = parseEntrantIndex(winner);
@@ -360,6 +399,7 @@ public class DrawWinnersUnitTest {
                 }
             }
 
+            // stop once all regions have been observed at least once
             if (sawFrontRegionWinner && sawMiddleRegionWinner && sawBackRegionWinner) {
                 break;
             }
@@ -370,6 +410,7 @@ public class DrawWinnersUnitTest {
         assertTrue("Expected at least one winner from the back region", sawBackRegionWinner);
     }
 
+    // verify randomness: selections are not biased to when the entrant joined the waitlist
     @Test
     public void lotteryDoesNotTargetEntrantsByJoinedTime() {
         int waitlistSize = 100;
@@ -381,6 +422,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger successCount = new AtomicInteger(-1);
         AtomicInteger failureCount = new AtomicInteger(0);
 
+        // run a single draw
         storage.drawWinners(
                 "event-not-front-only",
                 eventCapacity,
@@ -390,22 +432,27 @@ public class DrawWinnersUnitTest {
 
         flushAsyncCallbacks();
 
+        // ensure the draw succeeded
         assertEquals(0, failureCount.get());
         assertEquals(eventCapacity, successCount.get());
 
+        // recover chosen winners
         Set<String> winners = captureWinnerIds();
 
+        // build the deterministic "front of list" expectation that would occur if no shuffle/randomization happened
         Set<String> firstCapacityEntrants = new HashSet<>();
         for (int i = 0; i < eventCapacity; i++) {
             firstCapacityEntrants.add("entrant-" + i);
         }
 
+        // draw should not simply mirror insertion/join order
         assertFalse(
                 "A shuffled draw should not simply return the first eventCapacity entrants",
                 winners.equals(firstCapacityEntrants)
         );
     }
 
+    // verify winners are removed from waitlist after selection
     @Test
     public void selectedEntrantsRemovedFromWaitlistCollection() {
         String eventId = "event-removed";
@@ -413,12 +460,15 @@ public class DrawWinnersUnitTest {
         int eventCapacity = 5;
 
         initializeFixture();
+
+        // keep the original docs so we can compare selected winners to deleted waitlist refs
         List<QueryDocumentSnapshot> docs = buildWaitlistedDocs(waitlistSize);
         stubQueryResult(docs);
 
         AtomicInteger successCount = new AtomicInteger(-1);
         AtomicInteger failureCount = new AtomicInteger(0);
 
+        // run draw
         storage.drawWinners(
                 eventId,
                 eventCapacity,
@@ -428,9 +478,11 @@ public class DrawWinnersUnitTest {
 
         flushAsyncCallbacks();
 
+        // ensure draw completed with the expected number of winners
         assertEquals(0, failureCount.get());
         assertEquals(eventCapacity, successCount.get());
 
+        // capture both invited writes and deleted waitlist refs
         ArgumentCaptor<DocumentReference> invitedRefCaptor =
                 ArgumentCaptor.forClass(DocumentReference.class);
         ArgumentCaptor<DocumentReference> deletedRefCaptor =
@@ -439,6 +491,7 @@ public class DrawWinnersUnitTest {
         verify(batch, times(eventCapacity)).set(invitedRefCaptor.capture(), any());
         verify(batch, times(eventCapacity)).delete(deletedRefCaptor.capture());
 
+        // convert invited document refs back to entrant IDs
         Set<String> invitedEntrantIds = new HashSet<>();
         for (DocumentReference invitedRef : invitedRefCaptor.getAllValues()) {
             String entrantId = invitedRefToEntrantId.get(invitedRef);
@@ -446,6 +499,7 @@ public class DrawWinnersUnitTest {
             invitedEntrantIds.add(entrantId);
         }
 
+        // compute which original waitlist document refs should have been deleted
         Set<DocumentReference> expectedDeletedRefs = new HashSet<>();
         for (QueryDocumentSnapshot doc : docs) {
             String entrantId = doc.getString("entrantId");
@@ -454,8 +508,10 @@ public class DrawWinnersUnitTest {
             }
         }
 
+        // actual delete operations performed by the batch
         Set<DocumentReference> actualDeletedRefs = new HashSet<>(deletedRefCaptor.getAllValues());
 
+        // the exact selected winners should be the exact documents deleted from waitlisted
         assertEquals(
                 "Exactly the selected entrants should be removed from waitlisted",
                 expectedDeletedRefs,
@@ -463,22 +519,29 @@ public class DrawWinnersUnitTest {
         );
     }
 
+    // simulate repeated draws where users decline and ensure full exhaustion of waitlist
     @Test
     public void drawWinners_simulateDeclineRounds_eventuallyExhaustsSmallWaitlist() {
+        // remaining entrants that still need to be sampled in later rounds
         List<String> remainingEntrants = buildEntrantIds(6);
+
+        // variable invite sizes to simulate re-sampling rounds after earlier invite declines
         int[] requestedInvitesPerRound = {3, 2, 3, 1, 1};
 
+        // track every entrant invited across all rounds to ensure no duplicates are redrawn
         Set<String> allInvitedAcrossRounds = new HashSet<>();
 
         for (int round = 0; round < requestedInvitesPerRound.length && !remainingEntrants.isEmpty(); round++) {
             int requestedInvites = requestedInvitesPerRound[round];
 
+            // rebuild fixture using only entrants still remaining on the waitlist
             initializeFixture();
             stubQueryResult(buildWaitlistedDocsFromEntrantIds(remainingEntrants));
 
             AtomicInteger successCount = new AtomicInteger(-1);
             AtomicInteger failureCount = new AtomicInteger(0);
 
+            // run draw for this decline/resample round
             storage.drawWinners(
                     "event-exhaust-" + round,
                     requestedInvites,
@@ -488,26 +551,33 @@ public class DrawWinnersUnitTest {
 
             flushAsyncCallbacks();
 
+            // draw should succeed
             assertEquals(0, failureCount.get());
 
+            // actual invitations this round cannot exceed the number still remaining
             int expectedThisRound = Math.min(requestedInvites, remainingEntrants.size());
             assertEquals(expectedThisRound, successCount.get());
 
+            // determine which entrants were chosen this round
             Set<String> winnersThisRound = captureWinnerIds();
             assertEquals(expectedThisRound, winnersThisRound.size());
 
+            // nobody should be re-invited across rounds
             for (String winner : winnersThisRound) {
                 assertFalse(allInvitedAcrossRounds.contains(winner));
             }
 
+            // simulate all winners declining by removing them from the remaining pool
             allInvitedAcrossRounds.addAll(winnersThisRound);
             remainingEntrants.removeIf(winnersThisRound::contains);
         }
 
+        // eventually the full small waitlist should be exhausted
         assertTrue("All entrants should have been sampled and removed", remainingEntrants.isEmpty());
         assertEquals(6, allInvitedAcrossRounds.size());
     }
 
+    // Builds entrant IDs for repeated-draw simulations.
     private List<String> buildEntrantIds(int count) {
         List<String> entrantIds = new ArrayList<>();
         for (int i = 0; i < count; i++) {
@@ -516,20 +586,24 @@ public class DrawWinnersUnitTest {
         return entrantIds;
     }
 
+    // Builds mocked waitlisted docs from a provided entrant ID list.
     private List<QueryDocumentSnapshot> buildWaitlistedDocsFromEntrantIds(List<String> entrantIds) {
         List<QueryDocumentSnapshot> docs = new ArrayList<>();
 
         for (int i = 0; i < entrantIds.size(); i++) {
             String entrantId = entrantIds.get(i);
 
+            // mock each waitlisted document and its related references
             QueryDocumentSnapshot doc = mock(QueryDocumentSnapshot.class);
             DocumentReference waitlistedDocRef = mock(DocumentReference.class);
             DocumentReference invitedDocRef = mock(DocumentReference.class);
 
+            // stub the fields accessed by drawWinners
             when(doc.getString("entrantId")).thenReturn(entrantId);
             when(doc.get("joinedAt")).thenReturn("joinedAt-" + entrantId);
             when(doc.getReference()).thenReturn(waitlistedDocRef);
 
+            // map invited document ref back to entrant ID for verification later
             when(invitedCollection.document(entrantId)).thenReturn(invitedDocRef);
             invitedRefToEntrantId.put(invitedDocRef, entrantId);
 
@@ -538,28 +612,36 @@ public class DrawWinnersUnitTest {
 
         return docs;
     }
+
+    // stub Firestore query to return a predefined set of waitlisted documents
     private void stubQueryResult(List<QueryDocumentSnapshot> docs) {
         when(waitlistedQuery.get()).thenReturn(Tasks.forResult(querySnapshot));
+
+        // return iterator over mocked documents
         when(querySnapshot.iterator()).thenAnswer(invocation -> {
             Iterator<QueryDocumentSnapshot> iterator = docs.iterator();
             return iterator;
         });
     }
 
+    // build a synthetic waitlist of size `count`
     private List<QueryDocumentSnapshot> buildWaitlistedDocs(int count) {
         List<QueryDocumentSnapshot> docs = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
             String entrantId = "entrant-" + i;
 
+            // mock Firestore document snapshot
             QueryDocumentSnapshot doc = mock(QueryDocumentSnapshot.class);
             DocumentReference waitlistedDocRef = mock(DocumentReference.class);
             DocumentReference invitedDocRef = mock(DocumentReference.class);
 
+            // stub fields used by drawWinners
             when(doc.getString("entrantId")).thenReturn(entrantId);
             when(doc.get("joinedAt")).thenReturn("joinedAt-" + i);
             when(doc.getReference()).thenReturn(waitlistedDocRef);
 
+            // map invited document -> entrantId for later verification
             when(invitedCollection.document(entrantId)).thenReturn(invitedDocRef);
             invitedRefToEntrantId.put(invitedDocRef, entrantId);
 
@@ -569,15 +651,20 @@ public class DrawWinnersUnitTest {
         return docs;
     }
 
+    // capture all entrants that were selected (written to invited collection)
     private Set<String> captureWinnerIds() {
         ArgumentCaptor<DocumentReference> invitedRefCaptor =
                 ArgumentCaptor.forClass(DocumentReference.class);
 
+        // capture all "set" operations (invites)
         verify(batch, atLeastOnce()).set(invitedRefCaptor.capture(), any());
 
         Set<String> winnerIds = new HashSet<>();
+
         for (DocumentReference invitedRef : invitedRefCaptor.getAllValues()) {
             String entrantId = invitedRefToEntrantId.get(invitedRef);
+
+            // only include valid mappings
             if (entrantId != null) {
                 winnerIds.add(entrantId);
             }
@@ -590,6 +677,7 @@ public class DrawWinnersUnitTest {
         return Integer.parseInt(entrantId.substring("entrant-".length()));
     }
 
+    // flush Robolectric main looper to ensure async callbacks complete
     private void flushAsyncCallbacks() {
         shadowOf(Looper.getMainLooper()).idle();
         shadowOf(Looper.getMainLooper()).idle();
