@@ -2,7 +2,6 @@ package com.example.lotteryapp.services;
 
 import androidx.annotation.Nullable;
 
-import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.services.storage.AdminStorage;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;

@@ -2,7 +2,6 @@ package com.example.lotteryapp.activities;
 
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
-import static androidx.core.content.ContentProviderCompat.requireContext;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.ENROLLED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
@@ -15,7 +14,6 @@ import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.PersistableBundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -24,7 +22,6 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.widget.TextView;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.lotteryapp.R;

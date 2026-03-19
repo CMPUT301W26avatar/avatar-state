@@ -1,10 +1,5 @@
 package com.example.lotteryapp.fragments;
 
-import static com.example.lotteryapp.models.NotificationLog.NotificationType.COMMENT;
-import static com.example.lotteryapp.models.NotificationLog.NotificationType.INVITATION;
-import static com.example.lotteryapp.models.NotificationLog.NotificationType.LOTTERY_RESULT;
-import static com.google.firebase.messaging.Constants.MessageTypes.MESSAGE;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -34,7 +29,6 @@ import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Collectors;
 /**
  * fragment for displaying admin lists inside of AdminActivity
