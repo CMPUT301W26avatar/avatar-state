@@ -16,7 +16,7 @@ import java.util.Map;
 /**
  * Storage logic for notification log entries
  * R & W to notifications collection
- *
+ * <p>
  * Call logNotification()
  *      wherever an organizer sends a notification to entrants
  * Call getAllNotificationLogs()

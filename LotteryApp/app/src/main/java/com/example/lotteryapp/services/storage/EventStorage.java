@@ -1,7 +1,5 @@
 package com.example.lotteryapp.services.storage;
 
-import androidx.annotation.NonNull;
-
 import com.example.lotteryapp.models.Event;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -9,7 +7,6 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
@@ -53,22 +50,19 @@ public class EventStorage {
     ) {
         final DocumentReference ref = eventDoc(event.getEventId());
 
-        db.runTransaction(new Transaction.Function<Void>() {
-                    @Override
-                    public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
-                        DocumentSnapshot snapshot = transaction.get(ref);
-                        Map<String, Object> data = eventToMap(event);
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+            DocumentSnapshot snapshot = transaction.get(ref);
+            Map<String, Object> data = eventToMap(event);
 
-                        if (!snapshot.exists()) {
-                            transaction.set(ref, data);
-                        } else {
-                            data.remove("createdAt");
-                            data.put("updatedAt", FieldValue.serverTimestamp());
-                            transaction.update(ref, data);
-                        }
-                        return null;
-                    }
-                }).addOnSuccessListener(onSuccess)
+            if (!snapshot.exists()) {
+                transaction.set(ref, data);
+            } else {
+                data.remove("createdAt");
+                data.put("updatedAt", FieldValue.serverTimestamp());
+                transaction.update(ref, data);
+            }
+            return null;
+        }).addOnSuccessListener(onSuccess)
                 .addOnFailureListener(onFailure);
     }
 

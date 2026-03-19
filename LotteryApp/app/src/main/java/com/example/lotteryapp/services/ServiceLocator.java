@@ -13,7 +13,7 @@ import com.example.lotteryapp.services.storage.NotificationLogStorage;
  * Service locator with test overrides.
  *      Application code should fetch services from here (Storage, Service)
  *      - prevents the calling of FirebaseFirestore.getInstance() and FirebaseAuth.getInstance()
- *
+ * <p>
  * Tests can override storages/providers so Firebase is never initialized.
  */
 public final class ServiceLocator {

@@ -2,9 +2,9 @@ package com.example.lotteryapp.models;
 
 import com.google.firebase.Timestamp;
 
-/** Model class for a notifciation log entry
+/** Model class for a notification log entry
  * - stored in in notifications collection
- * - created anytmie a organizer sends notification to entrant
+ * - created anytime a organizer sends notification to entrant
  */
 public class NotificationLog {
 

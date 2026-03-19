@@ -1,5 +1,4 @@
 package com.example.lotteryapp.services.storage;
-import androidx.annotation.NonNull;
 
 import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.UserNameService;
@@ -9,7 +8,6 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.Transaction;
@@ -46,23 +44,20 @@ public class UserStorage {
     public void setNewUser(String UUID) {
         final DocumentReference ref = db.collection("users").document(UUID);
         // Transaction so createdAt is only set once.
-        db.runTransaction(new Transaction.Function<Void>() {
-            @Override
-            public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
-                DocumentSnapshot snapshot = transaction.get(ref);
-                if (!snapshot.exists()) {
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("deviceID", UUID);
-                    data.put("isAdmin", false); // Default to false
-                    data.put("name", UserNameService.generateUserName());
-                    data.put("createdAt", FieldValue.serverTimestamp());
-                    data.put("updatedAt", FieldValue.serverTimestamp());
-                    transaction.set(ref, data);
-                } else {
-                    transaction.update(ref, "updatedAt", FieldValue.serverTimestamp());
-                }
-                return null;
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+            DocumentSnapshot snapshot = transaction.get(ref);
+            if (!snapshot.exists()) {
+                Map<String, Object> data = new HashMap<>();
+                data.put("deviceID", UUID);
+                data.put("isAdmin", false); // Default to false
+                data.put("name", UserNameService.generateUserName());
+                data.put("createdAt", FieldValue.serverTimestamp());
+                data.put("updatedAt", FieldValue.serverTimestamp());
+                transaction.set(ref, data);
+            } else {
+                transaction.update(ref, "updatedAt", FieldValue.serverTimestamp());
             }
+            return null;
         });
     }
 
@@ -74,24 +69,21 @@ public class UserStorage {
     public void setNewUser(String UUID, String name, String email) {
         final DocumentReference ref = db.collection("users").document(UUID);
         // Transaction so createdAt is only set once.
-        db.runTransaction(new Transaction.Function<Void>() {
-            @Override
-            public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
-                DocumentSnapshot snapshot = transaction.get(ref);
-                if (!snapshot.exists()) {
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("deviceID", UUID);
-                    data.put("isAdmin", false); // Default to false
-                    data.put("name", name);
-                    data.put("email", email);
-                    data.put("createdAt", FieldValue.serverTimestamp());
-                    data.put("updatedAt", FieldValue.serverTimestamp());
-                    transaction.set(ref, data);
-                } else {
-                    transaction.update(ref, "updatedAt", FieldValue.serverTimestamp());
-                }
-                return null;
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+            DocumentSnapshot snapshot = transaction.get(ref);
+            if (!snapshot.exists()) {
+                Map<String, Object> data = new HashMap<>();
+                data.put("deviceID", UUID);
+                data.put("isAdmin", false); // Default to false
+                data.put("name", name);
+                data.put("email", email);
+                data.put("createdAt", FieldValue.serverTimestamp());
+                data.put("updatedAt", FieldValue.serverTimestamp());
+                transaction.set(ref, data);
+            } else {
+                transaction.update(ref, "updatedAt", FieldValue.serverTimestamp());
             }
+            return null;
         });
     }
 
@@ -104,16 +96,13 @@ public class UserStorage {
             final OnSuccessListener<User> ok, OnFailureListener fail) {
         userDoc(uuid)
                 .get()
-                .addOnSuccessListener(new OnSuccessListener<com.google.firebase.firestore.DocumentSnapshot>() {
-                    @Override
-                    public void onSuccess(com.google.firebase.firestore.DocumentSnapshot snapshot) {
-                        if (snapshot.exists()) {
-                            // moved to documentToUser()
-                            ok.onSuccess(documentToUser(snapshot));
-                        }
-                        else {
-                            ok.onSuccess(new User(uuid));
-                        }
+                .addOnSuccessListener(snapshot -> {
+                    if (snapshot.exists()) {
+                        // moved to documentToUser()
+                        ok.onSuccess(documentToUser(snapshot));
+                    }
+                    else {
+                        ok.onSuccess(new User(uuid));
                     }
                 }).addOnFailureListener(fail);
     }

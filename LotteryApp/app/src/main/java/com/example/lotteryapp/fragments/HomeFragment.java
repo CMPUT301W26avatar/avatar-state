@@ -18,10 +18,11 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * HomeFragment displays the main event dashboard of the application.
- *
+ * <p>
  * displays events in a grid (DisplayGridEvent), db query determines the type
  *      load Events from EventStorage,
  *          Event -turns-into> DisplayGridEvent,
@@ -33,8 +34,7 @@ import java.util.List;
 public class HomeFragment extends Fragment {
 
     private MaterialCardView invitationCard;
-    private MaterialButton closeInvitation;
-    private EventStorage estore = ServiceLocator.getEventStorage();
+    private final EventStorage eventStorage = ServiceLocator.getEventStorage();
     private GridEventAdapter openAdapter;
     private GridEventAdapter upcomingAdapter;
     private GridEventAdapter fullAdapter;
@@ -51,7 +51,7 @@ public class HomeFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
         invitationCard = view.findViewById(R.id.invitation_card);
-        closeInvitation = view.findViewById(R.id.btn_close_invitation);
+        MaterialButton closeInvitation = view.findViewById(R.id.btn_close_invitation);
 
         closeInvitation.setOnClickListener(v -> invitationCard.setVisibility(View.GONE));
 
@@ -100,16 +100,20 @@ public class HomeFragment extends Fragment {
      *      notify change in the list of grid events
      */
     private void loadEventsRegOpen() {
-        if (estore == null || openAdapter == null) return;
+        if (eventStorage == null || openAdapter == null) return;
 
-        estore.listEventsRegOpen(
+        eventStorage.listEventsRegOpen(
                 4,
                 fetchedEvents -> {
                     displayOpenGridEvents.clear();
+                    for (int i = 0; i < fetchedEvents.size(); i++) {
+                        final Event event = fetchedEvents.get(i);
+                        displayOpenGridEvents.add(eventToDisplayEvent(event));
+                        openAdapter.notifyItemInserted(i);
+                    }
                     for (Event e : fetchedEvents) {
                         displayOpenGridEvents.add(eventToDisplayEvent(e));
                     }
-                    openAdapter.notifyDataSetChanged();
                 },
                 e -> {
                     android.util.Log.e("HomeFragment", "Failed to load open events", e);
@@ -125,16 +129,17 @@ public class HomeFragment extends Fragment {
      *      notify change in the list of grid events
      */
     private void loadEventsRegUpcoming() {
-        if (estore == null || upcomingAdapter == null) return;
+        if (eventStorage == null || upcomingAdapter == null) return;
 
-        estore.listEventsRegUpcoming(
+        eventStorage.listEventsRegUpcoming(
                 4,
                 fetchedEvents -> {
                     displayUpcomingGridEvents.clear();
-                    for (Event e : fetchedEvents) {
-                        displayUpcomingGridEvents.add(eventToDisplayEvent(e));
+                    for (int i = 0; i < fetchedEvents.size(); i++) {
+                        final Event event = fetchedEvents.get(i);
+                        displayUpcomingGridEvents.add(eventToDisplayEvent(event));
+                        upcomingAdapter.notifyItemInserted(i);
                     }
-                    upcomingAdapter.notifyDataSetChanged();
                 },
                 e -> {
                     android.util.Log.e("HomeFragment", "Failed to load upcoming events", e);
@@ -148,20 +153,21 @@ public class HomeFragment extends Fragment {
      *      call EventStorage.listEventsRegOpen query to fill events list
      *      convert Event to DisplayGridEvent
      *      notify change in the list of grid events
-     *
+     * <p>
      *      ** later: Popular Events should return events ordered by descending (waitlistCount/waitlistCapacity)**
      */
     private void loadEventsRegFull() {
-        if (estore == null || fullAdapter == null) return;
+        if (eventStorage == null || fullAdapter == null) return;
 
-        estore.listEventsRegFull(
+        eventStorage.listEventsRegFull(
                 4,
                 fetchedEvents -> {
                     displayFullGridEvents.clear();
-                    for (Event e : fetchedEvents) {
-                        displayFullGridEvents.add(eventToDisplayEvent(e));
+                    for (int i = 0; i < fetchedEvents.size(); i++) {
+                        final Event event = fetchedEvents.get(i);
+                        displayFullGridEvents.add(eventToDisplayEvent(event));
+                        fullAdapter.notifyItemInserted(i);
                     }
-                    fullAdapter.notifyDataSetChanged();
                 },
                 e -> {
                     android.util.Log.e("HomeFragment", "Failed to load full events", e);
@@ -208,9 +214,10 @@ public class HomeFragment extends Fragment {
      *      need Event param
      */
     private String buildSubtitle(Event event) {
-        Event.EventStatus status = event.getStatus();
+        StringBuilder sb;
 
-        StringBuilder sb = new StringBuilder(statusString(status));
+        String eventStatus = statusString(event.getStatus());
+        sb = new StringBuilder(Objects.requireNonNullElse(eventStatus, "Unknown Status"));
 
         Integer waitlistCap = event.getWaitlistCapacity();
         if (waitlistCap != null) {

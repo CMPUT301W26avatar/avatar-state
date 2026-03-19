@@ -14,12 +14,11 @@ import com.google.firebase.firestore.FirebaseFirestore;
  *      uses device Id to key the user
  */
 public class AuthService {
-    private final FirebaseFirestore db;
     private final UserStorage userStore;
     private final FirebaseAuth auth;
 
     public AuthService(FirebaseService fbs) {
-        db = fbs.getDb();
+        FirebaseFirestore db = fbs.getDb();
         auth = fbs.getAuth();
         userStore = new UserStorage(db);
         setupListeners();

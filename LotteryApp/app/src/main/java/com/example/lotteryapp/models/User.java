@@ -17,16 +17,6 @@ public class User {
     public String location;
     private boolean isAdmin;
 
-    private boolean isAnon;
-
-    public boolean isAnon() {
-        return isAnon;
-    }
-
-    public void setAnon(boolean anon) {
-        isAnon = anon;
-    }
-
     private String profilePicUrl;
 
     public User(String deviceID) {
@@ -35,9 +25,6 @@ public class User {
         }
 
         this.uuid = deviceID;
-        if (isAnon) {
-            // this.name = createAnonymousName();
-        }
     }
 
     public String getUUID() {

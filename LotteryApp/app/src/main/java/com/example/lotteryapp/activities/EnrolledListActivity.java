@@ -34,7 +34,6 @@ public class EnrolledListActivity extends AppCompatActivity {
 
     private RecyclerView recyclerView;
     private TextView tvEmpty;
-    private MaterialButton btnClose;
     private EntrantAdapter adapter;
     private EventPoolStorage eventPoolStorage;
 
@@ -45,7 +44,7 @@ public class EnrolledListActivity extends AppCompatActivity {
 
         recyclerView = findViewById(R.id.rv_enrolled);
         tvEmpty = findViewById(R.id.tv_empty);
-        btnClose = findViewById(R.id.btn_close);
+        MaterialButton btnClose = findViewById(R.id.btn_close);
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new EntrantAdapter();
@@ -97,7 +96,7 @@ public class EnrolledListActivity extends AppCompatActivity {
         public void setEntrants(List<Entrant> newEntrants) {
             entrants.clear();
             entrants.addAll(newEntrants);
-            notifyDataSetChanged();
+            notifyItemRangeChanged(0, entrants.size());
         }
 
         @NonNull

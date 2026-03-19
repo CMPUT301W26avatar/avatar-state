@@ -19,6 +19,7 @@ import com.google.android.material.search.SearchBar;
 import com.google.android.material.search.SearchView;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * SeachFragment displays the search dashboard of the application.
@@ -66,7 +67,7 @@ public class SearchFragment extends Fragment {
             popularAdapter = new GridEventAdapter(popularEvents);
             recyclerViewPopular.setAdapter(popularAdapter);
 
-            loadPopularEvents(popularEvents, popularAdapter, 4);
+            loadPopularEvents(popularEvents, popularAdapter);
         }
 
         if (recyclerViewSuggested != null) {
@@ -89,7 +90,7 @@ public class SearchFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        loadPopularEvents(popularEvents, popularAdapter, 4);
+        loadPopularEvents(popularEvents, popularAdapter);
         loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
     }
 
@@ -101,13 +102,14 @@ public class SearchFragment extends Fragment {
      *      convert Event to DisplayGridEvent
      *      notify change in the list of grid events
      */
-    private void loadPopularEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
-        estore.listEventsRegOpen(limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
-            displayGridEvents.clear();
-                for (Event event : fetchedEvents) {
+    private void loadPopularEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter) {
+        estore.listEventsRegOpen(4, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
+                displayGridEvents.clear();
+                for (int i = 0; i < fetchedEvents.size(); i++) {
+                    final Event event = fetchedEvents.get(i);
                     displayGridEvents.add(eventToDisplayEvent(event));
+                    adapter.notifyItemInserted(i);
                 }
-                adapter.notifyDataSetChanged();
             },
             error -> error.printStackTrace()
         );
@@ -124,10 +126,11 @@ public class SearchFragment extends Fragment {
     private void loadSuggestedEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
         estore.listEventsRegOpen(limit, fetchedEvents -> { // replace listOpenEvents with listSuggestedEvents when implemented
                 displayGridEvents.clear();
-                for (Event event : fetchedEvents) {
+                for (int i = 0; i < fetchedEvents.size(); i++) {
+                    final Event event = fetchedEvents.get(i);
                     displayGridEvents.add(eventToDisplayEvent(event));
+                    adapter.notifyItemInserted(i);
                 }
-                adapter.notifyDataSetChanged();
             },
                 error -> error.printStackTrace()
         );
@@ -156,9 +159,10 @@ public class SearchFragment extends Fragment {
      * Converts an Event parameter into a DisplayGridEvent
      */
     private String buildSubtitle(Event event) {
-        Event.EventStatus status = event.getStatus();
+        StringBuilder sb;
 
-        StringBuilder sb = new StringBuilder(statusString(status));
+        String eventStatus = statusString(event.getStatus());
+        sb = new StringBuilder(Objects.requireNonNullElse(eventStatus, "Unknown Status"));
 
         Integer waitlistCap = event.getWaitlistCapacity();
         if (waitlistCap != null) {

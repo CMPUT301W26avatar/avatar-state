@@ -18,11 +18,11 @@ import com.google.firebase.messaging.RemoteMessage;
 
 /**
  * Service to handle Firebase Cloud Messaging (FCM) notifications.
- * 
+ * <p>
  * --- DEVELOPER GUIDE: SENDING NOTIFICATIONS ---
  * To send a notification that respects user category toggles, you MUST include a "type"
  * field in the FCM data payload.
- * 
+ * <p>
  * Valid types:
  * - "invitation": Checked against 'Event Invitations' toggle
  * - "lottery_result": Checked against 'Lottery Results' toggle
@@ -37,7 +37,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
 
     /**
      * Handles an incoming Firebase notification message
-     *      extracts notification title and body from either the noti. or noti. data
+     *      extracts notification title and body from either the notification or notification data
      */
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
@@ -51,7 +51,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             body = remoteMessage.getNotification().getBody();
         }
 
-        if (remoteMessage.getData().size() > 0) {
+        if (!remoteMessage.getData().isEmpty()) {
             String type = remoteMessage.getData().get("type");
             
             if (isNotificationEnabled(type)) {
@@ -74,7 +74,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     /**
-     * Called when a new Firebase noti. registration token is generated
+     * Called when a new Firebase notification registration token is generated
      */
     @Override
     public void onNewToken(@NonNull String token) {

@@ -154,7 +154,7 @@ public class AdminStorage {
     /** Get all requested admins from the requested subcollection.
      * Asynchronous call: needs onSuccess and onFailure listeners
      * - returns all user id's from the requested subcollection inside of OnSuccess
-     * - populates requested admin item list inside of PromoteNewAdminAcitivity
+     * - populates requested admin item list inside of PromoteNewAdminActivity
      */
     public void getRequestedAdmins(
             OnSuccessListener<List<String>> onSuccess,

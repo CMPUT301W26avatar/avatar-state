@@ -18,6 +18,7 @@ import com.google.firebase.firestore.Transaction;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.ArrayList;
 import java.util.List;
@@ -112,12 +113,12 @@ public class EventPoolStorage {
                     }
 
                     // enforce no double waitlisting
-                    if (waitlistedSnap.exists() && (waitlistedSnap.getString("status").equals("WAITLISTED"))) {
+                    if (waitlistedSnap.exists() && (Objects.equals(waitlistedSnap.getString("status"), "WAITLISTED"))) {
                         throw new IllegalStateException("Entrant already waitlisted");
                     }
 
-                    int waitlistCount = eventSnap.getLong("waitlistCount") != null ? eventSnap.getLong("waitlistCount").intValue() : 0;
-                    int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
+                    int waitlistCount = eventSnap.getLong("waitlistCount") != null ? Objects.requireNonNull(eventSnap.getLong("waitlistCount")).intValue() : 0;
+                    int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null ? Objects.requireNonNull(eventSnap.getLong("waitlistCapacity")).intValue() : 0;
 
                     if (waitlistCount >= waitlistCapacity) {
                         throw new IllegalStateException("Waitlist is full");
@@ -182,11 +183,11 @@ public class EventPoolStorage {
                         throw new IllegalStateException("Entrant already invited");
                     }
 
-                    int invitationCount = eventSnap.getLong("invitationCount") != null ? eventSnap.getLong("invitationCount").intValue() : 0;
-                    int waitlistCount = eventSnap.getLong("waitlistCount") != null ? eventSnap.getLong("waitlistCount").intValue() : 0;
-                    int waitlistCap = eventSnap.getLong("waitlistCapacity") != null ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
+                    int invitationCount = eventSnap.getLong("invitationCount") != null ? Objects.requireNonNull(eventSnap.getLong("invitationCount")).intValue() : 0;
+                    int waitlistCount = eventSnap.getLong("waitlistCount") != null ? Objects.requireNonNull(eventSnap.getLong("waitlistCount")).intValue() : 0;
+                    int waitlistCap = eventSnap.getLong("waitlistCapacity") != null ? Objects.requireNonNull(eventSnap.getLong("waitlistCapacity")).intValue() : 0;
                     int enrolledCount = eventSnap.getLong("enrolledCount") != null
-                            ? eventSnap.getLong("enrolledCount").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("enrolledCount")).intValue() : 0;
 
                     Map<String, Object> data = mapEntrantData(
                             eventId,
@@ -253,11 +254,11 @@ public class EventPoolStorage {
                     }
 
                     int enrolledCount = eventSnap.getLong("enrolledCount") != null
-                            ? eventSnap.getLong("enrolledCount").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("enrolledCount")).intValue() : 0;
                     int invitationCount = eventSnap.getLong("invitationCount") != null
-                            ? eventSnap.getLong("invitationCount").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("invitationCount")).intValue() : 0;
                     int capacity = eventSnap.getLong("eventCapacity") != null
-                            ? eventSnap.getLong("eventCapacity").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("eventCapacity")).intValue() : 0;
 
                     if (enrolledCount >= capacity) {
                         throw new IllegalStateException("Event is already full");
@@ -317,14 +318,14 @@ public class EventPoolStorage {
                     }
 
                     int invitationCount = eventSnap.getLong("invitationCount") != null
-                            ? eventSnap.getLong("invitationCount").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("invitationCount")).intValue() : 0;
                     int enrolledCount = eventSnap.getLong("enrolledCount") != null
-                            ? eventSnap.getLong("enrolledCount").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("enrolledCount")).intValue() : 0;
 
                     int waitlistCount = eventSnap.getLong("waitlistCount") != null
-                            ? eventSnap.getLong("waitlistCount").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("waitlistCount")).intValue() : 0;
                     int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null
-                            ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("waitlistCapacity")).intValue() : 0;
 
                     transaction.delete(waitlistedRef);
 
@@ -378,7 +379,7 @@ public class EventPoolStorage {
                     }
 
                     int invitationCount = eventSnap.getLong("invitationCount") != null
-                            ? eventSnap.getLong("invitationCount").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("invitationCount")).intValue() : 0;
 
                     Map<String, Object> data = mapEntrantData(
                             eventId,
@@ -430,7 +431,7 @@ public class EventPoolStorage {
                     }
 
                     int enrolledCount = eventSnap.getLong("enrolledCount") != null
-                            ? eventSnap.getLong("enrolledCount").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("enrolledCount")).intValue() : 0;
 
                     transaction.delete(enrolledRef);
 
@@ -703,13 +704,13 @@ public class EventPoolStorage {
                     }
 
                     int waitlistCount = eventSnap.getLong("waitlistCount") != null
-                            ? eventSnap.getLong("waitlistCount").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("waitlistCount")).intValue() : 0;
                     int invitationCount = eventSnap.getLong("invitationCount") != null
-                            ? eventSnap.getLong("invitationCount").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("invitationCount")).intValue() : 0;
                     int enrolledCount = eventSnap.getLong("enrolledCount") != null
-                            ? eventSnap.getLong("enrolledCount").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("enrolledCount")).intValue() : 0;
                     int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null
-                            ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
+                            ? Objects.requireNonNull(eventSnap.getLong("waitlistCapacity")).intValue() : 0;
 
                     Map<String, Object> updates = new HashMap<>();
 
@@ -837,10 +838,10 @@ public class EventPoolStorage {
         boolean hasDrawnLottery = drawn != null && drawn;
 
         int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null
-                ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
+                ? Objects.requireNonNull(eventSnap.getLong("waitlistCapacity")).intValue() : 0;
 
         int eventCapacity = eventSnap.getLong("eventCapacity") != null
-                ? eventSnap.getLong("eventCapacity").intValue() : 0;
+                ? Objects.requireNonNull(eventSnap.getLong("eventCapacity")).intValue() : 0;
 
         if (hasDrawnLottery) {
             if (updatedEnrolledCount >= eventCapacity) {

@@ -21,7 +21,7 @@ import java.util.List;
  */
 public class GridEventAdapter extends RecyclerView.Adapter<GridEventAdapter.EventViewHolder> {
 
-    private List<HomeFragment.DisplayGridEvent> events;
+    private final List<HomeFragment.DisplayGridEvent> events;
 
     public GridEventAdapter(List<HomeFragment.DisplayGridEvent> events) {
         this.events = events;
@@ -29,7 +29,7 @@ public class GridEventAdapter extends RecyclerView.Adapter<GridEventAdapter.Even
 
     /**
      * Creates a new EventViewHolder for an event item view.
-     *
+     * <p>
      * Takes parameters:
      *      parent view group that the item view will be attached to
      *      view type of the new view

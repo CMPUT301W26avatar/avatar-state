@@ -45,12 +45,11 @@ public class AdminListFragment extends Fragment {
     public static final String TYPE_NOTIFICATION_LOGS = "notification_logs";
 
     private String type;
-    private RecyclerView recyclerView;
     private View progressBar;
     private View tvEmpty;
     private AdminAdapter adapter;
 
-    private List<Object> allItems = new ArrayList<>();
+    private final List<Object> allItems = new ArrayList<>();
     private String filterText = "";
     private boolean sortAscending = true;
 
@@ -84,7 +83,7 @@ public class AdminListFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_admin_list, container, false);
-        recyclerView = view.findViewById(R.id.recycler_view);
+        RecyclerView recyclerView = view.findViewById(R.id.recycler_view);
         progressBar = view.findViewById(R.id.progress_bar);
         tvEmpty = view.findViewById(R.id.tv_empty);
 
@@ -250,7 +249,7 @@ public class AdminListFragment extends Fragment {
          */
         public void setItems(List<Object> items) {
             this.displayItems = items;
-            notifyDataSetChanged();
+            notifyItemRangeChanged(0, items.size());
         }
 
         ///  create new view holder

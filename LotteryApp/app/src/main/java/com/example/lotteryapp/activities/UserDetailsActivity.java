@@ -46,7 +46,7 @@ public class UserDetailsActivity extends AppCompatActivity {
     private MaterialButton btnDeleteProfilePic;
     private ImageView ivProfilePic;
 
-    private UserStorage ustore;
+    private UserStorage userStorage;
     private String uid;
     private boolean isAdminMode = false;
 
@@ -66,7 +66,7 @@ public class UserDetailsActivity extends AppCompatActivity {
         }
 
         isAdminMode = getIntent().getBooleanExtra(EXTRA_ADMIN_MODE, false);
-        ustore = ServiceLocator.getUserStorage();
+        userStorage = ServiceLocator.getUserStorage();
 
         // moved to bindViews() to avoid null pointer exception
         bindViews();
@@ -118,14 +118,14 @@ public class UserDetailsActivity extends AppCompatActivity {
             tvDeviceIdLabel.setVisibility(View.VISIBLE);
 
             btnRemoveProfile.setOnClickListener(v -> {
-                ustore.deleteUser(uid, unused -> {
+                userStorage.deleteUser(uid, unused -> {
                     Toast.makeText(this, "Profile Removed", Toast.LENGTH_SHORT).show();
                     finish();
                 }, e -> Toast.makeText(this, "Failed to remove profile", Toast.LENGTH_SHORT).show());
             });
 
             btnDeleteProfilePic.setOnClickListener(v -> {
-                ustore.deleteProfilePic(uid, unused -> {
+                userStorage.deleteProfilePic(uid, unused -> {
                     Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
                     ivProfilePic.setImageResource(R.drawable.ic_profile);
                     btnDeleteProfilePic.setVisibility(View.GONE);
@@ -140,7 +140,7 @@ public class UserDetailsActivity extends AppCompatActivity {
      *      user has an existing profile image
      */
     private void loadProfile() {
-        ustore.getUserProfile(
+        userStorage.getUserProfile(
                 uid,
                 user -> {
                     etName.setText(user.getName() != null ? user.getName() : "");
@@ -205,7 +205,7 @@ public class UserDetailsActivity extends AppCompatActivity {
             return;
         }
 
-        ustore.upsertUserProfile(
+        userStorage.upsertUserProfile(
                 uid,
                 name,
                 email,

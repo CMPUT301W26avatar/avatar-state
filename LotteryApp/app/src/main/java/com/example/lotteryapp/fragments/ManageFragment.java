@@ -88,7 +88,7 @@ public class ManageFragment extends Fragment {
      *          call EventStorage.listEventsRegOpen query to fill events list
      *          add Event to list
      *          notify change in the list of grid events
-     *
+     * <p>
      * *right now* just calls a simple events by organizer query despite the naming convention and UI elements
      */
     private void loadUpcomingEvents() {
@@ -191,7 +191,7 @@ public class ManageFragment extends Fragment {
      *      enter event detail fields
      *      mandatory: event capacity, title, reg start/end and event date
      *      optional: description, location, waitlist capacity, geolocational data
-     *
+     * <p>
      *      can also clear all fields
      */
     private void showCreateEventDialog() {
@@ -209,8 +209,6 @@ public class ManageFragment extends Fragment {
 
         View layoutWaitlistCapacity = view.findViewById(R.id.layout_waitlist_capacity);
         MaterialSwitch switchWaitlist = view.findViewById(R.id.switch_waitlist);
-
-        View btnClose = view.findViewById(R.id.toolbar); // Toolbar handles navigation click if configured, but let's be explicit if needed
 
         // Date of Event Picker
         etDate.setOnClickListener(v -> {
@@ -388,7 +386,7 @@ public class ManageFragment extends Fragment {
      *      mandatory: event capacity, title, reg start/end and event date (saved from create)
      *      optional: description, location, waitlist capacity, geolocational data
      *      unable to: edit event date, or reg start/end
-     *
+     * <p>
      *      can also clear all fields
      */
     private void showUpdateEventDialog(Event event) {
