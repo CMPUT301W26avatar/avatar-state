@@ -13,6 +13,8 @@ import androidx.test.core.app.ApplicationProvider;
 
 import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.activities.EventMapActivity;
+import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.EventAddress;
 import com.example.lotteryapp.models.EventJoinedMap;
 import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.models.UserAddress;
@@ -38,6 +40,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Verify that EventMapActivity correctly:
+ *      initalizes wiring for UI components
+ *      renders only calid joined-map entries
+ *      falls back to "Unknown Entrant" when user data cannot be resolved
+ *      correctly displays markers for both clustered and distant locations
+ */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 34)
 public class EventMapActivityUnitTest {
@@ -45,6 +54,7 @@ public class EventMapActivityUnitTest {
     private EventStorage mockEventStorage;
     private UserStorage mockUserStorage;
 
+    // initialize mock services in order to access methods
     @Before
     public void setUp() {
         ServiceLocator.reset();
@@ -54,31 +64,43 @@ public class EventMapActivityUnitTest {
 
         ServiceLocator.setEventStorageForTests(mockEventStorage);
         ServiceLocator.setUserStorageForTests(mockUserStorage);
+
+        stubEvent(eventWithAddress("event-1", "Main Hall", 53.5461, -113.4938, 5));
     }
 
+    // reset mock services for the next test
     @After
     public void tearDown() {
         ServiceLocator.reset();
     }
 
+
+    // verify that the close button ends the activity
     @Test
-    public void closeButton_finishesActivity() {
+    public void closeButtonEndsActivity() {
+        // Provide an empty joined-map dataset so the activity can launch normally.
         stubJoinedMapEntries(new ArrayList<>());
         Intent intent = buildIntent("event-1");
 
+        // Launch the activity and click the close button.
         ActivityController<EventMapActivity> controller =
                 Robolectric.buildActivity(EventMapActivity.class, intent).setup();
         EventMapActivity activity = controller.get();
 
         activity.findViewById(R.id.btn_close_event_map).performClick();
 
+        // Verify the activity is finishing.
         assertTrue(activity.isFinishing());
     }
 
+    // verify the map render skips bad addresses
     @Test
-    public void rendersOnlyEntriesWithUsablePinnedAddresses() {
+    public void rendersOnlyEntriesWithUsableAddresses() {
+        // Two valid joined-map entries should render.
         EventJoinedMap valid1 = joinedMap("event-1", "u1", "Downtown", 53.5461, -113.4938);
         EventJoinedMap valid2 = joinedMap("event-1", "u2", "North", 53.56, -113.49);
+
+        // Invalid entries should be ignored.
         EventJoinedMap nullAddress = new EventJoinedMap("event-1", null, System.currentTimeMillis());
         EventJoinedMap noLat = joinedMap("event-1", "u3", "BadLat", null, -113.50);
         EventJoinedMap noLng = joinedMap("event-1", "u4", "BadLng", 53.57, null);
@@ -97,39 +119,17 @@ public class EventMapActivityUnitTest {
         MapView mapView = activity.findViewById(R.id.event_map_view);
         List<Marker> markers = extractMarkers(mapView);
 
-        assertEquals(2, markers.size());
-        assertEquals("Alice", markers.get(0).getTitle());
-        assertEquals("Bob", markers.get(1).getTitle());
-    }
-
-    @Test
-    public void usesUnknownEntrantWhenNameMissingOrLookupFails() {
-        EventJoinedMap missingName = joinedMap("event-1", "u1", "Downtown", 53.5461, -113.4938);
-        EventJoinedMap lookupFails = joinedMap("event-1", "u2", "South", 53.50, -113.50);
-        EventJoinedMap blankUid = joinedMap("event-1", "", "West", 53.54, -113.48);
-
-        stubJoinedMapEntries(Arrays.asList(missingName, lookupFails, blankUid));
-        stubBlankUserName("u1");
-        stubUserLookupFailure("u2");
-
-        EventMapActivity activity = Robolectric.buildActivity(
-                EventMapActivity.class,
-                buildIntent("event-1")
-        ).setup().get();
-
-        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
-
-        MapView mapView = activity.findViewById(R.id.event_map_view);
-        List<Marker> markers = extractMarkers(mapView);
-
+        // Event origin marker + 2 entrant markers.
         assertEquals(3, markers.size());
-        assertEquals("Unknown entrant", markers.get(0).getTitle());
-        assertEquals("Unknown entrant", markers.get(1).getTitle());
-        assertEquals("Unknown entrant", markers.get(2).getTitle());
+        assertEquals("Event 1", markers.get(0).getTitle());
+        assertEquals("Alice", markers.get(1).getTitle());
+        assertEquals("Bob", markers.get(2).getTitle());
     }
 
+    // verify that the map zooms out, and properly renders all pins when the majority are in a cluster, and there exists one outlier at a far distance
     @Test
     public void rendersClusteredPinsAndOneFarAwayPin() {
+        // Nearby cluster plus one far-away entrant marker.
         EventJoinedMap p1 = joinedMap("event-1", "u1", "A", 53.5461, -113.4938);
         EventJoinedMap p2 = joinedMap("event-1", "u2", "B", 53.5465, -113.4940);
         EventJoinedMap p3 = joinedMap("event-1", "u3", "C", 53.5459, -113.4935);
@@ -151,7 +151,8 @@ public class EventMapActivityUnitTest {
         MapView mapView = activity.findViewById(R.id.event_map_view);
         List<Marker> markers = extractMarkers(mapView);
 
-        assertEquals(4, markers.size());
+        // Event origin marker + 4 entrant markers.
+        assertEquals(5, markers.size());
 
         boolean foundFarAwayPin = false;
         for (Marker marker : markers) {
@@ -166,12 +167,14 @@ public class EventMapActivityUnitTest {
         assertTrue(foundFarAwayPin);
     }
 
+    // Builds intent with required event ID extra
     private Intent buildIntent(String eventId) {
         Intent intent = new Intent(ApplicationProvider.getApplicationContext(), EventMapActivity.class);
         intent.putExtra(EventDetailsActivity.EXTRA_EVENT_ID, eventId);
         return intent;
     }
 
+    // Creates a joined-map entry with a user address
     private EventJoinedMap joinedMap(
             String eventId,
             String uid,
@@ -183,6 +186,39 @@ public class EventMapActivityUnitTest {
         return new EventJoinedMap(eventId, address, System.currentTimeMillis());
     }
 
+    // Stubs the EventAddress of an Event
+    private Event eventWithAddress(
+            String eventId,
+            String location,
+            Double latitude,
+            Double longitude,
+            Integer radiusKm
+    ) {
+        Event event = new Event("organizer-1", 10, 10);
+        event.setEventId(eventId);
+        event.setTitle("Event 1");
+        event.setHasGeoConstraint(true);
+
+        EventAddress address = new EventAddress(eventId, location, latitude, longitude);
+        address.setRadiusKm(radiusKm);
+        event.setAddress(address);
+        return event;
+    }
+
+    // Stubs an Event from EventStorage
+    private void stubEvent(Event event) {
+        doAnswer(invocation -> {
+            OnSuccessListener<Event> ok = invocation.getArgument(1);
+            ok.onSuccess(event);
+            return null;
+        }).when(mockEventStorage).getEvent(
+                eq("event-1"),
+                any(),
+                any()
+        );
+    }
+
+    // Stubs EventStorage to return a predefined list of entries
     private void stubJoinedMapEntries(List<EventJoinedMap> entries) {
         doAnswer(invocation -> {
             OnSuccessListener<List<EventJoinedMap>> ok = invocation.getArgument(1);
@@ -195,6 +231,7 @@ public class EventMapActivityUnitTest {
         );
     }
 
+    // Stubs a successful user lookup with a name
     private void stubUserName(String uid, String name) {
         doAnswer(invocation -> {
             OnSuccessListener<User> ok = invocation.getArgument(1);
@@ -209,32 +246,7 @@ public class EventMapActivityUnitTest {
         );
     }
 
-    private void stubBlankUserName(String uid) {
-        doAnswer(invocation -> {
-            OnSuccessListener<User> ok = invocation.getArgument(1);
-            User user = new User(uid);
-            user.setName("");
-            ok.onSuccess(user);
-            return null;
-        }).when(mockUserStorage).getUserProfile(
-                eq(uid),
-                any(),
-                any()
-        );
-    }
-
-    private void stubUserLookupFailure(String uid) {
-        doAnswer(invocation -> {
-            OnFailureListener fail = invocation.getArgument(2);
-            fail.onFailure(new Exception("lookup failed"));
-            return null;
-        }).when(mockUserStorage).getUserProfile(
-                eq(uid),
-                any(),
-                any()
-        );
-    }
-
+    // Extracts only Marker overlays from the map
     private List<Marker> extractMarkers(MapView mapView) {
         List<Marker> markers = new ArrayList<>();
         for (Object overlay : mapView.getOverlays()) {

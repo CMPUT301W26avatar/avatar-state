@@ -215,6 +215,7 @@ public class EventStorage {
         data.put("title", event.getTitle());
         data.put("status", event.getStatus().name());
         data.put("hasDrawnLottery", event.hasDrawnLottery());
+        data.put("hasGeoConstraint", event.hasGeoConstraint());
         data.put("eventCapacity", event.getEventCapacity());
         data.put("waitlistCapacity", event.getWaitlistCapacity());
         data.put("enrolledCount", event.getEnrolledCount());
@@ -302,6 +303,27 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /**
+     * Returns only the event address subdocument for the given event.
+     * Returns null when the event has no geo/address document.
+     */
+    public void getEventAddress(
+            @NonNull String eventId,
+            OnSuccessListener<EventAddress> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        eventAddressDoc(eventId)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    if (!snapshot.exists()) {
+                        onSuccess.onSuccess(null);
+                        return;
+                    }
+                    onSuccess.onSuccess(documentToEventAddress(snapshot, eventId));
+                })
+                .addOnFailureListener(onFailure);
+    }
+
     /** firebase retrieval helper
      * Returns a single Event from the parameter doc (database DocumentSnapshot)
      */
@@ -335,6 +357,9 @@ public class EventStorage {
 
         Boolean hasDrawnLottery = doc.getBoolean("hasDrawnLottery");
         event.setHasDrawnLottery(hasDrawnLottery != null && hasDrawnLottery);
+
+        Boolean hasGeoConstraint = doc.getBoolean("hasGeoConstraint");
+        event.setHasGeoConstraint(hasGeoConstraint != null && hasGeoConstraint);
 
         event.setTitle(doc.getString("title"));
         event.setPosterUrl(doc.getString("posterUrl"));
@@ -710,6 +735,80 @@ public class EventStorage {
         }
 
         return nearbyEvents;
+    }
+
+
+    /**
+     * Returns true when the supplied event has a usable geo/radius restriction.
+     */
+    public boolean eventHasUsableGeoConstraint(@Nullable Event event) {
+        if (event == null) {
+            return false;
+        }
+
+        if (event.isGeoConstraintEnabled()) {
+            return true;
+        }
+
+        EventAddress address = event.getAddress();
+        return address != null
+                && address.getLatitude() != null
+                && address.getLongitude() != null
+                && address.getRadiusKm() != null
+                && address.getRadiusKm() > 0;
+    }
+
+    /**
+     * Returns true when the user address falls inside the event's configured waitlist radius.
+     */
+    public boolean isWithinEventRadius(
+            @Nullable UserAddress userAddress,
+            @Nullable Event event
+    ) {
+        if (userAddress == null || event == null) {
+            return false;
+        }
+
+        return isWithinEventRadius(userAddress, event.getAddress(), eventHasUsableGeoConstraint(event));
+    }
+
+    /**
+     * Returns true when the user address falls inside the supplied event address radius.
+     */
+    public boolean isWithinEventRadius(
+            @Nullable UserAddress userAddress,
+            @Nullable EventAddress eventAddress,
+            boolean hasGeoConstraint
+    ) {
+        if (!hasGeoConstraint) {
+            return true;
+        }
+
+        if (userAddress == null || eventAddress == null) {
+            return false;
+        }
+
+        if (userAddress.getLatitude() == null || userAddress.getLongitude() == null) {
+            return false;
+        }
+
+        if (eventAddress.getLatitude() == null || eventAddress.getLongitude() == null) {
+            return false;
+        }
+
+        Integer radiusKm = eventAddress.getRadiusKm();
+        if (radiusKm == null || radiusKm <= 0) {
+            return false;
+        }
+
+        double distanceKm = calculateDistance(
+                userAddress.getLatitude(),
+                userAddress.getLongitude(),
+                eventAddress.getLatitude(),
+                eventAddress.getLongitude()
+        );
+
+        return distanceKm <= radiusKm;
     }
 
     /**

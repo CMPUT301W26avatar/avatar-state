@@ -2,7 +2,6 @@ package com.example.lotteryapp.activities;
 
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
-import static androidx.core.content.ContentProviderCompat.requireContext;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.ENROLLED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
@@ -15,7 +14,6 @@ import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.PersistableBundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -24,7 +22,6 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 import android.widget.TextView;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.lotteryapp.R;
@@ -475,19 +472,24 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         if (status == DECLINED) {
-            // cannot join waitlist, or event again
             showJoinDisabled("Invitation Declined");
             return;
         }
 
-        if (event.isRegistrationOpen()) {
-            btnJoin.setVisibility(VISIBLE);
-            btnJoin.setEnabled(true);
-            btnJoin.setText("Join Waitlist");
-            btnJoin.setOnClickListener(v -> joinWaitlist());
-        } else {
+        if (!event.isRegistrationOpen()) {
             showJoinDisabled("Registration Closed");
+            return;
         }
+
+        if (eventStorage.eventHasUsableGeoConstraint(event)) {
+            renderGeoCheckedJoinButton(event);
+            return;
+        }
+
+        btnJoin.setVisibility(VISIBLE);
+        btnJoin.setEnabled(true);
+        btnJoin.setText("Join Waitlist");
+        btnJoin.setOnClickListener(v -> joinWaitlist());
     }
 
     /**
@@ -611,46 +613,62 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Disables the join button and displays the parameter text as the reason for it being disabled
-     * to the user
+     * to the user.
      */
     private void showJoinDisabled(String text) {
-        btnJoin.setVisibility(VISIBLE);
-        btnJoin.setEnabled(false);
-        btnJoin.setText(text);
+        showButtonDisabled(btnJoin, text);
         btnLeave.setVisibility(GONE);
         invitations_layout.setVisibility(GONE);
     }
 
     /**
-     * Adds the current user to the event waitlist, NONE -> WAITLISTED and added to "waitlisted" collection
-     * EventPoolStorage for db query
+     * Generic disabled-state helper used by join and other action buttons.
+     */
+    private void showButtonDisabled(MaterialButton button, String text) {
+        button.setVisibility(VISIBLE);
+        button.setEnabled(false);
+        button.setText(text);
+    }
+
+    /**
+     * Resolves whether the current user can join this event based on the user's selected address
+     * mode and the event's geolocation radius.
+     */
+    private void renderGeoCheckedJoinButton(Event event) {
+        btnJoin.setVisibility(VISIBLE);
+        btnJoin.setEnabled(false);
+        btnJoin.setText("Checking Waitlist Radius...");
+
+        resolveBestAddressForCurrentUser(address -> {
+            if (eventStorage.isWithinEventRadius(address, event)) {
+                btnJoin.setEnabled(true);
+                btnJoin.setText("Join Waitlist");
+                btnJoin.setOnClickListener(v -> joinWaitlist());
+            } else {
+                showButtonDisabled(btnJoin, "Outside of Event Waitlist Radius");
+            }
+        }, e -> showButtonDisabled(btnJoin, "Outside of Event Waitlist Radius"));
+    }
+
+    /**
+     * Adds the current user to the event waitlist, NONE -> WAITLISTED and added to "waitlisted" collection.
+     * Geo-constrained events are revalidated immediately before the waitlist write occurs.
      */
     private void joinWaitlist() {
-        Entrant entrant = new Entrant(currentUserId, eventId, WAITLISTED);
+        if (currentEvent != null && eventStorage.eventHasUsableGeoConstraint(currentEvent)) {
+            btnJoin.setEnabled(false);
 
-        btnJoin.setEnabled(false);
-
-        eventPoolStorage.waitlistForEvent(
-                eventId,
-                entrant,
-                unused -> upsertJoinedMapForCurrentUser(
-                        () -> {
-                            Toast.makeText(this, "Waitlisted!", Toast.LENGTH_SHORT).show();
-                            currentStatus = WAITLISTED;
-                            loadEvent();
-                        },
-                        () -> {
-                            Toast.makeText(this, "Waitlisted, but failed to save joined map.", Toast.LENGTH_SHORT).show();
-                            currentStatus = WAITLISTED;
-                            loadEvent();
-                        }
-                ),
-                e -> {
-                    Toast.makeText(this, "Failed to waitlist", Toast.LENGTH_SHORT).show();
-                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
-                    btnJoin.setEnabled(true);
+            resolveBestAddressForCurrentUser(address -> {
+                if (!eventStorage.isWithinEventRadius(address, currentEvent)) {
+                    showButtonDisabled(btnJoin, "Outside of Event Waitlist Radius");
+                    return;
                 }
-        );
+                waitlistCurrentUser();
+            }, e -> showButtonDisabled(btnJoin, "Outside of Event Waitlist Radius"));
+            return;
+        }
+
+        waitlistCurrentUser();
     }
 
     /**
@@ -683,13 +701,45 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+
     /**
-     * After the user successfully joins the waitlist, upsert their joined_map document.
-     * This stores a snapshot of the user's address for this event
+     * Performs the actual waitlist write after all eligibility checks have passed.
      */
-    private void upsertJoinedMapForCurrentUser(
-            Runnable onSuccess,
-            Runnable onFailure
+    private void waitlistCurrentUser() {
+        Entrant entrant = new Entrant(currentUserId, eventId, WAITLISTED);
+
+        btnJoin.setEnabled(false);
+
+        eventPoolStorage.waitlistForEvent(
+                eventId,
+                entrant,
+                unused -> upsertJoinedMapForCurrentUser(
+                        () -> {
+                            Toast.makeText(this, "Waitlisted!", Toast.LENGTH_SHORT).show();
+                            currentStatus = WAITLISTED;
+                            loadEvent();
+                        },
+                        () -> {
+                            Toast.makeText(this, "Waitlisted, but failed to save joined map.", Toast.LENGTH_SHORT).show();
+                            currentStatus = WAITLISTED;
+                            loadEvent();
+                        }
+                ),
+                e -> {
+                    Toast.makeText(this, "Failed to waitlist", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnJoin.setEnabled(true);
+                }
+        );
+    }
+
+    /**
+     * Resolves the user's best available address for geo checks and joined_map snapshots.
+     * The selected address mode is tried first, then the opposite mode is used as a fallback.
+     */
+    private void resolveBestAddressForCurrentUser(
+            com.google.android.gms.tasks.OnSuccessListener<com.example.lotteryapp.models.UserAddress> onSuccess,
+            com.google.android.gms.tasks.OnFailureListener onFailure
     ) {
         userStorage.getUserProfile(
                 currentUserId,
@@ -705,39 +755,41 @@ public class EventDetailsActivity extends AppCompatActivity {
 
                     loadAddressForJoinedMap(preferredMode, address -> {
                         if (isUsableJoinedMapAddress(address)) {
-                            writeJoinedMap(address, onSuccess, onFailure);
+                            onSuccess.onSuccess(address);
                             return;
                         }
 
                         loadAddressForJoinedMap(fallbackMode, fallbackAddress -> {
                             if (isUsableJoinedMapAddress(fallbackAddress)) {
-                                writeJoinedMap(fallbackAddress, onSuccess, onFailure);
+                                onSuccess.onSuccess(fallbackAddress);
                             } else {
-                                Log.w(MY_TAG, "No usable address found in either preferred or fallback mode for joined_map upsert");
-                                onFailure.run();
+                                onFailure.onFailure(new IllegalStateException("No usable address found for geo check"));
                             }
-                        }, e -> {
-                            Log.e(MY_TAG, "Fallback address lookup failed for joined_map upsert", e);
-                            onFailure.run();
-                        });
-                    }, e -> {
-                        Log.e(MY_TAG, "Preferred address lookup failed for joined_map upsert", e);
-
-                        loadAddressForJoinedMap(fallbackMode, fallbackAddress -> {
-                            if (isUsableJoinedMapAddress(fallbackAddress)) {
-                                writeJoinedMap(fallbackAddress, onSuccess, onFailure);
-                            } else {
-                                Log.w(MY_TAG, "Preferred lookup failed and fallback address is unusable for joined_map upsert");
-                                onFailure.run();
-                            }
-                        }, fallbackError -> {
-                            Log.e(MY_TAG, "Fallback address lookup also failed for joined_map upsert", fallbackError);
-                            onFailure.run();
-                        });
-                    });
+                        }, onFailure);
+                    }, e -> loadAddressForJoinedMap(fallbackMode, fallbackAddress -> {
+                        if (isUsableJoinedMapAddress(fallbackAddress)) {
+                            onSuccess.onSuccess(fallbackAddress);
+                        } else {
+                            onFailure.onFailure(new IllegalStateException("No usable address found for geo check"));
+                        }
+                    }, onFailure));
                 },
+                onFailure
+        );
+    }
+
+    /**
+     * After the user successfully joins the waitlist, upsert their joined_map document.
+     * This stores a snapshot of the user's address for this event
+     */
+    private void upsertJoinedMapForCurrentUser(
+            Runnable onSuccess,
+            Runnable onFailure
+    ) {
+        resolveBestAddressForCurrentUser(
+                address -> writeJoinedMap(address, onSuccess, onFailure),
                 e -> {
-                    Log.e(MY_TAG, "Failed to load user profile for joined_map upsert", e);
+                    Log.e(MY_TAG, "Failed to resolve a usable address for joined_map upsert", e);
                     onFailure.run();
                 }
         );

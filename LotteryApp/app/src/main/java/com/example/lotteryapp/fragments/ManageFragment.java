@@ -7,12 +7,9 @@ import android.location.Geocoder;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
-import android.widget.AutoCompleteTextView;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -25,12 +22,10 @@ import androidx.core.util.Pair;
 import androidx.fragment.app.Fragment;
 
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.activities.EnrolledListActivity;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
-import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -462,6 +457,7 @@ public class ManageFragment extends Fragment {
                 newEvent.setWaitlistCapacity(finalWaitlistCapacity);
                 newEvent.setInvitationCount(0);
                 newEvent.setHasDrawnLottery(false); // force waitlisting state
+                newEvent.setHasGeoConstraint(geoConstraint);
 
                 String criteriaGuidelines = getString(R.string.criteriaGuidelines);
                 newEvent.setCriteriaGuidelines(criteriaGuidelines);
@@ -581,7 +577,7 @@ public class ManageFragment extends Fragment {
 
         // read any existing geo/address data so the dialog can be pre-populated
         EventAddress existingAddress = event.getAddress();
-        boolean hadExistingGeo = existingAddress != null;
+        boolean hadExistingGeo = event.hasGeoConstraint() || existingAddress != null;
 
         if (existingAddress == null) {
             existingAddress = new EventAddress(event.getEventId());
@@ -620,6 +616,8 @@ public class ManageFragment extends Fragment {
 
         // prefill geo controls from the existing address subdocument
         switchGeo.setChecked(hadExistingGeo);
+        layoutLocationRadius.setVisibility(hadExistingGeo ? View.VISIBLE : View.GONE);
+
         if (initialRadiusKm != null) {
             etLocationRadiusKm.setText(String.valueOf(initialRadiusKm));
         } else {
@@ -825,10 +823,6 @@ public class ManageFragment extends Fragment {
                 }
             } else {
                 etLocationRadiusKm.setText("");
-                locationInput = "";
-                resolvedLat[0] = null;
-                resolvedLng[0] = null;
-                resolvedLocation[0] = "";
                 locationRadiusKm = null;
             }
 
@@ -868,19 +862,22 @@ public class ManageFragment extends Fragment {
                 setOptionalString(event, "setDescription", description);
 
                 // store geo settings only in the geo/address subdocument
-                EventAddress updatedAddress = null;
-                if (geoConstraint) {
-                    updatedAddress = event.getAddress();
-                    if (updatedAddress == null) {
-                        updatedAddress = new EventAddress(event.getEventId());
-                    }
+                EventAddress updatedAddress = event.getAddress();
+                if (updatedAddress == null) {
+                    updatedAddress = new EventAddress(event.getEventId());
+                }
 
+                if (geoConstraint) {
                     updatedAddress.setLocation(resolvedLocation[0] == null ? "" : resolvedLocation[0]);
                     updatedAddress.setLatitude(resolvedLat[0]);
                     updatedAddress.setLongitude(resolvedLng[0]);
                     updatedAddress.setRadiusKm(locationRadiusKm);
+                } else {
+                    // preserve location, only remove the radius restriction
+                    updatedAddress.setRadiusKm(null);
                 }
 
+                event.setHasGeoConstraint(geoConstraint);
                 event.setAddress(updatedAddress);
 
                 eventStorage.upsertEvent(

@@ -201,6 +201,15 @@ public class UserStorage {
         Boolean admin = snapshot.getBoolean("isAdmin");
         user.setAdmin(admin != null && admin);
 
+        String rawAddressMode = snapshot.getString("addressMode");
+        if (rawAddressMode != null) {
+            try {
+                user.setAddressMode(User.UserAddressMode.valueOf(rawAddressMode));
+            } catch (IllegalArgumentException ignored) {
+                user.setAddressMode(User.UserAddressMode.DEFAULT);
+            }
+        }
+
         return user;
     }
 
