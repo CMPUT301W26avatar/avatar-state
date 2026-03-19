@@ -13,6 +13,7 @@ public class Event {
     public String eventId;
     public final String organizerId;
     public EventStatus status;
+    public boolean hasDrawnLottery;
 
     public int eventCapacity;
 
@@ -51,6 +52,7 @@ public class Event {
         this.organizerId = organizerId;
         this.eventCapacity = eventCapacity;
         this.waitlistCapacity = waitlistCapacity;
+        this.hasDrawnLottery = false;
     }
 
     // pk
@@ -80,6 +82,14 @@ public class Event {
 
     public void setStatus(EventStatus status) {
         this.status = status;
+    }
+
+    public boolean hasDrawnLottery() {
+        return hasDrawnLottery;
+    }
+
+    public void setHasDrawnLottery(boolean hasDrawnLottery) {
+        this.hasDrawnLottery = hasDrawnLottery;
     }
 
     // how many user allowed to participate in the event

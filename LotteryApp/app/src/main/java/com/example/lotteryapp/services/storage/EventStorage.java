@@ -46,24 +46,30 @@ public class EventStorage {
      * Transaction ensures the createdAt value is only set once.
      * Synchronous
      */
-    public void upsertEvent(Event event) {
+    public void upsertEvent(
+            Event event,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
         final DocumentReference ref = eventDoc(event.getEventId());
-        db.runTransaction(new Transaction.Function<Void>() {
-            @Override
-            public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
-                DocumentSnapshot snapshot = transaction.get(ref);
-                Map<String, Object> data = eventToMap(event);
 
-                if (!snapshot.exists()) {
-                    transaction.set(ref, data);
-                } else {
-                    data.remove("createdAt");
-                    data.put("updatedAt", FieldValue.serverTimestamp());
-                    transaction.update(ref, data);
-                }
-                return null;
-            }
-        });
+        db.runTransaction(new Transaction.Function<Void>() {
+                    @Override
+                    public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
+                        DocumentSnapshot snapshot = transaction.get(ref);
+                        Map<String, Object> data = eventToMap(event);
+
+                        if (!snapshot.exists()) {
+                            transaction.set(ref, data);
+                        } else {
+                            data.remove("createdAt");
+                            data.put("updatedAt", FieldValue.serverTimestamp());
+                            transaction.update(ref, data);
+                        }
+                        return null;
+                    }
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
     }
 
     /** firebase storage
@@ -76,6 +82,7 @@ public class EventStorage {
         data.put("organizerId", event.getOrganizerId());
         data.put("title", event.getTitle());
         data.put("status", event.getStatus().name());
+        data.put("hasDrawnLottery", event.hasDrawnLottery());
         data.put("eventCapacity", event.getEventCapacity());
         data.put("waitlistCapacity", event.getWaitlistCapacity());
         data.put("enrolledCount", event.getEnrolledCount());
@@ -149,6 +156,9 @@ public class EventStorage {
                 event.setStatus(Event.EventStatus.REG_UPCOMING);
             }
         }
+
+        Boolean hasDrawnLottery = doc.getBoolean("hasDrawnLottery");
+        event.setHasDrawnLottery(hasDrawnLottery != null && hasDrawnLottery);
 
         event.setTitle(doc.getString("title"));
         event.setPosterUrl(doc.getString("posterUrl"));
