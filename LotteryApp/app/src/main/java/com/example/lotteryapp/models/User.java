@@ -14,7 +14,9 @@ public class User {
     public String name;
     public String email;
     public String phoneNumber;
-    public String location;
+
+    private UserAddress userAddress;
+
     private boolean isAdmin;
 
     private boolean isAnon;
@@ -29,6 +31,15 @@ public class User {
 
     private String profilePicUrl;
 
+    private UserAddressMode addressMode;
+
+    // denotes whether or not to use the User's current address,
+    //      or the address they have saved as default
+    public enum UserAddressMode {
+        CURRENT, // grabs the current address from android device location
+        DEFAULT // resolved address from user input
+    }
+
     public User(String deviceID) {
         if (deviceID == null || deviceID.trim().isEmpty()) {
             throw new IllegalArgumentException("userId required");
@@ -38,6 +49,7 @@ public class User {
         if (isAnon) {
             // this.name = createAnonymousName();
         }
+        this.addressMode = UserAddressMode.DEFAULT;
     }
 
     public String getUUID() {
@@ -68,14 +80,6 @@ public class User {
         this.phoneNumber = phoneNumber;
     }
 
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
     public boolean isAdmin() {
         return isAdmin;
     }
@@ -84,11 +88,27 @@ public class User {
         isAdmin = admin;
     }
 
+    public UserAddress getUserAddress() {
+        return userAddress;
+    }
+
+    public void setUserAddress(UserAddress userAddress) {
+        this.userAddress = userAddress;
+    }
+
     public String getProfilePicUrl() {
         return profilePicUrl;
     }
 
     public void setProfilePicUrl(String profilePicUrl) {
         this.profilePicUrl = profilePicUrl;
+    }
+
+    public UserAddressMode getAddressMode() {
+        return addressMode;
+    }
+
+    public void setAddressMode(UserAddressMode addressMode) {
+        this.addressMode = addressMode;
     }
 }
