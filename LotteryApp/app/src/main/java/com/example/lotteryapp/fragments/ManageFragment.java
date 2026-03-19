@@ -977,13 +977,6 @@ public class ManageFragment extends Fragment {
                     resolvedLocation[0] = null;
                 }
             }
-            // upsert to database
-            eventStorage.upsertEvent(
-                    event, unused -> {},
-                    e -> {
-                        Log.e("updateEventDialog", "Failed to upsert event", e);
-                    }
-            );
 
             @Override
             public void afterTextChanged(Editable s) {

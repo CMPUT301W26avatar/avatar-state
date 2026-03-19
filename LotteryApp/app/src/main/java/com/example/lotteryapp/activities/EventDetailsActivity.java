@@ -6,6 +6,12 @@ import static androidx.core.content.ContentProviderCompat.requireContext;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.ENROLLED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
+import static com.example.lotteryapp.models.Event.EventStatus.EVENT_CLOSED;
+import static com.example.lotteryapp.models.Event.EventStatus.EVENT_FULL;
+import static com.example.lotteryapp.models.Event.EventStatus.EVENT_OPEN;
+import static com.example.lotteryapp.models.Event.EventStatus.REG_CLOSED;
+import static com.example.lotteryapp.models.Event.EventStatus.REG_FULL;
+import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -321,39 +327,15 @@ public class EventDetailsActivity extends AppCompatActivity {
      * delete image button
      */
     private void setupAdminActions() {
-        if (isAdminMode) {
-
-            btnRemoveEvent.setVisibility(View.VISIBLE);
-            btnRemoveEvent.setEnabled(true);
-
-            btnJoin.setEnabled(false);
-            btnJoin.setVisibility(View.GONE);
-
-            btnViewEventMap.setVisibility(View.GONE);
-
-            layoutAdminInfo.setVisibility(View.VISIBLE);
-            btnDeleteImage.setVisibility(View.VISIBLE);
-
-            btnRemoveEvent.setOnClickListener(v -> {
-                eventStorage.deleteEvent(eventId);
-                Toast.makeText(this, "Event Removed", Toast.LENGTH_SHORT).show();
-                finish();
-            });
-
-            btnDeleteImage.setOnClickListener(v -> {
-                eventStorage.getEvent(eventId, event -> {
-                    event.setPosterUrl(null);
-                    //eventStorage.upsertEvent(event);
-                    Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
-                    ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
-                    btnDeleteImage.setVisibility(View.GONE);
-                }, e -> Toast.makeText(this, "Failed to delete image", Toast.LENGTH_SHORT).show());
-            });
+        if (!isAdminMode) {
+            return;
+        }
 
         btnRemoveEvent.setVisibility(VISIBLE);
         btnRemoveEvent.setEnabled(true);
         btnJoin.setEnabled(false);
         btnJoin.setVisibility(GONE);
+        btnViewEventMap.setVisibility(GONE);
         layoutAdminInfo.setVisibility(VISIBLE);
         btnDeleteImage.setVisibility(VISIBLE);
 
@@ -367,10 +349,9 @@ public class EventDetailsActivity extends AppCompatActivity {
             eventStorage.getEvent(eventId, event -> {
                 event.setPosterUrl(null);
                 eventStorage.upsertEvent(
-                        event, unused -> {},
-                        e -> {
-                            Log.e("EventDetailsActivity:adminMode", "Failed to upsert event", e);
-                        }
+                        event,
+                        unused -> {},
+                        e -> Log.e("EventDetailsActivity:adminMode", "Failed to upsert event", e)
                 );
                 Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
                 ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
