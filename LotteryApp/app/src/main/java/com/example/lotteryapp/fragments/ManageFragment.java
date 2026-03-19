@@ -409,10 +409,6 @@ public class ManageFragment extends Fragment {
             } else {
                 // if geo restriction is off, do not persist a radius value
                 etLocationRadiusKm.setText("");
-                locationInput = "";
-                resolvedLat[0] = null;
-                resolvedLng[0] = null;
-                resolvedLocation[0] = "";
                 locationRadiusKm = null;
             }
 
@@ -465,12 +461,21 @@ public class ManageFragment extends Fragment {
 
                 // only create a geo/address doc when geolocation restriction is enabled
                 EventAddress eventAddress = null;
-                if (geoConstraint) {
+                // save an address doc whenever the user entered a location OR enabled geo
+                if (!finalLocationInput.isEmpty() || geoConstraint) {
                     eventAddress = new EventAddress(newEvent.getEventId());
-                    eventAddress.setLocation(resolvedLocation[0] == null ? "" : resolvedLocation[0]);
-                    eventAddress.setLatitude(resolvedLat[0]);
-                    eventAddress.setLongitude(resolvedLng[0]);
-                    eventAddress.setRadiusKm(locationRadiusKm);
+
+                    if (geoConstraint) {
+                        eventAddress.setLocation(resolvedLocation[0] == null ? finalLocationInput : resolvedLocation[0]);
+                        eventAddress.setLatitude(resolvedLat[0]);
+                        eventAddress.setLongitude(resolvedLng[0]);
+                        eventAddress.setRadiusKm(locationRadiusKm);
+                    } else {
+                        eventAddress.setLocation(resolvedLocation[0] == null ? finalLocationInput : resolvedLocation[0]);
+                        eventAddress.setLatitude(resolvedLat[0]);
+                        eventAddress.setLongitude(resolvedLng[0]);
+                        eventAddress.setRadiusKm(null);
+                    }
                 }
                 newEvent.setAddress(eventAddress);
 
@@ -510,13 +515,12 @@ public class ManageFragment extends Fragment {
                 );
             };
 
-            if (!geoConstraint || finalLocationInput.isEmpty()) {
+            if (finalLocationInput.isEmpty()) {
                 resolvedLat[0] = null;
                 resolvedLng[0] = null;
-                resolvedLocation[0] = "";
+                resolvedLocation[0] = null;
                 saveAction.run();
             } else {
-                // resolve async geocoder values helper
                 resolveLocationAsync(finalLocationInput, new ResolveLocationCallback() {
                     @Override
                     public void onResolved(@NonNull String resolvedAddress,
@@ -577,7 +581,7 @@ public class ManageFragment extends Fragment {
 
         // read any existing geo/address data so the dialog can be pre-populated
         EventAddress existingAddress = event.getAddress();
-        boolean hadExistingGeo = event.hasGeoConstraint() || existingAddress != null;
+        boolean hadExistingGeo = event.hasGeoConstraint();
 
         if (existingAddress == null) {
             existingAddress = new EventAddress(event.getEventId());
@@ -741,201 +745,206 @@ public class ManageFragment extends Fragment {
 
         // get values from EditText views
         view.findViewById(R.id.btn_update_event).setOnClickListener(v -> {
-            String title = etEventName.getText().toString().trim();
-            String description = etDescription.getText().toString().trim();
-            String locationInput = etLocation.getText().toString().trim();
-            String capacityText = etEventCapacity.getText().toString().trim();
-            String radiusText = etLocationRadiusKm.getText().toString().trim();
-            boolean waitlistHasLimit = switchWaitlist.isChecked();
-            boolean geoConstraint = switchGeo.isChecked();
+                    String title = etEventName.getText().toString().trim();
+                    String description = etDescription.getText().toString().trim();
+                    String locationInput = etLocation.getText().toString().trim();
+                    String capacityText = etEventCapacity.getText().toString().trim();
+                    String radiusText = etLocationRadiusKm.getText().toString().trim();
+                    boolean waitlistHasLimit = switchWaitlist.isChecked();
+                    boolean geoConstraint = switchGeo.isChecked();
 
-            // input entry enforcement
+                    // input entry enforcement
 
-            if (title.isEmpty()) {
-                Toast.makeText(requireContext(), "Title is required", Toast.LENGTH_SHORT).show();
-                return;
-            }
+                    if (title.isEmpty()) {
+                        Toast.makeText(requireContext(), "Title is required", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
 
-            if (capacityText.isEmpty()) {
-                Toast.makeText(requireContext(), "Event capacity is required", Toast.LENGTH_SHORT).show();
-                return;
-            }
+                    if (capacityText.isEmpty()) {
+                        Toast.makeText(requireContext(), "Event capacity is required", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
 
-            final int eventCapacity;
-            try {
-                eventCapacity = Integer.parseInt(capacityText);
-            } catch (NumberFormatException e) {
-                Toast.makeText(requireContext(), "Capacity must be a valid number", Toast.LENGTH_SHORT).show();
-                return;
-            }
+                    final int eventCapacity;
+                    try {
+                        eventCapacity = Integer.parseInt(capacityText);
+                    } catch (NumberFormatException e) {
+                        Toast.makeText(requireContext(), "Capacity must be a valid number", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
 
-            if (eventCapacity <= 0) {
-                Toast.makeText(requireContext(), "Capacity must be greater than 0", Toast.LENGTH_SHORT).show();
-                return;
-            }
+                    if (eventCapacity <= 0) {
+                        Toast.makeText(requireContext(), "Capacity must be greater than 0", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
 
-            int waitlistCapacity = UNLIMITED_WAITLIST_SENTINEL;
-            if (waitlistHasLimit) {
-                String waitlistText = etWaitlistCapacity.getText().toString().trim();
+                    int waitlistCapacity = UNLIMITED_WAITLIST_SENTINEL;
+                    if (waitlistHasLimit) {
+                        String waitlistText = etWaitlistCapacity.getText().toString().trim();
 
-                if (waitlistText.isEmpty()) {
-                    Toast.makeText(requireContext(), "Waitlist capacity is required when waitlist is enabled", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+                        if (waitlistText.isEmpty()) {
+                            Toast.makeText(requireContext(), "Waitlist capacity is required when waitlist is enabled", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
 
-                try {
-                    waitlistCapacity = Integer.parseInt(waitlistText);
-                } catch (NumberFormatException e) {
-                    Toast.makeText(requireContext(), "Waitlist capacity must be a valid number", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+                        try {
+                            waitlistCapacity = Integer.parseInt(waitlistText);
+                        } catch (NumberFormatException e) {
+                            Toast.makeText(requireContext(), "Waitlist capacity must be a valid number", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
 
-                if (waitlistCapacity <= 0) {
-                    Toast.makeText(requireContext(), "Waitlist capacity must be greater than 0", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-            }
+                        if (waitlistCapacity <= 0) {
+                            Toast.makeText(requireContext(), "Waitlist capacity must be greater than 0", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                    }
 
-            // when geolocation restriction is enabled, require both a location and a radius
-            // radius is persisted on EventAddress under /geo/address
-            final Integer locationRadiusKm;
-            if (geoConstraint) {
-                if (locationInput.isEmpty()) {
-                    Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+                    // when geolocation restriction is enabled, require both a location and a radius
+                    // radius is persisted on EventAddress under /geo/address
+                    final Integer locationRadiusKm;
+                    if (geoConstraint) {
+                        if (locationInput.isEmpty()) {
+                            Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
 
-                if (radiusText.isEmpty()) {
-                    Toast.makeText(requireContext(), "Location radius is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+                        if (radiusText.isEmpty()) {
+                            Toast.makeText(requireContext(), "Location radius is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
 
-                try {
-                    locationRadiusKm = Integer.parseInt(radiusText);
-                } catch (NumberFormatException e) {
-                    Toast.makeText(requireContext(), "Location radius must be a valid number", Toast.LENGTH_SHORT).show();
-                    return;
-                }
+                        try {
+                            locationRadiusKm = Integer.parseInt(radiusText);
+                        } catch (NumberFormatException e) {
+                            Toast.makeText(requireContext(), "Location radius must be a valid number", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
 
-                if (locationRadiusKm <= 0) {
-                    Toast.makeText(requireContext(), "Location radius must be greater than 0", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-            } else {
-                etLocationRadiusKm.setText("");
-                locationRadiusKm = null;
-            }
+                        if (locationRadiusKm <= 0) {
+                            Toast.makeText(requireContext(), "Location radius must be greater than 0", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                    } else {
+                        etLocationRadiusKm.setText("");
+                        locationRadiusKm = null;
+                    }
 
-            if (localEventDateMs[0] == null) {
-                Toast.makeText(requireContext(), "Event date is required", Toast.LENGTH_SHORT).show();
-                return;
-            }
+                    if (localEventDateMs[0] == null) {
+                        Toast.makeText(requireContext(), "Event date is required", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
 
-            if (localStartDateMs[0] == null || localEndDateMs[0] == null) {
-                Toast.makeText(requireContext(), "Registration period is required", Toast.LENGTH_SHORT).show();
-                return;
-            }
+                    if (localStartDateMs[0] == null || localEndDateMs[0] == null) {
+                        Toast.makeText(requireContext(), "Registration period is required", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
 
-            if (localStartDateMs[0] >= localEndDateMs[0]) {
-                Toast.makeText(requireContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
-                return;
-            }
+                    if (localStartDateMs[0] >= localEndDateMs[0]) {
+                        Toast.makeText(requireContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
 
-            if (localEndDateMs[0] > localEventDateMs[0]) {
-                Toast.makeText(requireContext(), "End date must be before the event date", Toast.LENGTH_SHORT).show();
-                return;
-            }
+                    if (localEndDateMs[0] > localEventDateMs[0]) {
+                        Toast.makeText(requireContext(), "End date must be before the event date", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
 
-            final int finalWaitlistCapacity = waitlistCapacity;
-            final String finalLocationInput = locationInput;
+                    final int finalWaitlistCapacity = waitlistCapacity;
+                    final String finalLocationInput = locationInput;
 
-            // run as one atomic transaction
-            // eventStorage.upsertEvent got refactored to require onSuccess and onFailure listeners
-            Runnable saveAction = () -> {
-                event.setTitle(title);
-                event.setEventDateMs(localEventDateMs[0]);
-                event.setRegStartMs(localStartDateMs[0]);
-                event.setRegEndMs(localEndDateMs[0]);
-                event.setEventCapacity(eventCapacity);
-                event.setWaitlistCapacity(finalWaitlistCapacity);
+                    // run as one atomic transaction
+                    // eventStorage.upsertEvent got refactored to require onSuccess and onFailure listeners
+                    Runnable saveAction = () -> {
+                        event.setTitle(title);
+                        event.setEventDateMs(localEventDateMs[0]);
+                        event.setRegStartMs(localStartDateMs[0]);
+                        event.setRegEndMs(localEndDateMs[0]);
+                        event.setEventCapacity(eventCapacity);
+                        event.setWaitlistCapacity(finalWaitlistCapacity);
 
-                setOptionalString(event, "setDescription", description);
+                        setOptionalString(event, "setDescription", description);
 
-                // store geo settings only in the geo/address subdocument
-                EventAddress updatedAddress = event.getAddress();
-                if (updatedAddress == null) {
-                    updatedAddress = new EventAddress(event.getEventId());
-                }
+                        // store geo settings only in the geo/address subdocument
+                        EventAddress updatedAddress = event.getAddress();
+                        if (updatedAddress == null) {
+                            updatedAddress = new EventAddress(event.getEventId());
+                        }
 
-                if (geoConstraint) {
-                    updatedAddress.setLocation(resolvedLocation[0] == null ? "" : resolvedLocation[0]);
-                    updatedAddress.setLatitude(resolvedLat[0]);
-                    updatedAddress.setLongitude(resolvedLng[0]);
-                    updatedAddress.setRadiusKm(locationRadiusKm);
-                } else {
-                    // preserve location, only remove the radius restriction
-                    updatedAddress.setRadiusKm(null);
-                }
+                        if (geoConstraint) {
+                            updatedAddress.setLocation(resolvedLocation[0] == null ? finalLocationInput : resolvedLocation[0]);
+                            updatedAddress.setLatitude(resolvedLat[0]);
+                            updatedAddress.setLongitude(resolvedLng[0]);
+                            updatedAddress.setRadiusKm(locationRadiusKm);
+                        } else {
+                            updatedAddress.setLocation(resolvedLocation[0] == null ? finalLocationInput : resolvedLocation[0]);
+                            updatedAddress.setLatitude(resolvedLat[0]);
+                            updatedAddress.setLongitude(resolvedLng[0]);
+                            updatedAddress.setRadiusKm(null);
+                        }
 
-                event.setHasGeoConstraint(geoConstraint);
-                event.setAddress(updatedAddress);
+                        event.setHasGeoConstraint(geoConstraint);
+                        event.setAddress(updatedAddress);
 
-                eventStorage.upsertEvent(
-                        event,
-                        unused -> eventStorage.setEventAddress(
-                                event.getEventId(),
-                                event.getAddress(),
-                                unused2 -> {
-                                    Toast.makeText(requireContext(), "Event updated!", Toast.LENGTH_SHORT).show();
-                                    dialog.dismiss();
-                                    loadUpcomingEvents();
-                                },
+                        eventStorage.upsertEvent(
+                                event,
+                                unused -> eventStorage.setEventAddress(
+                                        event.getEventId(),
+                                        event.getAddress(),
+                                        unused2 -> {
+                                            Toast.makeText(requireContext(), "Event updated!", Toast.LENGTH_SHORT).show();
+                                            dialog.dismiss();
+                                            loadUpcomingEvents();
+                                        },
+                                        e -> Toast.makeText(
+                                                requireContext(),
+                                                "Failed to save event address: " + e.getMessage(),
+                                                Toast.LENGTH_LONG
+                                        ).show()
+                                ),
                                 e -> Toast.makeText(
                                         requireContext(),
-                                        "Failed to save event address: " + e.getMessage(),
+                                        "Failed to update event: " + e.getMessage(),
                                         Toast.LENGTH_LONG
                                 ).show()
-                        ),
-                        e -> Toast.makeText(
-                                requireContext(),
-                                "Failed to update event: " + e.getMessage(),
-                                Toast.LENGTH_LONG
-                        ).show()
-                );
-            };
+                        );
+                    };
 
-            boolean locationUnchanged =
-                    resolvedLocation[0] != null &&
-                            finalLocationInput.equals(resolvedLocation[0]);
+                    String currentDisplayedLocation = etLocation.getText().toString().trim();
 
-            if (!geoConstraint || finalLocationInput.isEmpty()) {
-                resolvedLat[0] = null;
-                resolvedLng[0] = null;
-                resolvedLocation[0] = "";
-                saveAction.run();
-            } else if (locationUnchanged) {
-                saveAction.run();
-            } else {
-                resolveLocationAsync(finalLocationInput, new ResolveLocationCallback() {
+                    boolean locationUnchanged =
+                            !currentDisplayedLocation.isEmpty()
+                                    && resolvedLocation[0] != null
+                                    && currentDisplayedLocation.equals(resolvedLocation[0]);
 
-                    // resolve async geocoder values helper
-                    @Override
-                    public void onResolved(@NonNull String resolvedAddress,
-                                           @Nullable Double latitude,
-                                           @Nullable Double longitude) {
-                        resolvedLocation[0] = resolvedAddress;
-                        resolvedLat[0] = latitude;
-                        resolvedLng[0] = longitude;
+                    if (geoConstraint && finalLocationInput.isEmpty()) {
+                        Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+                    } else if (finalLocationInput.isEmpty()) {
+                        resolvedLat[0] = null;
+                        resolvedLng[0] = null;
+                        resolvedLocation[0] = null;
                         saveAction.run();
-                    }
+                    } else if (locationUnchanged && resolvedLat[0] != null && resolvedLng[0] != null) {
+                        saveAction.run();
+                    } else {
+                        resolveLocationAsync(finalLocationInput, new ResolveLocationCallback() {
+                            @Override
+                            public void onResolved(@NonNull String resolvedAddress,
+                                                   @Nullable Double latitude,
+                                                   @Nullable Double longitude) {
+                                resolvedLocation[0] = resolvedAddress;
+                                resolvedLat[0] = latitude;
+                                resolvedLng[0] = longitude;
+                                saveAction.run();
+                            }
 
-                    @Override
-                    public void onError(@NonNull String message) {
-                        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+                            @Override
+                            public void onError(@NonNull String message) {
+                                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+                            }
+                        });
                     }
                 });
-            }
-        });
 
         dialog.show();
     }
