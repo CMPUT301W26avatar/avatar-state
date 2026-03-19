@@ -214,6 +214,7 @@ public class EventStorage {
         data.put("organizerId", event.getOrganizerId());
         data.put("title", event.getTitle());
         data.put("status", event.getStatus().name());
+        data.put("hasDrawnLottery", event.hasDrawnLottery());
         data.put("eventCapacity", event.getEventCapacity());
         data.put("waitlistCapacity", event.getWaitlistCapacity());
         data.put("enrolledCount", event.getEnrolledCount());
@@ -331,6 +332,9 @@ public class EventStorage {
                 event.setStatus(Event.EventStatus.REG_UPCOMING);
             }
         }
+
+        Boolean hasDrawnLottery = doc.getBoolean("hasDrawnLottery");
+        event.setHasDrawnLottery(hasDrawnLottery != null && hasDrawnLottery);
 
         event.setTitle(doc.getString("title"));
         event.setPosterUrl(doc.getString("posterUrl"));

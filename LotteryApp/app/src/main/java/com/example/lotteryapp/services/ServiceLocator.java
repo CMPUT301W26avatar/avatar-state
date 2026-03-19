@@ -2,11 +2,13 @@ package com.example.lotteryapp.services;
 
 import androidx.annotation.Nullable;
 
+import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.services.storage.AdminStorage;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.firebase.auth.FirebaseAuth;
+import com.example.lotteryapp.services.storage.NotificationLogStorage;
 
 /**
  * Service locator with test overrides.
@@ -30,7 +32,10 @@ public final class ServiceLocator {
 
     private static @Nullable UserIdProvider overrideUserIdProvider = null;
 
+    private static @Nullable NotificationLogStorage overrideNotificationLogStorage = null;
+
     private ServiceLocator() {}
+
 
     // ---- Base Firebase access ----
 
@@ -79,6 +84,11 @@ public final class ServiceLocator {
         return new AdminStorage(getFirebase().getDb());
     }
 
+    public static NotificationLogStorage getNotificationLogStorage() {
+        if (overrideNotificationLogStorage != null) return overrideNotificationLogStorage;
+        return new NotificationLogStorage(getFirebase().getDb());
+    }
+
     // ---- Test-only overrides ----
 
     public static void setFirebaseServiceForTests(@Nullable FirebaseService svc) {
@@ -110,6 +120,10 @@ public final class ServiceLocator {
         overrideUserIdProvider = p;
     }
 
+    public static void setNotificationLogStorageForTests(@Nullable NotificationLogStorage s) {
+        overrideNotificationLogStorage = s;
+    }
+
     // Call in @After to avoid leaks across tests
     public static void reset() {
         overrideFirebaseService = null;
@@ -120,5 +134,6 @@ public final class ServiceLocator {
         overrideAdminStorage = null;
         overrideAuthService = null;
         overrideUserNameService = null;
+        overrideNotificationLogStorage = null;
     }
 }

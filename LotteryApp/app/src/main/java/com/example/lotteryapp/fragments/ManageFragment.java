@@ -7,6 +7,7 @@ import android.location.Geocoder;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,6 +26,7 @@ import androidx.fragment.app.Fragment;
 
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.EnrolledListActivity;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
@@ -138,17 +140,22 @@ public class ManageFragment extends Fragment {
             TextView tvSubtitle = row.findViewById(R.id.tv_event_subtitle);
             View btnDetails = row.findViewById(R.id.btn_event_details);
             View btnEdit = row.findViewById(R.id.btn_edit_event);
-            View btnEnrolled = row.findViewById(R.id.btn_view_enrolled);
+
+            //View btnEnrolled = row.findViewById(R.id.btn_view_enrolled);
 
             String title = event.getTitle();
             tvTitle.setText(title != null && !title.trim().isEmpty() ? title : event.getEventId());
             tvSubtitle.setText(buildSubtitle(event));
 
-            btnEnrolled.setOnClickListener(v -> {
+            btnDetails.setOnClickListener(v -> openEventDetails(event));
+            btnEdit.setOnClickListener(v -> showUpdateEventDialog(event));
+
+            /*btnEnrolled.setOnClickListener(v -> {
                 Intent intent = new Intent(requireContext(), EnrolledListActivity.class);
                 intent.putExtra(EventDetailsActivity.EXTRA_EVENT_ID, event.getEventId());
                 startActivity(intent);
-            });
+            });*/
+          
             btnDetails.setOnClickListener(v -> openEventDetails(event));
             btnEdit.setOnClickListener(v ->
                     eventStorage.getEvent(
@@ -454,6 +461,7 @@ public class ManageFragment extends Fragment {
                 newEvent.setEventCapacity(eventCapacity);
                 newEvent.setWaitlistCapacity(finalWaitlistCapacity);
                 newEvent.setInvitationCount(0);
+                newEvent.setHasDrawnLottery(false); // force waitlisting state
 
                 String criteriaGuidelines = getString(R.string.criteriaGuidelines);
                 newEvent.setCriteriaGuidelines(criteriaGuidelines);
@@ -969,6 +977,13 @@ public class ManageFragment extends Fragment {
                     resolvedLocation[0] = null;
                 }
             }
+            // upsert to database
+            eventStorage.upsertEvent(
+                    event, unused -> {},
+                    e -> {
+                        Log.e("updateEventDialog", "Failed to upsert event", e);
+                    }
+            );
 
             @Override
             public void afterTextChanged(Editable s) {

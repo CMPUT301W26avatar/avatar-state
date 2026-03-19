@@ -1,7 +1,13 @@
 package com.example.lotteryapp.fragments;
 
+import static com.example.lotteryapp.models.NotificationLog.NotificationType.COMMENT;
+import static com.example.lotteryapp.models.NotificationLog.NotificationType.INVITATION;
+import static com.example.lotteryapp.models.NotificationLog.NotificationType.LOTTERY_RESULT;
+import static com.google.firebase.messaging.Constants.MessageTypes.MESSAGE;
+
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,9 +24,9 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.EventDetailsActivity;
-import com.example.lotteryapp.activities.MainActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.AdminStorage;
@@ -28,6 +34,7 @@ import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 /**
  * fragment for displaying admin lists inside of AdminActivity
@@ -41,6 +48,7 @@ public class AdminListFragment extends Fragment {
     private static final String ARG_TYPE = "type";
 
     public static final String TYPE_REQUESTED_ADMINS = "requested_admins";
+    public static final String TYPE_NOTIFICATION_LOGS = "notification_logs";
 
     private String type;
     private RecyclerView recyclerView;
@@ -153,20 +161,16 @@ public class AdminListFragment extends Fragment {
             }, e -> progressBar.setVisibility(View.GONE));
         }
 
-        if (TYPE_REQUESTED_ADMINS.equals(type)) {
+        if (TYPE_NOTIFICATION_LOGS.equals(type)) {
             progressBar.setVisibility(View.VISIBLE);
-            ServiceLocator.getAdminStorage().getRequestedAdmins(requestIds -> {
-                ServiceLocator.getUserStorage().getAllUsers(users -> {
-                    allItems.clear();
-                    for (User user : users) {
-                        if (requestIds.contains(user.getUUID())) {
-                            allItems.add(user);
-                        }
-                    }
-                    applyFilterAndSort();
-                }, e -> progressBar.setVisibility(View.GONE));
-            }, e -> progressBar.setVisibility(View.GONE));
-            return;
+            ServiceLocator.getNotificationLogStorage().getAllNotificationLogs(logs -> {
+                allItems.clear();
+                allItems.addAll(logs);
+                applyFilterAndSort();
+            }, e -> {
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(requireContext(), "Failed to load notification logs", Toast.LENGTH_SHORT).show();
+            });
         }
     }
 
@@ -205,6 +209,43 @@ public class AdminListFragment extends Fragment {
     }
 
     /**
+     * Safely formats nullable text with a fallback.
+     */
+    private String safeText(String value, String fallback) {
+        return TextUtils.isEmpty(value) ? fallback : value;
+    }
+
+    /**
+     * Creates a compact display string for notification log rows.
+     */
+    private String formatNotificationRow(NotificationLog log) {
+        String typeStr = formatNotificationType(log.getType());
+        String title = safeText(log.getTitle(), "Untitled Notification");
+
+        return typeStr + " • " + title;
+    }
+
+    private String formatNotificationType(NotificationLog.NotificationType type) {
+        if (type == null) {
+            return "Notification";
+        }
+        String typeStr;
+        switch (type) {
+            case INVITATION:
+                typeStr = "Invitation";
+            case LOTTERY_RESULT:
+                typeStr = "Lottery Result";
+            case MESSAGE:
+                typeStr = "Message";
+            case COMMENT:
+                typeStr = "Comment";
+            default:
+                typeStr = "Notification";
+        }
+        return typeStr;
+    }
+
+    /**
      * Adapter for the RecyclerView in the fragment
      */
     private class AdminAdapter extends RecyclerView.Adapter<AdminAdapter.ViewHolder> {
@@ -234,6 +275,8 @@ public class AdminListFragment extends Fragment {
             holder.itemView.setOnClickListener(v -> {
                 if (TYPE_REQUESTED_ADMINS.equals(type) && item instanceof User) {
                     showPromoteNewAdminDialog((User) item);
+                } else if (item instanceof NotificationLog) {
+                    showNotificationLogDialog((NotificationLog) item);
                 } else {
                 openDetails(item);
                 }
@@ -307,6 +350,26 @@ public class AdminListFragment extends Fragment {
                 });
             }
             dialog.show();
+        }
+
+        /**
+         * Shows a full dialog for a notification log entry.
+         */
+        private void showNotificationLogDialog(NotificationLog log) {
+            StringBuilder sb = new StringBuilder();
+
+            sb.append("Type: ").append(safeText(formatNotificationType(log.getType()), "N/A")).append("\n\n");
+            sb.append("Title: ").append(safeText(log.getTitle(), "N/A")).append("\n\n");
+            sb.append("Message: ").append(safeText(log.getMessage(), "N/A")).append("\n\n");
+            sb.append("Organizer ID: ").append(safeText(log.getOrganizerId(), "N/A")).append("\n");
+            sb.append("Event ID: ").append(safeText(log.getEventId(), "N/A")).append("\n");
+            sb.append("Time: ").append(log.getTimestamp());
+
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Notification Log")
+                    .setMessage(sb.toString())
+                    .setPositiveButton("Close", null)
+                    .show();
         }
 
         /**
