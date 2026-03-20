@@ -197,6 +197,62 @@
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textStyle="bold" />
 
+                <!-- Comment Section -->
+                <androidx.constraintlayout.widget.ConstraintLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="8dp">
+
+                    <!-- Comment Input -->
+                    <EditText
+                        android:id="@+id/edit_comment"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:hint="Leave a comment..."
+                        android:imeOptions="actionDone"
+                        android:inputType="textCapSentences"
+                        android:maxLines="2"
+                        android:padding="10dp"
+                        android:background="@android:drawable/edit_text"
+
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toStartOf="@id/btn_see_all"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintBottom_toBottomOf="parent" />
+
+                    <!-- See All Button -->
+                    <Button
+                        android:id="@+id/btn_see_all"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:text="See all"
+                        android:textAllCaps="false"
+                        android:textSize="12sp"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+
+                        android:background="@drawable/bg_outline_blue"
+                        android:textColor="?attr/colorPrimary"
+
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintTop_toTopOf="@id/edit_comment"
+                        app:layout_constraintBottom_toBottomOf="@id/edit_comment"/>
+
+                </androidx.constraintlayout.widget.ConstraintLayout>
+
+                <!-- Posted Comments -->
+                <LinearLayout
+                    android:id="@+id/comments_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:padding="8dp">
+
+                </LinearLayout>
+
+
+
                 <!-- List of Entrants/Waitlist/Declined/ETC -->
                 <LinearLayout
                     android:id="@+id/list_of_x_container"

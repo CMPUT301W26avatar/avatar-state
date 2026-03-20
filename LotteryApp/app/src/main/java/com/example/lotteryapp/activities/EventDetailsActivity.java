@@ -15,8 +15,12 @@ import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -37,9 +41,11 @@ import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
+import java.security.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -83,8 +89,12 @@ public class EventDetailsActivity extends AppCompatActivity {
     private TextView tvAdminEventId, tvAdminOrganizerId, tvAdminStatus, tvAdminCapacity,
             tvAdminWaitlistCap, tvAdminEnrolled, tvAdminWaitlistCount, tvAdminRegStart, tvAdminPosterUrl;
 
+    private EditText editComment;
+    private Button btnSeeAll;
+    private LinearLayout commentsContainer;
     private String eventId;
     private String currentUserId;
+    private boolean commentsLoaded = false;
     private boolean isAdminMode = false;
     private Event currentEvent;
     // services
@@ -164,6 +174,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnBeginLotterySelection = findViewById(R.id.btn_begin_lottery_selection);
         btnViewEventMap = findViewById(R.id.btn_view_event_map);
         btnShowInvitesDashboard = findViewById(R.id.btn_show_invites_dashboard);
+        editComment = findViewById(R.id.edit_comment);
+        btnSeeAll = findViewById(R.id.btn_see_all);
+        commentsContainer = findViewById(R.id.comments_container);
 
         ivEventPoster = findViewById(R.id.iv_event_poster);
 
@@ -200,15 +213,17 @@ public class EventDetailsActivity extends AppCompatActivity {
                     populateInfo(currentEvent);
                     if (isAdminMode) {
                         setupAdminActions();
-                    } else if (isOrganizer(currentEvent)) {
+                    } else if (isOrganizer(currentEvent, currentUserId)) {
                         setupOrganizerActions(currentEvent);
                     } else {
                         setupEntrantActions(currentEvent);
                     }
 
+                    setupCommentsUi();
+
                     LinearLayout listOfX = findViewById(R.id.list_of_x_container);
                     TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
-                    if (isOrganizer(event)) {
+                    if (isOrganizer(event, currentUserId)) {
                         listOfX.setVisibility(VISIBLE);
                         Event.EventStatus status = event.getStatus();
                         if (status == REG_OPEN || status == REG_FULL || status == REG_CLOSED) {
@@ -239,8 +254,8 @@ public class EventDetailsActivity extends AppCompatActivity {
     /**
      * Determines whether the current user is the organizer of the given event.
      */
-    private boolean isOrganizer(Event event) {
-        return event.getOrganizerId().equals(currentUserId);
+    private boolean isOrganizer(Event event, String uid) {
+        return event.getOrganizerId().equals(uid);
     }
 
     private void openInvitesDashboard() {
@@ -317,6 +332,194 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
     /**
+     * Sets up comment submission and comment list toggle behavior.
+     */
+    private void setupCommentsUi() {
+        btnSeeAll.setOnClickListener(v -> {
+            boolean opening = commentsContainer.getVisibility() == GONE;
+
+            commentsContainer.setVisibility(opening ? VISIBLE : GONE);
+            btnSeeAll.setText(opening ? "Hide" : "See all");
+
+            if (opening) {
+                loadComments();
+            }
+        });
+        editComment.setOnEditorActionListener((v, actionId, keyEvent) -> {
+            boolean isEnterKey = keyEvent != null
+                    && keyEvent.getKeyCode() == KeyEvent.KEYCODE_ENTER
+                    && keyEvent.getAction() == KeyEvent.ACTION_DOWN;
+
+            boolean isDoneAction = actionId == EditorInfo.IME_ACTION_DONE;
+
+            if (isEnterKey || isDoneAction) {
+                submitComment();
+                return true;
+            }
+
+            return false;
+        });
+    }
+
+    /**
+     * Uploads the current comment text to Firestore.
+     */
+    private void submitComment() {
+        String message = editComment.getText().toString().trim();
+
+        if (message.isEmpty()) {
+            return;
+        }
+
+        editComment.setEnabled(false);
+
+        userStorage.getUserProfile(
+                currentUserId,
+                user -> {
+                    String authorName = user.getName();
+                    if (authorName == null || authorName.trim().isEmpty()) {
+                        authorName = "Unknown User";
+                    }
+
+                    eventStorage.addEventComment(
+                            eventId,
+                            currentUserId,
+                            authorName,
+                            message,
+                            unused -> {
+                                editComment.setText("");
+                                editComment.setEnabled(true);
+
+                                // if the comments panel is open, refresh immediately
+                                if (commentsContainer.getVisibility() == VISIBLE) {
+                                    loadComments();
+                                }
+
+                                Toast.makeText(this, "Comment posted", Toast.LENGTH_SHORT).show();
+                            },
+                            e -> {
+                                editComment.setEnabled(true);
+                                Toast.makeText(this, "Failed to post comment", Toast.LENGTH_SHORT).show();
+                                Log.e("EventDetailsActivity", "Failed to add comment", e);
+                            }
+                    );
+                },
+                e -> {
+                    editComment.setEnabled(true);
+                    Toast.makeText(this, "Failed to load user profile", Toast.LENGTH_SHORT).show();
+                    Log.e("EventDetailsActivity", "Failed to get user profile for comment", e);
+                }
+        );
+    }
+
+    /**
+     * Loads comments for this event from Firestore and renders them into the comments container.
+     */
+    private void loadComments() {
+        commentsContainer.removeAllViews();
+
+        TextView loadingView = new TextView(this);
+        loadingView.setText("Loading comments...");
+        commentsContainer.addView(loadingView);
+
+        eventStorage.getEventComments(
+                eventId,
+                comments -> {
+                    commentsLoaded = true;
+                    renderComments(comments, currentEvent);
+                },
+                e -> {
+                    commentsContainer.removeAllViews();
+
+                    TextView errorView = new TextView(this);
+                    errorView.setText("Failed to load comments.");
+                    commentsContainer.addView(errorView);
+
+                    Log.e("EventDetailsActivity", "Failed to load comments", e);
+                }
+        );
+    }
+
+    /**
+     * Renders all event comments into the vertical comments container.
+     */
+    private void renderComments(List<Map<String, Object>> comments, Event event) {
+        commentsContainer.removeAllViews();
+
+        if (comments == null || comments.isEmpty()) {
+            TextView emptyView = new TextView(this);
+            emptyView.setText("No comments yet.");
+            commentsContainer.addView(emptyView);
+            return;
+        }
+
+        LayoutInflater inflater = getLayoutInflater();
+
+        for (Map<String, Object> comment : comments) {
+            View commentView = inflater.inflate(R.layout.item_comment, commentsContainer, false);
+
+            TextView line1 = commentView.findViewById(R.id.line1);
+            TextView line2Left = commentView.findViewById(R.id.line2_left);
+            TextView line2Right = commentView.findViewById(R.id.line2_right);
+
+            String authorName = (String) comment.get("authorName");
+            String message = (String) comment.get("message");
+            String uid = (String) comment.get("uid");
+            String role = null;
+
+            Long createdAt = (Long) comment.get("createdAtMs");
+            String relativeTime = getTimeAgo(createdAt);
+
+            if (isOrganizer(currentEvent, uid)) {
+                role = "Organizer";
+            } else {
+                role = "Entrant";
+            }
+            if (authorName == null || authorName.trim().isEmpty()) {
+                authorName = "Unknown User";
+            }
+            if (message == null) {
+                message = "";
+            }
+
+            line1.setText('"' + message + '"');
+            line2Left.setText(role + ": " + authorName);
+            line2Right.setText(relativeTime);
+
+            commentsContainer.addView(commentView);
+        }
+    }
+
+    public static String getTimeAgo(long postedMs) {
+        long nowMs = System.currentTimeMillis();
+        long diffMs = nowMs - postedMs;
+
+        if (diffMs < 0) {
+            return "Just now";
+        }
+
+        long seconds = diffMs / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        long days = hours / 24;
+
+        if (seconds < 60) return "Just now";
+        if (minutes < 60) return minutes + " min ago";
+        if (hours < 24) return hours + " hr ago";
+        if (days < 7) return days + " day" + (days == 1 ? "" : "s") + " ago";
+
+        long weeks = days / 7;
+        if (weeks < 5) return weeks + " week" + (weeks == 1 ? "" : "s") + " ago";
+
+        long months = days / 30;
+        if (months < 12) return months + " month" + (months == 1 ? "" : "s") + " ago";
+
+        long years = days / 365;
+        return years + " year" + (years == 1 ? "" : "s") + " ago";
+    }
+
+
+    /**
      * Configures the UI and actions available in admin mode.
      * hides all buttons except
      * button to access admin actions which include:
@@ -343,10 +546,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         });
 
         btnDeleteImage.setOnClickListener(v -> {
-            eventStorage.getEvent(eventId, event -> {
-                event.setPosterUrl(null);
+            eventStorage.getEvent(eventId, currentEvent -> {
+                currentEvent.setPosterUrl(null);
                 eventStorage.upsertEvent(
-                        event,
+                        currentEvent,
                         unused -> {},
                         e -> Log.e("EventDetailsActivity:adminMode", "Failed to upsert event", e)
                 );

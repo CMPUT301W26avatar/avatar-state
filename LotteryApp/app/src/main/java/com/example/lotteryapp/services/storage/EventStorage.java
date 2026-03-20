@@ -10,6 +10,7 @@ import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.models.UserAddress;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -73,6 +74,13 @@ public class EventStorage {
                 .document(uid);
     }
 
+    /**
+     * Returns the comments subcollection for an event.
+     * Stored under /events/{eventId}/comments
+     */
+    private CollectionReference eventCommentsCollection(@NonNull String eventId) {
+        return eventDoc(eventId).collection("comments");
+    }
 
     /** firebase storage
      * Takes in an Event as a parameter and creates/upserts it into the database.
@@ -499,7 +507,76 @@ public class EventStorage {
         eventDoc(eventId).delete();
     }
 
+    /**
+     * Adds a single comment to an event's comments subcollection.
+     */
+    public void addEventComment(
+            @NonNull String eventId,
+            @NonNull String uid,
+            @NonNull String authorName,
+            @NonNull String message,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        String trimmedMessage = message.trim();
+        String trimmedAuthor = authorName.trim();
 
+        if (eventId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("eventId required"));
+            return;
+        }
+
+        if (uid.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("uid required"));
+            return;
+        }
+
+        if (trimmedMessage.isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("comment message required"));
+            return;
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("eventId", eventId);
+        data.put("uid", uid);
+        data.put("authorName", trimmedAuthor.isEmpty() ? "Unknown User" : trimmedAuthor);
+        data.put("message", trimmedMessage);
+        data.put("createdAt", FieldValue.serverTimestamp());
+        data.put("createdAtMs", System.currentTimeMillis());
+
+        eventCommentsCollection(eventId)
+                .document()
+                .set(data)
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Returns all comments for an event ordered by newest first.
+     */
+    public void getEventComments(
+            @NonNull String eventId,
+            OnSuccessListener<List<Map<String, Object>>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        eventCommentsCollection(eventId)
+                .orderBy("createdAtMs", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Map<String, Object>> comments = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> comment = new HashMap<>();
+                        comment.put("commentId", doc.getId());
+                        comment.put("uid", doc.getString("uid"));
+                        comment.put("authorName", doc.getString("authorName"));
+                        comment.put("message", doc.getString("message"));
+                        comment.put("createdAtMs", doc.getLong("createdAtMs"));
+                        comments.add(comment);
+                    }
+                    onSuccess.onSuccess(comments);
+                })
+                .addOnFailureListener(onFailure);
+    }
 
     /** firebase boolean retrieval
      * Returns true or false for if the current user is the organizer for any event
