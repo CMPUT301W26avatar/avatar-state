@@ -146,7 +146,7 @@ public class UserDetailsActivity extends AppCompatActivity {
                     etName.setText(user.getName() != null ? user.getName() : "");
                     etPhone.setText(user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
                     etEmail.setText(user.getEmail() != null ? user.getEmail() : "");
-                    etLocation.setText(user.getLocation() != null ? user.getLocation() : "");
+                    etLocation.setText(user.getUserAddress().getLocation() != null ? user.getUserAddress().getLocation() : "");
                     tvDeviceId.setText(user.getUUID());
 
                     // Admin can see delete buttons
