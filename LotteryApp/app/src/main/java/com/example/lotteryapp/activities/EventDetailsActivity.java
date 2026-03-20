@@ -1,5 +1,6 @@
 package com.example.lotteryapp.activities;
 
+import com.example.lotteryapp.services.ProfanityFilter;
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
@@ -118,6 +119,8 @@ public class EventDetailsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_event_details);
 
         isAdminMode = getIntent().getBooleanExtra("isAdminMode", false);
+
+        ProfanityFilter.init(this);
 
         bindViews();
 
@@ -368,6 +371,11 @@ public class EventDetailsActivity extends AppCompatActivity {
         String message = editComment.getText().toString().trim();
 
         if (message.isEmpty()) {
+            return;
+        }
+
+        if (ProfanityFilter.containsProfanity(message)) {
+            editComment.setError("Inappropriate language is not allowed");
             return;
         }
 
