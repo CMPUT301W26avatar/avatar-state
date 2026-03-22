@@ -11,6 +11,7 @@
         app:layout_behavior="@string/searchbar_scrolling_view_behavior">
 
         <LinearLayout
+            android:id="@+id/search_content_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
@@ -18,6 +19,7 @@
 
             <!-- Categories -->
             <HorizontalScrollView
+                android:id="@+id/categories_section"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:scrollbars="none"
@@ -75,12 +77,14 @@
 
             <!-- Near You Section -->
             <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/near_you_header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:paddingHorizontal="16dp"
                 android:layout_marginTop="24dp">
 
                 <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/near_you_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Near you"
@@ -110,6 +114,7 @@
 
             <!-- Your Events Section -->
             <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/your_events_header"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="16dp"
@@ -128,6 +133,7 @@
 
             <!-- Upcoming Section -->
             <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/upcoming_header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:paddingHorizontal="16dp"
@@ -154,6 +160,7 @@
             </androidx.constraintlayout.widget.ConstraintLayout>
 
             <HorizontalScrollView
+                android:id="@+id/upcoming_content"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:scrollbars="none"
