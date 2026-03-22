@@ -213,8 +213,14 @@ public class HomeFragment extends Fragment {
         StringBuilder sb = new StringBuilder(statusString(status));
 
         Integer waitlistCap = event.getWaitlistCapacity();
-        if (waitlistCap != null) {
-            sb.append(" | Waitlist: ")
+        if (waitlistCap == -1) {
+            sb.append("\nWaitlist: ")
+                    .append(event.getWaitlistCount())
+                    .append("/")
+                    .append("∞");
+
+        } else if (waitlistCap > 0){
+            sb.append("\nWaitlist: ")
                     .append(event.getWaitlistCount())
                     .append("/")
                     .append(waitlistCap);

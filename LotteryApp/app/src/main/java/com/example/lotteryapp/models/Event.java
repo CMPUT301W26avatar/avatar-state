@@ -7,12 +7,15 @@ import java.util.UUID;
  * - primary key: event ID, foreign key: user ID (organizerId)
  * - New Event: Pull Event document from Firebase and set EventID as docID.
  * - Only getters and setters
+ *
+ * PosterUrl attribute deprecated
  */
-
 public class Event {
     public String eventId;
     public final String organizerId;
     public EventStatus status;
+    public boolean hasDrawnLottery;
+    private boolean hasGeoConstraint;
 
     public int eventCapacity;
 
@@ -26,16 +29,15 @@ public class Event {
     public Long eventDateMs; // milliseconds
     public Long regStartMs; // milliseconds
     public Long regEndMs; // milliseconds
-    private String location;
 
+    private EventAddress address;
 
     private String title;
-
     private String description;
-
     private String criteriaGuidelines;
     private String tag;
     private String posterUrl;
+
     public enum EventStatus {
         REG_UPCOMING,
         REG_OPEN, // reg. open, reg. start date passed
@@ -51,6 +53,9 @@ public class Event {
         this.organizerId = organizerId;
         this.eventCapacity = eventCapacity;
         this.waitlistCapacity = waitlistCapacity;
+        this.address = null;
+        this.hasDrawnLottery = false;
+        this.hasGeoConstraint = false;
     }
 
     // pk
@@ -63,12 +68,10 @@ public class Event {
         this.eventId = eventId;
     }
 
-
     // fk
     public String getOrganizerId() {
         return organizerId;
     }
-
 
     public boolean isRegistrationOpen() {
         return this.status == EventStatus.REG_OPEN;
@@ -80,6 +83,37 @@ public class Event {
 
     public void setStatus(EventStatus status) {
         this.status = status;
+    }
+
+    public boolean hasDrawnLottery() {
+        return hasDrawnLottery;
+    }
+
+    public void setHasDrawnLottery(boolean hasDrawnLottery) {
+        this.hasDrawnLottery = hasDrawnLottery;
+    }
+
+    public boolean hasGeoConstraint() {
+        return hasGeoConstraint;
+    }
+
+    public void setHasGeoConstraint(boolean hasGeoConstraint) {
+        this.hasGeoConstraint = hasGeoConstraint;
+    }
+
+    public boolean isGeoConstraintEnabled() {
+        if (!hasGeoConstraint) {
+            return false;
+        }
+
+        if (address == null) {
+            return false;
+        }
+
+        return address.getLatitude() != null
+                && address.getLongitude() != null
+                && address.getRadiusKm() != null
+                && address.getRadiusKm() > 0;
     }
 
     // how many user allowed to participate in the event
@@ -100,12 +134,11 @@ public class Event {
         this.enrolledCount = enrolledCount;
     }
 
-
-
     // how many users allowed to join the waitlist to participate in the event
     public Integer getWaitlistCapacity() {
         return waitlistCapacity;
     }
+
     public void setWaitlistCapacity(Integer waitlistCapacity) {
         this.waitlistCapacity = waitlistCapacity;
     }
@@ -129,7 +162,6 @@ public class Event {
     public int getInvitationCount() {
         return invitationCount;
     }
-
 
     // date of the event
     public Long getEventDateMs() {
@@ -157,31 +189,32 @@ public class Event {
         this.regEndMs = regEndMs;
     }
 
-
     // event metadata
     public String getTitle() { return title; }
 
     public void setTitle(String title) { this.title = title; }
 
-    public String getDescription() {return description;}
+    public String getDescription() { return description; }
 
-    public void setDescription(String description) {this.description = description;}
+    public void setDescription(String description) { this.description = description; }
 
-    public String getCriteriaGuidelines() {return criteriaGuidelines;}
+    public String getCriteriaGuidelines() { return criteriaGuidelines; }
 
-    public void setCriteriaGuidelines(String criteriaGuidelines) {this.criteriaGuidelines = criteriaGuidelines;}
+    public void setCriteriaGuidelines(String criteriaGuidelines) { this.criteriaGuidelines = criteriaGuidelines; }
 
-    public String getTag() {return tag;}
+    public String getTag() { return tag; }
 
-    public void setTag(String tag) {this.tag = tag;}
+    public void setTag(String tag) { this.tag = tag; }
 
-    public String getLocation() {return location;}
+    public EventAddress getAddress() {
+        return address;
+    }
 
-    public void setLocation(String location) {this.location = location;}
+    public void setAddress(EventAddress address) {
+        this.address = address;
+    }
 
-    public String getPosterUrl() {return posterUrl;}
+    public String getPosterUrl() { return posterUrl; }
 
-    public void setPosterUrl(String posterUrl) {this.posterUrl = posterUrl;}
-
-
+    public void setPosterUrl(String posterUrl) { this.posterUrl = posterUrl; }
 }

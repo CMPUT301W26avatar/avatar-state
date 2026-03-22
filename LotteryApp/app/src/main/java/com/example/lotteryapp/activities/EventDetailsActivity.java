@@ -1,11 +1,21 @@
 package com.example.lotteryapp.activities;
 
+import static android.view.View.GONE;
+import static android.view.View.VISIBLE;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.ENROLLED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
+import static com.example.lotteryapp.models.Event.EventStatus.EVENT_CLOSED;
+import static com.example.lotteryapp.models.Event.EventStatus.EVENT_FULL;
+import static com.example.lotteryapp.models.Event.EventStatus.EVENT_OPEN;
+import static com.example.lotteryapp.models.Event.EventStatus.REG_CLOSED;
+import static com.example.lotteryapp.models.Event.EventStatus.REG_FULL;
+import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -15,16 +25,22 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.models.EventAddress;
+import com.example.lotteryapp.models.EventJoinedMap;
+import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
 import java.text.SimpleDateFormat;
+import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Displays the details of a selected event and provides actions
@@ -57,6 +73,8 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialButton btnDeleteImage;
     private MaterialButton btnRemoveEvent;
     private MaterialButton btnBeginLotterySelection;
+    private MaterialButton btnViewEventMap;
+    private MaterialButton btnShowInvitesDashboard;
     // poster
     private ImageView ivEventPoster;
 
@@ -70,6 +88,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private boolean isAdminMode = false;
     private Event currentEvent;
     // services
+    private UserStorage userStorage;
 
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
@@ -80,8 +99,8 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Initializes the activity, binds views and reads intent extras,
-     *      validates the event id and signed-in user
-     *      starts loading event data.
+     * validates the event id and signed-in user
+     * starts loading event data.
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,18 +134,18 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         // get db connections for models from ServiceLocator
+        userStorage = ServiceLocator.getUserStorage();
         eventStorage = ServiceLocator.getEventStorage();
         eventPoolStorage = ServiceLocator.getEventPoolStorage();
 
         // prefill any passed UI extras while backend data loads
         populateFromIntentExtras();
-
         loadEvent();
     }
 
     /**
-    * Associate all of the xml components with their application counterparts
-    */
+     * Associate all of the xml components with their application counterparts
+     */
     private void bindViews() {
         tvName = findViewById(R.id.tv_event_name);
         tvLocation = findViewById(R.id.tv_location);
@@ -143,6 +162,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnDeleteImage = findViewById(R.id.btn_delete_image);
         btnRemoveEvent = findViewById(R.id.btn_remove_event);
         btnBeginLotterySelection = findViewById(R.id.btn_begin_lottery_selection);
+        btnViewEventMap = findViewById(R.id.btn_view_event_map);
+        btnShowInvitesDashboard = findViewById(R.id.btn_show_invites_dashboard);
+
         ivEventPoster = findViewById(R.id.iv_event_poster);
 
         // Admin Info
@@ -160,7 +182,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Loads the current event from storage and updates the UI.
-     *      actions set according to User role (entrant, organizer or admin)
+     * actions set according to User role (entrant, organizer or admin)
      */
     private void loadEvent() {
         eventStorage.getEvent(
@@ -183,6 +205,28 @@ public class EventDetailsActivity extends AppCompatActivity {
                     } else {
                         setupEntrantActions(currentEvent);
                     }
+
+                    LinearLayout listOfX = findViewById(R.id.list_of_x_container);
+                    TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
+                    if (isOrganizer(event)) {
+                        listOfX.setVisibility(VISIBLE);
+                        Event.EventStatus status = event.getStatus();
+                        if (status == REG_OPEN || status == REG_FULL || status == REG_CLOSED) {
+                            listWaitlisted(eventId);
+                        } else if (status == EVENT_OPEN || status == EVENT_FULL) {
+                            listEntrants(eventId);
+                            // showInvitesDashboard
+                        } else if (status == EVENT_CLOSED) {
+                            tvEntrants.setText("Final Entrants");
+                            listEntrants(eventId);
+                            //showInvitesDashboard
+                        } else {
+                            //showInvitesDashboard
+                        }
+
+                    } else {
+                        listOfX.setVisibility(GONE);
+                    }
                 },
                 e -> {
                     android.util.Log.e("EventDetailsActivity",
@@ -199,44 +243,124 @@ public class EventDetailsActivity extends AppCompatActivity {
         return event.getOrganizerId().equals(currentUserId);
     }
 
+    private void openInvitesDashboard() {
+        Intent intent = new Intent(this, InvitesDashboardActivity.class);
+        intent.putExtra(InvitesDashboardActivity.EXTRA_EVENT_ID, eventId);
+        startActivity(intent);
+    }
+
+    private void renderEntrants(LinearLayout linearLayout, TextView textView, List<Entrant> entrants) {
+        if (entrants == null || entrants.isEmpty()) {
+            linearLayout.setVisibility(GONE);
+            textView.setVisibility(GONE);
+            return;
+        }
+
+        Log.d("RenderEntrants", "Size of Entrants: " + entrants.size());
+
+        LayoutInflater inflater = getLayoutInflater();
+        for (Entrant entrant : entrants) {
+            View row = inflater.inflate(R.layout.item_entrant, linearLayout, false);
+
+            TextView entrantName = row.findViewById(R.id.tv_entrant_name);
+            TextView entrantEmail = row.findViewById(R.id.tv_entrant_email);
+
+            ServiceLocator.getUserStorage().getUserProfile(
+                    entrant.getEntrantId(),
+                    user -> {
+                        String name = user.getName();
+                        entrantName.setText(Objects.requireNonNullElse(name, "UNKNOWN NAME :("));
+
+                        String email = user.getEmail();
+                        entrantEmail.setText(Objects.requireNonNullElse(email, "UNKNOWN EMAIL :("));
+                    },
+                    e -> {
+                    }
+            );
+
+            linearLayout.addView(row);
+        }
+    }
+
+    private void listEntrants(String eventId) {
+        LinearLayout enrolledEntrants = findViewById(R.id.list_of_entrants);
+        TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
+        tvEntrants.setText("Entrants enrolled in event:");
+
+        eventPoolStorage.getEnrolledEntrants(
+                eventId,
+                entrants -> {
+                    renderEntrants(enrolledEntrants, tvEntrants, entrants);
+                },
+                e -> {
+                    Log.e("EventDetailsActivity", "Failed to get enrolled entrants");
+                    e.printStackTrace();
+                }
+        );
+    }
+
+    private void listWaitlisted(String eventId) {
+        LinearLayout waitlistedEntrants = findViewById(R.id.list_of_waitlisted);
+        TextView tvWaitlisted = findViewById(R.id.tv_list_of_waitlisted);
+        tvWaitlisted.setText("Entrants enrolled in waitlist:");
+
+        eventPoolStorage.getWaitlistedEntrants(
+                eventId,
+                entrants -> {
+                    renderEntrants(waitlistedEntrants, tvWaitlisted, entrants);
+                },
+                e -> {
+                    Log.e("EventDetailsActivity", "Failed to get waitlisted entrants");
+                    e.printStackTrace();
+                }
+        );
+    }
+
     /**
      * Configures the UI and actions available in admin mode.
-     *      hides all buttons except
-     *          button to access admin actions which include:
-     *              remove event button
-     *              delete image button
+     * hides all buttons except
+     * button to access admin actions which include:
+     * remove event button
+     * delete image button
      */
     private void setupAdminActions() {
-        if (isAdminMode) {
-            btnRemoveEvent.setVisibility(View.VISIBLE);
-            btnRemoveEvent.setEnabled(true);
-            btnJoin.setEnabled(false);
-            btnJoin.setVisibility(View.GONE);
-            layoutAdminInfo.setVisibility(View.VISIBLE);
-            btnDeleteImage.setVisibility(View.VISIBLE);
-
-            btnRemoveEvent.setOnClickListener(v -> {
-                eventStorage.deleteEvent(eventId);
-                Toast.makeText(this, "Event Removed", Toast.LENGTH_SHORT).show();
-                finish();
-            });
-
-            btnDeleteImage.setOnClickListener(v -> {
-                eventStorage.getEvent(eventId, event -> {
-                    event.setPosterUrl(null);
-                    eventStorage.upsertEvent(event);
-                    Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
-                    ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
-                    btnDeleteImage.setVisibility(View.GONE);
-                }, e -> Toast.makeText(this, "Failed to delete image", Toast.LENGTH_SHORT).show());
-            });
+        if (!isAdminMode) {
+            return;
         }
+
+        btnRemoveEvent.setVisibility(VISIBLE);
+        btnRemoveEvent.setEnabled(true);
+        btnJoin.setEnabled(false);
+        btnJoin.setVisibility(GONE);
+        btnViewEventMap.setVisibility(GONE);
+        layoutAdminInfo.setVisibility(VISIBLE);
+        btnDeleteImage.setVisibility(VISIBLE);
+
+        btnRemoveEvent.setOnClickListener(v -> {
+            eventStorage.deleteEvent(eventId);
+            Toast.makeText(this, "Event Removed", Toast.LENGTH_SHORT).show();
+            finish();
+        });
+
+        btnDeleteImage.setOnClickListener(v -> {
+            eventStorage.getEvent(eventId, event -> {
+                event.setPosterUrl(null);
+                eventStorage.upsertEvent(
+                        event,
+                        unused -> {},
+                        e -> Log.e("EventDetailsActivity:adminMode", "Failed to upsert event", e)
+                );
+                Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
+                ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
+                btnDeleteImage.setVisibility(GONE);
+            }, e -> Toast.makeText(this, "Failed to delete image", Toast.LENGTH_SHORT).show());
+        });
     }
 
     /**
      * Configures the UI and actions available in organizer mode.
-     *      hides all buttons other than
-     *          button to begin the lottery selection
+     * hides all buttons other than
+     * button to begin the lottery selection
      */
     private void setupOrganizerActions(Event event) {
         btnJoin.setVisibility(View.GONE);
@@ -247,33 +371,55 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnDeleteImage.setVisibility(View.GONE);
         layoutAdminInfo.setVisibility(View.GONE);
 
+        btnViewEventMap.setVisibility(View.VISIBLE);
+        btnViewEventMap.setOnClickListener(v -> openEventMap());
+
         btnBeginLotterySelection.setVisibility(View.GONE);
-        btnBeginLotterySelection.setEnabled(false);
-        btnBeginLotterySelection.setOnClickListener(null);
+        btnShowInvitesDashboard.setVisibility(View.GONE);
 
-        boolean registrationClosed = event.getStatus() == Event.EventStatus.REG_CLOSED;
-        boolean registrationFull = event.getStatus() == Event.EventStatus.REG_FULL;
+        boolean registrationClosed = event.getStatus() == REG_CLOSED;
+        boolean registrationFull = event.getStatus() == REG_FULL;
 
-        if (registrationClosed || registrationFull) {
+        boolean lotteryAvailable = registrationClosed || registrationFull;
+
+        boolean hasSentInvites = event.hasDrawnLottery();
+
+        if (lotteryAvailable && !hasSentInvites) {
             btnBeginLotterySelection.setVisibility(View.VISIBLE);
             btnBeginLotterySelection.setEnabled(true);
-            btnBeginLotterySelection.setOnClickListener(v -> {
-                beginLotterySelection(event);
-            });
+            btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
+        }
+
+        if (hasSentInvites) {
+            if (!(event.getStatus() == EVENT_CLOSED)) {
+                btnBeginLotterySelection.setText("Re-draw applicants");
+                btnBeginLotterySelection.setVisibility(View.VISIBLE);
+                btnBeginLotterySelection.setEnabled(true);
+                btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
+
+                btnShowInvitesDashboard.setVisibility(View.VISIBLE);
+                btnShowInvitesDashboard.setEnabled(true);
+                btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
+            } else {
+                btnBeginLotterySelection.setVisibility(View.GONE);
+                btnBeginLotterySelection.setEnabled(false);
+                btnShowInvitesDashboard.setVisibility(View.VISIBLE);
+                btnShowInvitesDashboard.setEnabled(true);
+                btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
+            }
         }
     }
 
     /**
      * Configures the UI and actions available in user mode.
-     *      call EventPoolStorage.getEntrantStatus() query for entrant status
-     *      call to renderEntrantActions for state-based action selection
+     * call EventPoolStorage.getEntrantStatus() query for entrant status
+     * call to renderEntrantActions for state-based action selection
      */
     private void setupEntrantActions(Event event) {
         if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
             showJoinDisabled("Registration Unavailable");
             return;
         }
-
         eventPoolStorage.getEntrantStatus(
                 event.getEventId(),
                 currentUserId,
@@ -290,34 +436,35 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Determine which actions/buttons are valid to show a User based on their state as an Entrant
-     *      NONE: join waitlist
-     *      WAITLISTED: leave waitlist
-     *      INVITED: accept/decline invitation
-     *      DECLINED: join button closed -> cannot join again
-     *      ENROLLED: unenroll
+     * NONE: join waitlist
+     * WAITLISTED: leave waitlist
+     * INVITED: accept/decline invitation
+     * DECLINED: join button closed -> cannot join again
+     * ENROLLED: unenroll
      */
     private void renderEntrantActions(Event event, Entrant.EntrantStatus status) {
         btnJoin.setVisibility(View.GONE);
         btnLeave.setVisibility(View.GONE);
         invitations_layout.setVisibility(View.GONE);
         btnBeginLotterySelection.setVisibility(View.GONE);
+        btnViewEventMap.setVisibility(View.GONE);
 
         if (status == Entrant.EntrantStatus.WAITLISTED) {
-            btnLeave.setVisibility(View.VISIBLE);
+            btnLeave.setVisibility(VISIBLE);
             btnLeave.setEnabled(true);
             btnLeave.setOnClickListener(v -> leaveWaitlist());
             return;
         }
 
         if (status == Entrant.EntrantStatus.INVITED) {
-            invitations_layout.setVisibility(View.VISIBLE);
+            invitations_layout.setVisibility(VISIBLE);
             btnAccept.setOnClickListener(v -> acceptInvitation());
             btnDecline.setOnClickListener(v -> declineInvitation());
             return;
         }
 
         if (status == ENROLLED) {
-            btnJoin.setVisibility(View.VISIBLE);
+            btnJoin.setVisibility(VISIBLE);
             btnJoin.setEnabled(true);
             btnJoin.setText("Unenroll");
             btnJoin.setOnClickListener(v -> unenroll());
@@ -325,19 +472,24 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         if (status == DECLINED) {
-            // cannot join waitlist, or event again
             showJoinDisabled("Invitation Declined");
             return;
         }
 
-        if (event.isRegistrationOpen()) {
-            btnJoin.setVisibility(View.VISIBLE);
-            btnJoin.setEnabled(true);
-            btnJoin.setText("Join Waitlist");
-            btnJoin.setOnClickListener(v -> joinWaitlist());
-        } else {
+        if (!event.isRegistrationOpen()) {
             showJoinDisabled("Registration Closed");
+            return;
         }
+
+        if (eventStorage.eventHasUsableGeoConstraint(event)) {
+            renderGeoCheckedJoinButton(event);
+            return;
+        }
+
+        btnJoin.setVisibility(VISIBLE);
+        btnJoin.setEnabled(true);
+        btnJoin.setText("Join Waitlist");
+        btnJoin.setOnClickListener(v -> joinWaitlist());
     }
 
     /**
@@ -377,7 +529,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Populates the activity UI with information from the given event.
-     *      needs Event object parameter
+     * needs Event object parameter
      */
     private void populateInfo(Event event) {
         if (event == null) {
@@ -392,8 +544,9 @@ public class EventDetailsActivity extends AppCompatActivity {
             tvName.setText(event.getEventId());
         }
 
-        if (event.getLocation() != null && !event.getLocation().trim().isEmpty()) {
-            tvLocation.setText(event.getLocation());
+        EventAddress address = event.getAddress();
+        if (address != null && address.getLocation() != null && !address.getLocation().trim().isEmpty()) {
+            tvLocation.setText(address.getLocation());
         } else {
             tvLocation.setText("Location unavailable");
         }
@@ -431,6 +584,7 @@ public class EventDetailsActivity extends AppCompatActivity {
             populateAdminTechDetails(event);
         }
     }
+
     /**
      * Populates the admin-only technical details section with raw event data
      */
@@ -446,36 +600,131 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminPosterUrl.setText("posterUrl: " + (event.getPosterUrl() != null ? "\"" + event.getPosterUrl() + "\"" : "null"));
     }
 
-    /**
-     * Disables the join button and displays the parameter text as the reason for it being disabled
-     *  to the user
-     */
-    private void showJoinDisabled(String text) {
-        btnJoin.setVisibility(View.VISIBLE);
-        btnJoin.setEnabled(false);
-        btnJoin.setText(text);
-        btnLeave.setVisibility(View.GONE);
-        invitations_layout.setVisibility(View.GONE);
+    private void openEventMap() {
+        if (eventId == null || eventId.trim().isEmpty()) {
+            Toast.makeText(this, "Missing event ID", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Intent intent = new Intent(this, EventMapActivity.class);
+        intent.putExtra(EXTRA_EVENT_ID, eventId);
+        startActivity(intent);
     }
 
     /**
-     * Adds the current user to the event waitlist, NONE -> WAITLISTED and added to "waitlisted" collection
-     *      EventPoolStorage for db query
+     * Disables the join button and displays the parameter text as the reason for it being disabled
+     * to the user.
+     */
+    private void showJoinDisabled(String text) {
+        showButtonDisabled(btnJoin, text);
+        btnLeave.setVisibility(GONE);
+        invitations_layout.setVisibility(GONE);
+    }
+
+    /**
+     * Generic disabled-state helper used by join and other action buttons.
+     */
+    private void showButtonDisabled(MaterialButton button, String text) {
+        button.setVisibility(VISIBLE);
+        button.setEnabled(false);
+        button.setText(text);
+    }
+
+    /**
+     * Resolves whether the current user can join this event based on the user's selected address
+     * mode and the event's geolocation radius.
+     */
+    private void renderGeoCheckedJoinButton(Event event) {
+        btnJoin.setVisibility(VISIBLE);
+        btnJoin.setEnabled(false);
+        btnJoin.setText("Checking Waitlist Radius...");
+
+        resolveBestAddressForCurrentUser(address -> {
+            if (eventStorage.isWithinEventRadius(address, event)) {
+                btnJoin.setEnabled(true);
+                btnJoin.setText("Join Waitlist");
+                btnJoin.setOnClickListener(v -> joinWaitlist());
+            } else {
+                showButtonDisabled(btnJoin, "Outside of Event Waitlist Radius");
+            }
+        }, e -> showButtonDisabled(btnJoin, "Outside of Event Waitlist Radius"));
+    }
+
+    /**
+     * Adds the current user to the event waitlist, NONE -> WAITLISTED and added to "waitlisted" collection.
+     * Geo-constrained events are revalidated immediately before the waitlist write occurs.
      */
     private void joinWaitlist() {
-        //Add user to waitlist collection
-        Entrant entrant = new Entrant(currentUserId, eventId, Entrant.EntrantStatus.WAITLISTED);
+        if (currentEvent != null && eventStorage.eventHasUsableGeoConstraint(currentEvent)) {
+            btnJoin.setEnabled(false);
+
+            resolveBestAddressForCurrentUser(address -> {
+                if (!eventStorage.isWithinEventRadius(address, currentEvent)) {
+                    showButtonDisabled(btnJoin, "Outside of Event Waitlist Radius");
+                    return;
+                }
+                waitlistCurrentUser();
+            }, e -> showButtonDisabled(btnJoin, "Outside of Event Waitlist Radius"));
+            return;
+        }
+
+        waitlistCurrentUser();
+    }
+
+    /**
+     * Removes the current user from the event waitlist, WAITLISTED -> NONE and removed from "waitlist" colleciton
+     * EventPoolStorage for db query
+     */
+    private void leaveWaitlist() {
+        btnLeave.setEnabled(false);
+
+        eventPoolStorage.removeFromWaitlist(
+                eventId,
+                currentUserId,
+                unused -> removeJoinedMapForCurrentUser(
+                        () -> {
+                            Toast.makeText(this, "Left waitlist!", Toast.LENGTH_SHORT).show();
+                            currentStatus = null;
+                            loadEvent();
+                        },
+                        () -> {
+                            Toast.makeText(this, "Left waitlist, but failed to remove joined map.", Toast.LENGTH_SHORT).show();
+                            currentStatus = null;
+                            loadEvent();
+                        }
+                ),
+                e -> {
+                    Toast.makeText(this, "Failed to leave waitlist.", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnLeave.setEnabled(true);
+                }
+        );
+    }
+
+
+    /**
+     * Performs the actual waitlist write after all eligibility checks have passed.
+     */
+    private void waitlistCurrentUser() {
+        Entrant entrant = new Entrant(currentUserId, eventId, WAITLISTED);
 
         btnJoin.setEnabled(false);
 
         eventPoolStorage.waitlistForEvent(
                 eventId,
                 entrant,
-                unused -> {
-                    Toast.makeText(this, "Waitlisted!", Toast.LENGTH_SHORT).show();
-                    currentStatus = WAITLISTED;
-                    loadEvent();
-                },
+                unused -> upsertJoinedMapForCurrentUser(
+                        () -> {
+                            Toast.makeText(this, "Waitlisted!", Toast.LENGTH_SHORT).show();
+                            currentStatus = WAITLISTED;
+                            loadEvent();
+                        },
+                        () -> {
+                            Toast.makeText(this, "Waitlisted, but failed to save joined map.", Toast.LENGTH_SHORT).show();
+                            currentStatus = WAITLISTED;
+                            loadEvent();
+                        }
+                ),
                 e -> {
                     Toast.makeText(this, "Failed to waitlist", Toast.LENGTH_SHORT).show();
                     Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
@@ -485,31 +734,130 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
     /**
-     * Removes the current user from the event waitlist, WAITLISTED -> NONE and removed from "waitlist" colleciton
-     *      EventPoolStorage for db query
+     * Resolves the user's best available address for geo checks and joined_map snapshots.
+     * The selected address mode is tried first, then the opposite mode is used as a fallback.
      */
-    private void leaveWaitlist() {
-        btnLeave.setEnabled(false);
-
-        eventPoolStorage.removeFromWaitlist(
-                eventId,
+    private void resolveBestAddressForCurrentUser(
+            com.google.android.gms.tasks.OnSuccessListener<com.example.lotteryapp.models.UserAddress> onSuccess,
+            com.google.android.gms.tasks.OnFailureListener onFailure
+    ) {
+        userStorage.getUserProfile(
                 currentUserId,
-                unused -> {
-                    Toast.makeText(this, "Left waitlist!", Toast.LENGTH_SHORT).show();
-                    currentStatus = null;
-                    loadEvent();
+                user -> {
+                    User.UserAddressMode preferredMode = user.getAddressMode() != null
+                            ? user.getAddressMode()
+                            : User.UserAddressMode.DEFAULT;
+
+                    User.UserAddressMode fallbackMode =
+                            preferredMode == User.UserAddressMode.CURRENT
+                                    ? User.UserAddressMode.DEFAULT
+                                    : User.UserAddressMode.CURRENT;
+
+                    loadAddressForJoinedMap(preferredMode, address -> {
+                        if (isUsableJoinedMapAddress(address)) {
+                            onSuccess.onSuccess(address);
+                            return;
+                        }
+
+                        loadAddressForJoinedMap(fallbackMode, fallbackAddress -> {
+                            if (isUsableJoinedMapAddress(fallbackAddress)) {
+                                onSuccess.onSuccess(fallbackAddress);
+                            } else {
+                                onFailure.onFailure(new IllegalStateException("No usable address found for geo check"));
+                            }
+                        }, onFailure);
+                    }, e -> loadAddressForJoinedMap(fallbackMode, fallbackAddress -> {
+                        if (isUsableJoinedMapAddress(fallbackAddress)) {
+                            onSuccess.onSuccess(fallbackAddress);
+                        } else {
+                            onFailure.onFailure(new IllegalStateException("No usable address found for geo check"));
+                        }
+                    }, onFailure));
                 },
+                onFailure
+        );
+    }
+
+    /**
+     * After the user successfully joins the waitlist, upsert their joined_map document.
+     * This stores a snapshot of the user's address for this event
+     */
+    private void upsertJoinedMapForCurrentUser(
+            Runnable onSuccess,
+            Runnable onFailure
+    ) {
+        resolveBestAddressForCurrentUser(
+                address -> writeJoinedMap(address, onSuccess, onFailure),
                 e -> {
-                    Toast.makeText(this, "Failed to leave waitlist.", Toast.LENGTH_SHORT).show();
-                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
-                    btnLeave.setEnabled(true);
+                    Log.e(MY_TAG, "Failed to resolve a usable address for joined_map upsert", e);
+                    onFailure.run();
                 }
         );
     }
 
     /**
+     * Remove the current user's joined_map document for this event.
+     */
+    private void removeJoinedMapForCurrentUser(
+            Runnable onSuccess,
+            Runnable onFailure
+    ) {
+        eventStorage.removeEventJoinedMap(
+                eventId,
+                currentUserId,
+                unused -> onSuccess.run(),
+                e -> {
+                    Log.e(MY_TAG, "Failed to remove joined_map document", e);
+                    onFailure.run();
+                }
+        );
+    }
+
+    private void loadAddressForJoinedMap(
+            User.UserAddressMode addressMode,
+            com.google.android.gms.tasks.OnSuccessListener<com.example.lotteryapp.models.UserAddress> onSuccess,
+            com.google.android.gms.tasks.OnFailureListener onFailure
+    ) {
+        userStorage.getPreferredUserAddress(
+                currentUserId,
+                addressMode,
+                onSuccess,
+                onFailure
+        );
+    }
+
+    private boolean isUsableJoinedMapAddress(com.example.lotteryapp.models.UserAddress address) {
+        return address != null
+                && address.getLatitude() != null
+                && address.getLongitude() != null;
+    }
+
+    private void writeJoinedMap(
+            com.example.lotteryapp.models.UserAddress address,
+            Runnable onSuccess,
+            Runnable onFailure
+    ) {
+        EventJoinedMap joinedMap = new EventJoinedMap(
+                eventId,
+                address,
+                System.currentTimeMillis()
+        );
+
+        eventStorage.setEventJoinedMap(
+                eventId,
+                joinedMap,
+                unused -> onSuccess.run(),
+                e -> {
+                    Log.e(MY_TAG, "Failed to upsert joined_map document", e);
+                    onFailure.run();
+                }
+        );
+    }
+
+
+    /**
      * Signs a user up for the event, INVITED -> ENROLLED in db and added to "enrolled" collection
-     *      EventPoolStorage for db query
+     * EventPoolStorage for db query
      */
     private void acceptInvitation() {
         Entrant entrant = new Entrant(currentUserId, eventId, ENROLLED);
@@ -534,8 +882,8 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Declines the sign-up invitation, INVITED -> DECLINED in db and
-     *      added to "declined" collection, removed from "invited" collection
-     *      EventPoolStorage for db query
+     * added to "declined" collection, removed from "invited" collection
+     * EventPoolStorage for db query
      */
     private void declineInvitation() {
         btnDecline.setEnabled(false);
@@ -543,13 +891,20 @@ public class EventDetailsActivity extends AppCompatActivity {
         eventPoolStorage.removeFromWaitlist(
                 eventId,
                 currentUserId,
-                unused -> {
-                    Toast.makeText(this, "Invitation declined!", Toast.LENGTH_SHORT).show();
-                    currentStatus = DECLINED;
-                    loadEvent();
-                },
+                unused -> removeJoinedMapForCurrentUser(
+                        () -> {
+                            Toast.makeText(this, "Invitation declined!", Toast.LENGTH_SHORT).show();
+                            currentStatus = DECLINED;
+                            loadEvent();
+                        },
+                        () -> {
+                            Toast.makeText(this, "Invitation declined, but failed to remove joined map.", Toast.LENGTH_SHORT).show();
+                            currentStatus = DECLINED;
+                            loadEvent();
+                        }
+                ),
                 e -> {
-                    Toast.makeText(this, "Failed to decline invitatoin", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Failed to decline invitation", Toast.LENGTH_SHORT).show();
                     Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnDecline.setEnabled(true);
                 }
@@ -558,7 +913,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Removes the current user from the event, ENROLLED -> NONE and removed from "enrolled" colleciton
-     *      EventPoolStorage for db query
+     * EventPoolStorage for db query
      */
     private void unenroll() {
         btnJoin.setEnabled(false);
@@ -582,14 +937,16 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Starts lottery selection for the given event
-     *      adds all selected entrants to the "invited" subcollection
-     *      status marked INVITED
+     * adds all selected entrants to the "invited" subcollection
+     * status marked INVITED
      */
     private void beginLotterySelection(Event event) {
         if (event == null) {
             Toast.makeText(this, "Event not loaded", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        boolean firstDraw = !event.hasDrawnLottery();
 
         int remainingSpots = event.getEventCapacity()
                 - event.getEnrolledCount()
@@ -604,19 +961,47 @@ public class EventDetailsActivity extends AppCompatActivity {
             btnBeginLotterySelection.setEnabled(false);
         }
 
+        if (firstDraw) {
+            event.setHasDrawnLottery(true);
+            currentEvent = event;
+            setupOrganizerActions(event); // immediate UI update
+
+            eventStorage.upsertEvent(
+                    event,
+                    unused -> runLotteryDraw(event, remainingSpots),
+                    e -> {
+                        Toast.makeText(this, "Failed to save lottery state", Toast.LENGTH_SHORT).show();
+                        Log.e(MY_TAG, "Failed to persist hasDrawnLottery: " + e.getMessage(), e);
+                        if (btnBeginLotterySelection != null) {
+                            btnBeginLotterySelection.setEnabled(true);
+                        }
+                    }
+            );
+        } else {
+            runLotteryDraw(event, remainingSpots);
+        }
+    }
+
+    private void runLotteryDraw(Event event, int remainingSpots) {
         eventPoolStorage.drawWinners(
                 eventId,
                 remainingSpots,
-                invitedCount  -> {
-                    Toast.makeText(this, "Lottery complete: sent " + invitedCount + "invite(s)", Toast.LENGTH_SHORT).show();
-                    loadEvent();
+                invitedCount -> {
+                    Toast.makeText(this, "Lottery complete: sent " + invitedCount + " invite(s)", Toast.LENGTH_SHORT).show();
+
+                    currentEvent = event;
+                    setupOrganizerActions(event);
+
                     if (btnBeginLotterySelection != null) {
                         btnBeginLotterySelection.setEnabled(true);
                     }
+
+                    loadEvent();
                 },
                 e -> {
                     Toast.makeText(this, "Failed to run lottery", Toast.LENGTH_SHORT).show();
                     Log.e(MY_TAG, "Lottery selection failed: " + e.getMessage(), e);
+
                     if (btnBeginLotterySelection != null) {
                         btnBeginLotterySelection.setEnabled(true);
                     }

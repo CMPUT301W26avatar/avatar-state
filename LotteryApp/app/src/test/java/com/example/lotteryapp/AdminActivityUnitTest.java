@@ -6,13 +6,11 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import android.content.Intent;
 import android.view.View;
 import android.widget.ImageButton;
 
-import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -20,9 +18,11 @@ import com.example.lotteryapp.activities.AdminActivity;
 import com.example.lotteryapp.activities.PromoteNewAdminActivity;
 import com.example.lotteryapp.fragments.AdminListFragment;
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.NotificationLogStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.button.MaterialButton;
@@ -47,6 +47,7 @@ import java.util.List;
  * 1. Close button finishes the activity
  * 2. Promote button launches PromoteNewAdminActivity
  * 3. Tab layout is properly populated
+ * 4. Admin list fragments populate correctly for supported tabs
  *
  * Robolectric allows us to inspect activity state and launched intents.
  */
@@ -56,6 +57,7 @@ public class AdminActivityUnitTest {
 
     private UserStorage mockUserStorage;
     private EventStorage mockEventStorage;
+    private NotificationLogStorage mockNotificationLogStorage;
 
     @Before
     public void setUp() {
@@ -63,9 +65,11 @@ public class AdminActivityUnitTest {
 
         mockUserStorage = mock(UserStorage.class);
         mockEventStorage = mock(EventStorage.class);
+        mockNotificationLogStorage = mock(NotificationLogStorage.class);
 
         ServiceLocator.setUserStorageForTests(mockUserStorage);
         ServiceLocator.setEventStorageForTests(mockEventStorage);
+        ServiceLocator.setNotificationLogStorageForTests(mockNotificationLogStorage);
     }
 
     @After
@@ -73,8 +77,9 @@ public class AdminActivityUnitTest {
         ServiceLocator.reset();
     }
 
-
-    // verify the close button exits the activity
+    /**
+     * Verify the close button exits the activity.
+     */
     @Test
     public void closeButtonFinishesActivity() {
         AdminActivity activity = Robolectric.buildActivity(AdminActivity.class)
@@ -86,14 +91,14 @@ public class AdminActivityUnitTest {
         ImageButton btnClose = activity.findViewById(R.id.btn_close_admin);
         assertNotNull(btnClose);
 
-        // click close
         btnClose.performClick();
 
-        // assert Activity finishes
         assertTrue(activity.isFinishing());
     }
 
-    // verify clicking promote opens PromoteNewAdminActivity
+    /**
+     * Verify clicking promote opens PromoteNewAdminActivity.
+     */
     @Test
     public void promoteButtonLaunchesActivity() {
         AdminActivity activity = Robolectric.buildActivity(AdminActivity.class)
@@ -105,16 +110,16 @@ public class AdminActivityUnitTest {
         MaterialButton btnPromote = activity.findViewById(R.id.btn_admin_promote);
         assertNotNull(btnPromote);
 
-        // click promote
         btnPromote.performClick();
 
-        // assert PromoteNewAdminActivity launches
         Intent started = org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity();
         assertNotNull(started);
         assertEquals(PromoteNewAdminActivity.class.getName(), started.getComponent().getClassName());
     }
 
-    // verify the activity sets up the 3 expected tabs
+    /**
+     * Verify the activity sets up the expected tabs, now including Notification Log.
+     */
     @Test
     public void activityDisplaysExpectedTabs() {
         AdminActivity activity = Robolectric.buildActivity(AdminActivity.class)
@@ -126,14 +131,16 @@ public class AdminActivityUnitTest {
         TabLayout tabLayout = activity.findViewById(R.id.tab_layout);
         assertNotNull(tabLayout);
 
-        // assert the tab layout is properly populated with Events, Profiles and Images
-        assertEquals(3, tabLayout.getTabCount());
+        assertEquals(4, tabLayout.getTabCount());
         assertEquals("Events", String.valueOf(tabLayout.getTabAt(0).getText()));
         assertEquals("Profiles", String.valueOf(tabLayout.getTabAt(1).getText()));
         assertEquals("Images", String.valueOf(tabLayout.getTabAt(2).getText()));
+        assertEquals("Notification Log", String.valueOf(tabLayout.getTabAt(3).getText()));
     }
 
-    // verify that the profile tab populates the recycler view with user profiles
+    /**
+     * Verify that the profile tab populates the recycler view with user profiles.
+     */
     @Test
     public void profilesTabIsPopulated() {
         User user1 = mock(User.class);
@@ -148,13 +155,11 @@ public class AdminActivityUnitTest {
 
         AdminListFragment fragment = attachFragment(AdminListFragment.TYPE_PROFILES);
 
-        // assert our two test users are populated in the recycler view
         RecyclerView recyclerView = fragment.requireView().findViewById(R.id.recycler_view);
         assertNotNull(recyclerView);
         assertNotNull(recyclerView.getAdapter());
         assertEquals(2, recyclerView.getAdapter().getItemCount());
 
-        // assert UI elements from previous screen are gone
         View progressBar = fragment.requireView().findViewById(R.id.progress_bar);
         View emptyView = fragment.requireView().findViewById(R.id.tv_empty);
 
@@ -162,7 +167,9 @@ public class AdminActivityUnitTest {
         assertEquals(View.GONE, emptyView.getVisibility());
     }
 
-    // verify that the events tab populates the recycler view with test events
+    /**
+     * Verify that the events tab populates the recycler view with test events.
+     */
     @Test
     public void eventsTabIsPopulated() {
         Event event1 = mock(Event.class);
@@ -177,13 +184,11 @@ public class AdminActivityUnitTest {
 
         AdminListFragment fragment = attachFragment(AdminListFragment.TYPE_EVENTS);
 
-        // assert our two test events are populated in the recycler view
         RecyclerView recyclerView = fragment.requireView().findViewById(R.id.recycler_view);
         assertNotNull(recyclerView);
         assertNotNull(recyclerView.getAdapter());
         assertEquals(2, recyclerView.getAdapter().getItemCount());
 
-        // assert UI elements from previous screen are gone
         View progressBar = fragment.requireView().findViewById(R.id.progress_bar);
         View emptyView = fragment.requireView().findViewById(R.id.tv_empty);
 
@@ -191,7 +196,38 @@ public class AdminActivityUnitTest {
         assertEquals(View.GONE, emptyView.getVisibility());
     }
 
-    // helper: mock an activity the fragment belongs to and attach the test fragment to it
+    /**
+     * Verify that the notification log tab populates the recycler view with logs.
+     */
+    @Test
+    public void notificationLogsTabIsPopulated() {
+        NotificationLog log1 = mock(NotificationLog.class);
+        NotificationLog log2 = mock(NotificationLog.class);
+        List<NotificationLog> logs = Arrays.asList(log1, log2);
+
+        doAnswer(invocation -> {
+            OnSuccessListener<List<NotificationLog>> success = invocation.getArgument(0);
+            success.onSuccess(logs);
+            return null;
+        }).when(mockNotificationLogStorage).getAllNotificationLogs(any(), any());
+
+        AdminListFragment fragment = attachFragment(AdminListFragment.TYPE_NOTIFICATION_LOGS);
+
+        RecyclerView recyclerView = fragment.requireView().findViewById(R.id.recycler_view);
+        assertNotNull(recyclerView);
+        assertNotNull(recyclerView.getAdapter());
+        assertEquals(2, recyclerView.getAdapter().getItemCount());
+
+        View progressBar = fragment.requireView().findViewById(R.id.progress_bar);
+        View emptyView = fragment.requireView().findViewById(R.id.tv_empty);
+
+        assertEquals(View.GONE, progressBar.getVisibility());
+        assertEquals(View.GONE, emptyView.getVisibility());
+    }
+
+    /**
+     * Helper: attach an AdminListFragment of the given type to a host activity.
+     */
     private AdminListFragment attachFragment(String type) {
         FragmentActivity activity = Robolectric.buildActivity(FragmentActivity.class)
                 .create()
