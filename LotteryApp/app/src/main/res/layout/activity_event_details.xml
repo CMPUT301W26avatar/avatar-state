@@ -73,8 +73,8 @@
                         android:layout_width="8dp"
                         android:layout_height="8dp"
                         android:layout_margin="4dp"
-                        android:background="@drawable/bg_tag"
-                        android:alpha="0.3" />
+                        android:alpha="0.3"
+                        android:background="@drawable/bg_tag" />
 
                     <View
                         android:layout_width="8dp"
@@ -86,22 +86,22 @@
                         android:layout_width="8dp"
                         android:layout_height="8dp"
                         android:layout_margin="4dp"
-                        android:background="@drawable/bg_tag"
-                        android:alpha="0.3" />
+                        android:alpha="0.3"
+                        android:background="@drawable/bg_tag" />
 
                     <View
                         android:layout_width="8dp"
                         android:layout_height="8dp"
                         android:layout_margin="4dp"
-                        android:background="@drawable/bg_tag"
-                        android:alpha="0.3" />
+                        android:alpha="0.3"
+                        android:background="@drawable/bg_tag" />
 
                     <View
                         android:layout_width="8dp"
                         android:layout_height="8dp"
                         android:layout_margin="4dp"
-                        android:background="@drawable/bg_tag"
-                        android:alpha="0.3" />
+                        android:alpha="0.3"
+                        android:background="@drawable/bg_tag" />
                 </LinearLayout>
 
             </androidx.constraintlayout.widget.ConstraintLayout>
@@ -141,14 +141,34 @@
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
-                <com.google.android.material.textview.MaterialTextView
-                    android:id="@+id/tv_location"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:id="@+id/layout_location_row"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Location"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <com.google.android.material.textview.MaterialTextView
+                        android:id="@+id/tv_location"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Location"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_view_event_map"
+                        style="@style/Widget.AppCompat.Button"
+                        app:backgroundTint="@color/material_dynamic_primary70"
+                        android:layout_width="80dp"
+                        android:layout_height="wrap_content"
+                        app:cornerRadius="12dp"
+                        android:text="Map"
+                        android:visibility="gone"
+                        />
+                </LinearLayout>
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/tv_description"
@@ -174,8 +194,78 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="48dp"
                     android:text="Criteria/Guidelines"
-                    android:textStyle="bold"
-                    android:textAppearance="?attr/textAppearanceBodyMedium" />
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textStyle="bold" />
+
+                <!-- List of Entrants/Waitlist/Declined/ETC -->
+                <LinearLayout
+                    android:id="@+id/list_of_x_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="48dp"
+                    android:orientation="vertical"
+                    android:visibility="gone"> <!-- Default GONE, VISIBLE when user is an ORGANIZER -->
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/tv_list_of_entrants"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textAppearance="?attr/textAppearanceHeadlineSmall"
+                            android:textStyle="bold"
+                            app:layout_constraintBottom_toTopOf="@+id/list_of_entrants"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                        <LinearLayout
+                            android:id="@+id/list_of_entrants"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/tv_list_of_entrants">
+
+
+                        </LinearLayout>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                    <androidx.constraintlayout.widget.ConstraintLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <com.google.android.material.textview.MaterialTextView
+                            android:id="@+id/tv_list_of_waitlisted"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text=""
+                            android:textAppearance="?attr/textAppearanceHeadlineSmall"
+                            android:textStyle="bold"
+                            app:layout_constraintBottom_toTopOf="@+id/list_of_waitlisted"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                        <LinearLayout
+                            android:id="@+id/list_of_waitlisted"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toBottomOf="@+id/tv_list_of_waitlisted">
+
+                        </LinearLayout>
+                    </androidx.constraintlayout.widget.ConstraintLayout>
+
+                </LinearLayout>
+
 
                 <!-- Admin Info Section -->
                 <LinearLayout
@@ -261,16 +351,33 @@
                 app:cornerRadius="12dp"
                 app:icon="@drawable/ic_leave" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_begin_lottery_selection"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingVertical="12dp"
-                android:text="Begin Lottery Selection"
-                android:visibility="gone"
-                app:cornerRadius="12dp"
-                app:icon="@drawable/ic_close"  />
+                android:orientation="vertical">
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_begin_lottery_selection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingVertical="12dp"
+                    android:text="Begin Lottery Selection"
+                    android:visibility="gone"
+                    app:cornerRadius="12dp"
+                    app:icon="@drawable/ic_close"  />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_show_invites_dashboard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingVertical="12dp"
+                    android:text="Show Invites Dashboard"
+                    android:visibility="gone"
+                    app:cornerRadius="12dp"
+                    app:icon="@drawable/ic_check_mark" />
+
+            </LinearLayout>
+            
             <LinearLayout
                 android:id="@+id/invitations_layout"
                 android:layout_width="match_parent"

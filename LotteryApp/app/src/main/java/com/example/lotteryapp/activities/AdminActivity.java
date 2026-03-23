@@ -7,6 +7,7 @@ import android.text.TextWatcher;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -17,6 +18,7 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.fragments.AdminListFragment;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.tabs.TabLayout;
@@ -67,7 +69,7 @@ public class AdminActivity extends AppCompatActivity {
         viewPager.setAdapter(new FragmentStateAdapter(this) {
 
             /**
-             * differentiated create fragment for each fragment type
+             * Creates the fragment for each admin tab.
              */
             @NonNull
             @Override
@@ -75,12 +77,12 @@ public class AdminActivity extends AppCompatActivity {
                 String type;
                 if (position == 0) {
                     type = AdminListFragment.TYPE_EVENTS;
-                }
-                else if (position == 1) {
+                } else if (position == 1) {
                     type = AdminListFragment.TYPE_PROFILES;
-                }
-                else {
+                } else if (position == 2) {
                     type = AdminListFragment.TYPE_IMAGES;
+                } else {
+                    type = AdminListFragment.TYPE_NOTIFICATION_LOGS;
                 }
 
                 AdminListFragment fragment = AdminListFragment.newInstance(type);
@@ -88,39 +90,53 @@ public class AdminActivity extends AppCompatActivity {
                 return fragment;
             }
 
-            /// hardcoded return 3
+            /**
+             * Returns the number of admin tabs.
+             */
             @Override
             public int getItemCount() {
-                return 3;
+                return 4;
             }
         });
 
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             if (position == 0) {
                 tab.setText("Events");
-            }
-            else if (position == 1) {
+            } else if (position == 1) {
                 tab.setText("Profiles");
-            }
-            else {
+            } else if (position == 2) {
                 tab.setText("Images");
+            } else  {
+                tab.setText("Notification Log");
             }
         }).attach();
 
         etFilter.addTextChangedListener(new TextWatcher() {
-            ///  text watcher methods
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 currentFilter = s.toString();
                 applyFilterToCurrent(viewPager.getCurrentItem());
             }
+
             @Override
             public void afterTextChanged(Editable s) {}
         });
 
         btnSort.setOnClickListener(v -> showSortDialog(viewPager.getCurrentItem()));
+
+        viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                applyFilterToCurrent(position);
+                AdminListFragment fragment = fragments.get(position);
+                if (fragment != null) {
+                    fragment.setSortAscending(sortAscending);
+                }
+            }
+        });
     }
 
 /**

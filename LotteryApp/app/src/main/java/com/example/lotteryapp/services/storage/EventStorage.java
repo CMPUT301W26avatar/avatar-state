@@ -1,8 +1,13 @@
 package com.example.lotteryapp.services.storage;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.EventAddress;
+import com.example.lotteryapp.models.EventJoinedMap;
+import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.models.UserAddress;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentReference;
@@ -12,6 +17,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.Transaction;
 import com.google.firebase.firestore.WriteBatch;
 
@@ -20,11 +26,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Database storage and retrieval layer with respect to Admins
- * Admins have they own firebase collection "admin" with subcollections "current" and "requested"
+/** Database storage and retrieval layer with respect to Events
+ * Events have their own firebase collection "events"
+ * Event addresses are stored under:
+ *   /events/{eventId}/geo/address
  * Call via ServiceLocator
  */
-
 public class EventStorage {
 
     private final FirebaseFirestore db;
@@ -34,48 +41,182 @@ public class EventStorage {
     }
 
     /** firebase retrieval
-     * returns an Event document by the parameter eventId
+     * returns an Event document by the primary key eventId
      * Synchronous
      */
     private DocumentReference eventDoc(String eventId) {
         return db.collection("events").document(eventId);
     }
 
-    /** firebase storage
-     * Takes in an Event as a parameter and creates/upserts it into the database
-     * Transaction ensures the createdAt value is only set once.
+    /** firebase retrieval
+     * returns an EventAddress document by the primary key eventId
+     * Stored under /events/{eventId}/geo/{eventId}
      * Synchronous
      */
-    public void upsertEvent(Event event) {
-        final DocumentReference ref = eventDoc(event.getEventId());
-        db.runTransaction(new Transaction.Function<Void>() {
-            @Override
-            public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
-                DocumentSnapshot snapshot = transaction.get(ref);
-                Map<String, Object> data = eventToMap(event);
+    private DocumentReference eventAddressDoc(String eventId) {
+        return eventDoc(eventId)
+                .collection("geo")
+                .document("address");
+    }
 
-                if (!snapshot.exists()) {
-                    transaction.set(ref, data);
-                } else {
-                    data.remove("createdAt");
-                    data.put("updatedAt", FieldValue.serverTimestamp());
-                    transaction.update(ref, data);
-                }
-                return null;
-            }
-        });
+    /**
+     * returns an EventAddress document by the composite key eventId+userId.
+     * Stored under /events/{eventId}/joined_map/{uid}
+     * Synchronous
+     */
+    private DocumentReference eventJoinedMapDoc(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return eventDoc(eventId)
+                .collection("joined_map")
+                .document(uid);
+    }
+
+
+    /** firebase storage
+     * Takes in an Event as a parameter and creates/upserts it into the database.
+     * Transaction ensures the createdAt value is only set once.
+     * Address is stored separately under /geo/address and does not affect query success.
+     * Asynchronous
+     */
+    public void upsertEvent(
+            Event event,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        final DocumentReference ref = eventDoc(event.getEventId());
+
+        db.runTransaction(new Transaction.Function<Void>() {
+                    @Override
+                    public Void apply(@NonNull Transaction transaction) throws FirebaseFirestoreException {
+                        DocumentSnapshot snapshot = transaction.get(ref);
+                        Map<String, Object> data = eventToMap(event);
+
+                        if (!snapshot.exists()) {
+                            transaction.set(ref, data);
+                        } else {
+                            data.remove("createdAt");
+                            data.put("updatedAt", FieldValue.serverTimestamp());
+                            transaction.update(ref, data);
+                        }
+                        return null;
+                    }
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * firebase modify
+     * Sets or updates the EventAddress fields for an event
+     * Optional: if address is null the address document is removed
+     */
+    public void setEventAddress(
+            String eventId,
+            @Nullable EventAddress address,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (address == null) {
+            eventAddressDoc(eventId)
+                    .delete()
+                    .addOnSuccessListener(onSuccess)
+                    .addOnFailureListener(onFailure);
+            return;
+        }
+
+        Map<String, Object> data = eventAddressToMap(address);
+        data.put("updatedAt", FieldValue.serverTimestamp());
+
+        eventAddressDoc(eventId)
+                .set(data, SetOptions.merge())
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Creates or updates the joined_map document for a user for an event.
+     * The stored address is a snapshot of the user's chosen address at join time.
+     */
+    public void setEventJoinedMap(
+            @NonNull String eventId,
+            @NonNull EventJoinedMap joinedMap,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        UserAddress joinedFrom = joinedMap.getJoinedFrom();
+
+        if (joinedFrom == null) {
+            onFailure.onFailure(new IllegalArgumentException("joinedFrom address required"));
+            return;
+        }
+
+        if (joinedFrom.getUid() == null || joinedFrom.getUid().trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("joinedFrom uid required"));
+            return;
+        }
+
+        Map<String, Object> data = eventJoinedMapToMap(joinedMap);
+        data.put("updatedAt", FieldValue.serverTimestamp());
+
+        eventJoinedMapDoc(eventId, joinedFrom.getUid())
+                .set(data, SetOptions.merge())
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Removes the joined_map document for a user for an event.
+     */
+    public void removeEventJoinedMap(
+            @NonNull String eventId,
+            @NonNull String uid,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        eventJoinedMapDoc(eventId, uid)
+                .delete()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Returns all joined_map entries for an event.
+     */
+    public void getEventJoinedMapEntries(
+            @NonNull String eventId,
+            OnSuccessListener<List<EventJoinedMap>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        eventDoc(eventId)
+                .collection("joined_map")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<EventJoinedMap> entries = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        EventJoinedMap entry = documentToEventJoinedMap(doc, eventId);
+                        if (entry != null) {
+                            entries.add(entry);
+                        }
+                    }
+                    onSuccess.onSuccess(entries);
+                })
+                .addOnFailureListener(onFailure);
     }
 
     /** firebase storage
-     * Maps the attributes of an event into a Map to pass into the database (ref.update)
+     * Maps the attributes of an event into a Map to pass into the database
      * Synchronous
      */
     private Map<String, Object> eventToMap(Event event) {
+        event.generateKeywords(); // Generate keywords before saving
         Map<String, Object> data = new HashMap<>();
         data.put("eventId", event.getEventId());
         data.put("organizerId", event.getOrganizerId());
         data.put("title", event.getTitle());
         data.put("status", event.getStatus().name());
+        data.put("hasDrawnLottery", event.hasDrawnLottery());
+        data.put("hasGeoConstraint", event.hasGeoConstraint());
         data.put("eventCapacity", event.getEventCapacity());
         data.put("waitlistCapacity", event.getWaitlistCapacity());
         data.put("enrolledCount", event.getEnrolledCount());
@@ -86,18 +227,55 @@ public class EventStorage {
         data.put("eventDateMs", event.getEventDateMs());
         data.put("regStartMs", event.getRegStartMs());
         data.put("regEndMs", event.getRegEndMs());
-        data.put("location", event.getLocation());
-        data.put("createdAt", FieldValue.serverTimestamp()); // currently no use case - remove for part 4 if still not used
-        data.put("updatedAt", FieldValue.serverTimestamp()); // currently no use case - remove for part 4 if still not used
+        data.put("createdAt", FieldValue.serverTimestamp());
+        data.put("updatedAt", FieldValue.serverTimestamp());
         data.put("description", event.getDescription());
+        data.put("keywords", event.getKeywords()); // Save keywords to Firestore
         return data;
     }
 
+    /** firebase storage
+     * Maps EventAddress into a Map to pass into the database
+     * Synchronous
+     */
+    private Map<String, Object> eventAddressToMap(EventAddress eventAddress) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("eventId", eventAddress.getEventId());
+        data.put("location", eventAddress.getLocation());
+        data.put("latitude", eventAddress.getLatitude());
+        data.put("longitude", eventAddress.getLongitude());
+        data.put("radiusKm", eventAddress.getRadiusKm());
+        return data;
+    }
+
+    /**
+     * Maps EventJoinedMap into a flat Firestore payload.
+     * UserAddress fields are stored as a snapshot at join time.
+     */
+    private Map<String, Object> eventJoinedMapToMap(EventJoinedMap joinedMap) {
+        Map<String, Object> data = new HashMap<>();
+        UserAddress joinedFrom = joinedMap.getJoinedFrom();
+
+        data.put("eventId", joinedMap.getEventId());
+        data.put("uid", joinedFrom.getUid());
+        data.put("location", joinedFrom.getLocation());
+        data.put("latitude", joinedFrom.getLatitude());
+        data.put("longitude", joinedFrom.getLongitude());
+
+        if (joinedMap.getJoinedAtMs() != null) {
+            data.put("joinedAtMs", joinedMap.getJoinedAtMs());
+        } else {
+            data.put("joinedAtMs", System.currentTimeMillis());
+        }
+
+        data.put("joinedAt", FieldValue.serverTimestamp());
+        return data;
+    }
 
     /** firebase retrieval
-     * Returns a single Event from the database as a Document inside of OnSuccess
+     * Returns a single Event from the database
      * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns Document pertaining to Event, asynchronously
+     * Address hydration is best-effort and will not cause the main event query to fail.
      */
     public void getEvent(
             String eventId,
@@ -111,15 +289,45 @@ public class EventStorage {
                         onFailure.onFailure(new Exception("Event not found: " + eventId));
                         return;
                     }
-                    onSuccess.onSuccess(documentToEvent(snapshot));
+
+                    Event event = documentToEvent(snapshot);
+
+                    eventAddressDoc(eventId)
+                            .get()
+                            .addOnSuccessListener(addressSnapshot -> {
+                                if (addressSnapshot.exists()) {
+                                    event.setAddress(documentToEventAddress(addressSnapshot, eventId));
+                                }
+                                onSuccess.onSuccess(event);
+                            })
+                            .addOnFailureListener(e -> onSuccess.onSuccess(event));
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Returns only the event address subdocument for the given event.
+     * Returns null when the event has no geo/address document.
+     */
+    public void getEventAddress(
+            @NonNull String eventId,
+            OnSuccessListener<EventAddress> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        eventAddressDoc(eventId)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    if (!snapshot.exists()) {
+                        onSuccess.onSuccess(null);
+                        return;
+                    }
+                    onSuccess.onSuccess(documentToEventAddress(snapshot, eventId));
                 })
                 .addOnFailureListener(onFailure);
     }
 
     /** firebase retrieval helper
      * Returns a single Event from the parameter doc (database DocumentSnapshot)
-     * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns Event outlined in the DocumentSnapshot, asynchronously
      */
     private Event documentToEvent(DocumentSnapshot doc) {
         String organizerId = doc.getString("organizerId");
@@ -139,7 +347,6 @@ public class EventStorage {
         String rawStatus = doc.getString("status");
         if (rawStatus != null) {
             try {
-                //"OPEN" -> "REG_OPEN" to prevent crashes
                 if ("OPEN".equals(rawStatus)) {
                     event.setStatus(Event.EventStatus.REG_OPEN);
                 } else {
@@ -150,9 +357,14 @@ public class EventStorage {
             }
         }
 
+        Boolean hasDrawnLottery = doc.getBoolean("hasDrawnLottery");
+        event.setHasDrawnLottery(hasDrawnLottery != null && hasDrawnLottery);
+
+        Boolean hasGeoConstraint = doc.getBoolean("hasGeoConstraint");
+        event.setHasGeoConstraint(hasGeoConstraint != null && hasGeoConstraint);
+
         event.setTitle(doc.getString("title"));
         event.setPosterUrl(doc.getString("posterUrl"));
-        event.setLocation(doc.getString("location"));
 
         Long enrolledCount = doc.getLong("enrolledCount");
         event.setEnrolledCount(enrolledCount == null ? 0 : enrolledCount.intValue());
@@ -184,23 +396,121 @@ public class EventStorage {
         return event;
     }
 
+    /** firebase retrieval helper
+     * Returns a single EventAddress from the address doc
+     */
+    private EventAddress documentToEventAddress(DocumentSnapshot doc, String eventId) {
+        String location = doc.getString("location");
+        Double latitude = doc.getDouble("latitude");
+        Double longitude = doc.getDouble("longitude");
+
+        EventAddress address = new EventAddress(eventId, location, latitude, longitude);
+
+        Long radiusKm = doc.getLong("radiusKm");
+        if (radiusKm != null) {
+            address.setRadiusKm(radiusKm.intValue());
+        }
+
+        return address;
+    }
+
+    /**
+     * Builds one EventJoinedMap from a joined_map document.
+     */
+    @Nullable
+    private EventJoinedMap documentToEventJoinedMap(
+            @NonNull DocumentSnapshot doc,
+            @NonNull String eventId
+    ) {
+        String uid = doc.getString("uid");
+        Double latitude = doc.getDouble("latitude");
+        Double longitude = doc.getDouble("longitude");
+        String location = doc.getString("location");
+        Long joinedAtMs = doc.getLong("joinedAtMs");
+
+        if (uid == null) {
+            return null;
+        }
+
+        UserAddress joinedFrom = new UserAddress(uid, location, latitude, longitude);
+        return new EventJoinedMap(eventId, joinedFrom, joinedAtMs);
+    }
+
+    /**firebase retrieval helper
+     *  Best-effort address population for a list.
+     *  Address read failures do not fail the overall event query.
+     *      - read failures skipped by going Event by Event and performing a recursive call on
+     *        index + 1 when failing
+     */
+    private void populateEventAddressesSafely(
+            List<Event> events,
+            int index,
+            OnSuccessListener<List<Event>> onSuccess
+    ) {
+        if (index >= events.size()) {
+            onSuccess.onSuccess(events);
+            return;
+        }
+
+        Event event = events.get(index);
+        eventAddressDoc(event.getEventId())
+                .get()
+                .addOnSuccessListener(addressSnapshot -> {
+                    if (addressSnapshot.exists()) {
+                        event.setAddress(documentToEventAddress(addressSnapshot, event.getEventId()));
+                    }
+                    populateEventAddressesSafely(events, index + 1, onSuccess);
+                })
+                .addOnFailureListener(e ->
+                        populateEventAddressesSafely(events, index + 1, onSuccess)
+                );
+    }
+
+    /** firebase retrieval helper
+     * Runs a query, converts docs to events, then best-effort hydrates their address subdocuments.
+     * Event queries should never fail because an address subdocument is missing or unreadable.
+     */
+    private void queryEventsWithAddresses(
+            Query query,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        query.get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Event> events = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        events.add(documentToEvent(doc));
+                    }
+
+                    if (events.isEmpty()) {
+                        onSuccess.onSuccess(events);
+                        return;
+                    }
+
+                    populateEventAddressesSafely(events, 0, onSuccess);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
     /** firebase modify
      * Deletes a single document in firebase keyed by the parameter eventId
-     * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns nothing, asynchronously or synchronously
+     * Address subdocument delete is best-effort.
      */
     public void deleteEvent(String eventId) {
+        eventAddressDoc(eventId).delete();
         eventDoc(eventId).delete();
     }
+
+
 
     /** firebase boolean retrieval
      * Returns true or false for if the current user is the organizer for any event
      * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns bool, asynchronously
      */
-    public void isUserEventOrganizer(String uuid,
-                                     OnSuccessListener<Boolean> onSuccess,
-                                     OnFailureListener onFailure
+    public void isUserEventOrganizer(
+            String uuid,
+            OnSuccessListener<Boolean> onSuccess,
+            OnFailureListener onFailure
     ) {
         db.collection("events")
                 .whereEqualTo("organizerId", uuid)
@@ -210,101 +520,89 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
-
     /** firebase retrieval
      * Returns all events by the organizerId given to the method as a parameter
      * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns list of Events, asynchronously
      */
-    public void getEventsByOrganizer(String organizerId, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
-        db.collection("events").whereEqualTo("organizerId", organizerId).get()
-                .addOnSuccessListener(querySnapshot -> {List<Event> events = new ArrayList<>();
-                    for (QueryDocumentSnapshot doc : querySnapshot) {
-                        events.add(documentToEvent(doc));
-                    }
-                    onSuccess.onSuccess(events);
-                })
-                .addOnFailureListener(onFailure);
+    public void getEventsByOrganizer(
+            String organizerId,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        Query query = db.collection("events").whereEqualTo("organizerId", organizerId);
+        queryEventsWithAddresses(query, onSuccess, onFailure);
     }
 
     /** firebase retrieval
      * Returns all events in the database
      * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns list of Events, asynchronously
      */
-    public void getAllEvents(OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
-        db.collection("events").get()
-                .addOnSuccessListener(querySnapshot -> {
-                    List<Event> events = new ArrayList<>();
-                    for (QueryDocumentSnapshot doc : querySnapshot) {
-                        events.add(documentToEvent(doc));
-                    }
-                    onSuccess.onSuccess(events);
-                })
-                .addOnFailureListener(onFailure);
+    public void getAllEvents(
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        Query query = db.collection("events");
+        queryEventsWithAddresses(query, onSuccess, onFailure);
     }
 
     /** firebase modify
      * Deletes all events in the database pertaining to the organizerId given as a parameter
      * for use inside of cascadeDeleteUserProfile
      * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns nothing, asynchronously or synchronously
      */
-    public void delAllOrganizerEvents(String organizerId,
-                                      OnSuccessListener<Void> onSuccess,
-                                      OnFailureListener onFailure
+    public void delAllOrganizerEvents(
+            String organizerId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
     ) {
         db.collection("events")
                 .whereEqualTo("organizerId", organizerId)
                 .get()
                 .addOnSuccessListener(eventSnapshot -> {
-                    if (eventSnapshot.isEmpty()) { // no hosted events found
+                    if (eventSnapshot.isEmpty()) {
                         onSuccess.onSuccess(null);
                         return;
                     }
-                    // batch delete hosted event docs
-                    WriteBatch batch = db.batch(); // batch delete hosted event docs
+
+                    WriteBatch batch = db.batch();
                     for (QueryDocumentSnapshot eventDoc : eventSnapshot) {
                         batch.delete(eventDoc.getReference());
                     }
                     batch.commit().addOnSuccessListener(onSuccess).addOnFailureListener(onFailure);
                 })
-                .addOnFailureListener(onFailure); // query failure
+                .addOnFailureListener(onFailure);
     }
 
     /** firebase retrieval
      * Returns all REG_OPEN events in the database
-     *      REG_OPEN: registration window open
+     * REG_OPEN: registration window open
      * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns list of Events, asynchronously
      */
-    public void listEventsRegOpen(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
-        // define query
+    public void listEventsRegOpen(
+            Integer limit,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
         Query query = db.collection("events")
                 .whereEqualTo("status", Event.EventStatus.REG_OPEN.name());
 
-        // optional limit to how many events to return
         if (limit != null && limit > 0) {
             query = query.limit(limit);
         }
 
-        // run the query and return the results on success
-        query.get().addOnSuccessListener(qs -> {
-            List<Event> events = new ArrayList<>();
-            for (QueryDocumentSnapshot doc : qs) {
-                events.add(documentToEvent(doc));
-            }
-            onSuccess.onSuccess(events);
-        }).addOnFailureListener(onFailure);
+        queryEventsWithAddresses(query, onSuccess, onFailure);
     }
 
     /** firebase retrieval
      * Returns all REG_CLOSED events in the database
-     *      REG_CLOSED: registration end date passed
+     * REG_CLOSED: registration end date passed
      * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns list of Events, asynchronously
      */
-    public void listEventsRegClosed(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+    public void listEventsRegClosed(
+            Integer limit,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
         Query query = db.collection("events")
                 .whereEqualTo("status", Event.EventStatus.REG_CLOSED.name());
 
@@ -312,28 +610,19 @@ public class EventStorage {
             query = query.limit(limit);
         }
 
-        query.get().addOnSuccessListener(qs -> {
-            List<Event> events = new ArrayList<>();
-
-            android.util.Log.d("EventStorage", "Closed query count = " + qs.size());
-
-            for (QueryDocumentSnapshot doc : qs) {
-                android.util.Log.d("EventStorage",
-                        "doc=" + doc.getId() + ", status=" + doc.get("status"));
-                events.add(documentToEvent(doc));
-            }
-
-            onSuccess.onSuccess(events);
-        }).addOnFailureListener(onFailure);
+        queryEventsWithAddresses(query, onSuccess, onFailure);
     }
 
     /** firebase retrieval
      * Returns all REG_FULL events in the database
-     *      REG_FULL: registration window open, but waitlist is full
+     * REG_FULL: registration window open, but waitlist is full
      * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns list of Events, asynchronously
      */
-    public void listEventsRegFull(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+    public void listEventsRegFull(
+            Integer limit,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
         Query query = db.collection("events")
                 .whereEqualTo("status", Event.EventStatus.REG_FULL.name());
 
@@ -341,28 +630,19 @@ public class EventStorage {
             query = query.limit(limit);
         }
 
-        query.get().addOnSuccessListener(qs -> {
-            List<Event> events = new ArrayList<>();
-
-            android.util.Log.d("EventStorage", "Closed query count = " + qs.size());
-
-            for (QueryDocumentSnapshot doc : qs) {
-                android.util.Log.d("EventStorage",
-                        "doc=" + doc.getId() + ", status=" + doc.get("status"));
-                events.add(documentToEvent(doc));
-            }
-
-            onSuccess.onSuccess(events);
-        }).addOnFailureListener(onFailure);
+        queryEventsWithAddresses(query, onSuccess, onFailure);
     }
 
     /** firebase retrieval
      * Returns all REG_UPCOMING events in the database
-     *      REG_UPCOMING: registration start date upcoming
+     * REG_UPCOMING: registration start date upcoming
      * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns list of Events, asynchronously
      */
-    public void listEventsRegUpcoming(Integer limit, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+    public void listEventsRegUpcoming(
+            Integer limit,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
         Query query = db.collection("events")
                 .whereEqualTo("status", Event.EventStatus.REG_UPCOMING.name());
 
@@ -370,18 +650,269 @@ public class EventStorage {
             query = query.limit(limit);
         }
 
-        query.get().addOnSuccessListener(qs -> {
-            List<Event> events = new ArrayList<>();
+        queryEventsWithAddresses(query, onSuccess, onFailure);
+    }
 
-            android.util.Log.d("EventStorage", "Closed query count = " + qs.size());
+    /**
+     * function searchEvents will search using the keywords array
+     * partial word matching.
+     */
+    public void searchEvents(
+            String query,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (query == null || query.trim().isEmpty()) {
+            onSuccess.onSuccess(new ArrayList<>());
+            return;
+        }
 
-            for (QueryDocumentSnapshot doc : qs) {
-                android.util.Log.d("EventStorage",
-                        "doc=" + doc.getId() + ", status=" + doc.get("status"));
-                events.add(documentToEvent(doc));
+        String lowerQuery = query.toLowerCase().trim();
+
+        // Efficient case-insensitive search using array-contains
+        Query searchQuery = db.collection("events")
+                .whereArrayContains("keywords", lowerQuery);
+
+        queryEventsWithAddresses(searchQuery, onSuccess, onFailure);
+    }
+
+    public void getEventsNearUser(
+            @NonNull String uid,
+            @NonNull User.UserAddressMode userAddressMode,
+            int radiusKm,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (uid.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("uid required"));
+            return;
+        }
+
+        if (radiusKm > 6371) { // primitive int resolves radiusKm > 0 to some 0xF....... which is > 6371 outside of two's complement
+            onFailure.onFailure(new IllegalArgumentException("radiusKm must be greater than 0 and less than the radius of the Earth."));
+            return;
+        }
+
+        userAddressDoc(uid, userAddressMode)
+                .get()
+                .addOnSuccessListener(userAddressSnapshot -> {
+                    if (!userAddressSnapshot.exists()) {
+                        onFailure.onFailure(new Exception(
+                                "User address not found for mode: " + userAddressMode.name()
+                        ));
+                        return;
+                    }
+
+                    UserAddress userAddress = documentToUserAddress(userAddressSnapshot, uid);
+
+                    if (userAddress.getLatitude() == null || userAddress.getLongitude() == null) {
+                        onFailure.onFailure(new Exception(
+                                "User address is missing latitude/longitude for mode: " + userAddressMode.name()
+                        ));
+                        return;
+                    }
+
+                    getAllEvents(events -> {
+                        List<Event> nearbyEvents = filterEventsWithinRadius(
+                                userAddress,
+                                events,
+                                radiusKm
+                        );
+                        onSuccess.onSuccess(nearbyEvents);
+                    }, onFailure);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Filters a list of events to only those within the given radius of the user.
+     */
+    public List<Event> filterEventsWithinRadius(
+            @NonNull UserAddress userAddress,
+            @NonNull List<Event> events,
+            int radiusKm
+    ) {
+        List<Event> nearbyEvents = new ArrayList<>();
+
+        for (Event event : events) {
+            EventAddress eventAddress = event.getAddress();
+            if (eventAddress == null) {
+                continue;
             }
 
-            onSuccess.onSuccess(events);
-        }).addOnFailureListener(onFailure);
+            Double eventLat = eventAddress.getLatitude();
+            Double eventLng = eventAddress.getLongitude();
+
+            if (eventLat == null || eventLng == null) {
+                continue;
+            }
+
+            double distanceKm = calculateDistance(
+                    userAddress.getLatitude(),
+                    userAddress.getLongitude(),
+                    eventLat,
+                    eventLng
+            );
+
+            if (distanceKm <= radiusKm) {
+                nearbyEvents.add(event);
+            }
+        }
+
+        return nearbyEvents;
+    }
+
+
+    /**
+     * Returns true when the supplied event has a usable geo/radius restriction.
+     */
+    public boolean eventHasUsableGeoConstraint(@Nullable Event event) {
+        if (event == null) {
+            return false;
+        }
+
+        if (event.isGeoConstraintEnabled()) {
+            return true;
+        }
+
+        EventAddress address = event.getAddress();
+        return address != null
+                && address.getLatitude() != null
+                && address.getLongitude() != null
+                && address.getRadiusKm() != null
+                && address.getRadiusKm() > 0;
+    }
+
+    /**
+     * Returns true when the user address falls inside the event's configured waitlist radius.
+     */
+    public boolean isWithinEventRadius(
+            @Nullable UserAddress userAddress,
+            @Nullable Event event
+    ) {
+        if (userAddress == null || event == null) {
+            return false;
+        }
+
+        return isWithinEventRadius(userAddress, event.getAddress(), eventHasUsableGeoConstraint(event));
+    }
+
+    /**
+     * Returns true when the user address falls inside the supplied event address radius.
+     */
+    public boolean isWithinEventRadius(
+            @Nullable UserAddress userAddress,
+            @Nullable EventAddress eventAddress,
+            boolean hasGeoConstraint
+    ) {
+        if (!hasGeoConstraint) {
+            return true;
+        }
+
+        if (userAddress == null || eventAddress == null) {
+            return false;
+        }
+
+        if (userAddress.getLatitude() == null || userAddress.getLongitude() == null) {
+            return false;
+        }
+
+        if (eventAddress.getLatitude() == null || eventAddress.getLongitude() == null) {
+            return false;
+        }
+
+        Integer radiusKm = eventAddress.getRadiusKm();
+        if (radiusKm == null || radiusKm <= 0) {
+            return false;
+        }
+
+        double distanceKm = calculateDistance(
+                userAddress.getLatitude(),
+                userAddress.getLongitude(),
+                eventAddress.getLatitude(),
+                eventAddress.getLongitude()
+        );
+
+        return distanceKm <= radiusKm;
+    }
+
+    /**
+     * firebase retrieval helper
+     * Returns the user geo document reference for the selected address mode.
+     */
+    private DocumentReference userAddressDoc(
+            @NonNull String uid,
+            @NonNull User.UserAddressMode userAddressMode
+    ) {
+        String addressDocId = userAddressMode == User.UserAddressMode.CURRENT
+                ? "current"
+                : "default";
+
+        return db.collection("users")
+                .document(uid)
+                .collection("geo")
+                .document(addressDocId);
+    }
+
+    /**
+     * firebase retrieval helper
+     * Builds a UserAddress model from the selected user geo document.
+     */
+    private UserAddress documentToUserAddress(
+            @NonNull DocumentSnapshot doc,
+            @NonNull String uid
+    ) {
+        String location = doc.getString("location");
+        Double latitude = doc.getDouble("latitude");
+        Double longitude = doc.getDouble("longitude");
+
+        return new UserAddress(uid, location, latitude, longitude);
+    }
+
+    /**
+     * distance helper: accurate distance between two points (x,y) over a curve with radius earthRadiusKm
+     */
+    // 3. Calculate the Distance Using the Haversine Formula, Harpal Singh, Last Updated: 01/24/2026
+    // https://www.baeldung.com/java-find-distance-between-points
+    public double calculateDistance(double startLat, double startLong, double endLat, double endLong) {
+
+        final double earthRadiusKm = 6371.0;
+
+        double dLat = Math.toRadians((endLat - startLat));
+        double dLong = Math.toRadians((endLong - startLong));
+
+        startLat = Math.toRadians(startLat);
+        endLat = Math.toRadians(endLat);
+
+        double a = haversine(dLat) + Math.cos(startLat) * Math.cos(endLat) * haversine(dLong);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return earthRadiusKm * c;
+    }
+    public double haversine(double val) {
+        return Math.pow(Math.sin(val / 2), 2);
+    }
+
+    /**
+     ** One time migration tool to update all existing events with keywords.
+     */
+    public void syncAllEventKeywords(OnSuccessListener<Void> onSuccess, OnFailureListener onFailure) {
+        getAllEvents(events -> {
+            if (events.isEmpty()) {
+                onSuccess.onSuccess(null);
+                return;
+            }
+
+            WriteBatch batch = db.batch();
+            for (Event event : events) {
+                event.generateKeywords();
+                DocumentReference ref = eventDoc(event.getEventId());
+                batch.update(ref, "keywords", event.getKeywords());
+            }
+
+            batch.commit()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+        }, onFailure);
     }
 }

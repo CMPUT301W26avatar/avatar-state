@@ -185,6 +185,8 @@ public class EventPoolStorage {
                     int invitationCount = eventSnap.getLong("invitationCount") != null ? eventSnap.getLong("invitationCount").intValue() : 0;
                     int waitlistCount = eventSnap.getLong("waitlistCount") != null ? eventSnap.getLong("waitlistCount").intValue() : 0;
                     int waitlistCap = eventSnap.getLong("waitlistCapacity") != null ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
+                    int enrolledCount = eventSnap.getLong("enrolledCount") != null
+                            ? eventSnap.getLong("enrolledCount").intValue() : 0;
 
                     Map<String, Object> data = mapEntrantData(
                             eventId,
@@ -205,9 +207,12 @@ public class EventPoolStorage {
                     eventUpdates.put("invitationCount", invitationCount + 1);
                     eventUpdates.put(
                             "status",
-                            updatedWaitlistCount >= waitlistCap
-                                    ? Event.EventStatus.REG_FULL.name()
-                                    : Event.EventStatus.REG_OPEN.name()
+                            resolveEventStatusAfterChange(
+                                    eventSnap,
+                                    waitlistCount,
+                                    invitationCount,
+                                    enrolledCount
+                            )
                     );
 
                     transaction.update(eventRef, eventUpdates);
@@ -311,6 +316,11 @@ public class EventPoolStorage {
                         throw new IllegalStateException("Entrant is not waitlisted");
                     }
 
+                    int invitationCount = eventSnap.getLong("invitationCount") != null
+                            ? eventSnap.getLong("invitationCount").intValue() : 0;
+                    int enrolledCount = eventSnap.getLong("enrolledCount") != null
+                            ? eventSnap.getLong("enrolledCount").intValue() : 0;
+
                     int waitlistCount = eventSnap.getLong("waitlistCount") != null
                             ? eventSnap.getLong("waitlistCount").intValue() : 0;
                     int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null
@@ -324,9 +334,12 @@ public class EventPoolStorage {
                     updates.put("waitlistCount", updatedWaitlistCount);
                     updates.put(
                             "status",
-                            updatedWaitlistCount >= waitlistCapacity
-                                    ? Event.EventStatus.REG_FULL.name()
-                                    : Event.EventStatus.REG_OPEN.name()
+                            resolveEventStatusAfterChange(
+                                    eventSnap,
+                                    updatedWaitlistCount,
+                                    invitationCount,
+                                    enrolledCount
+                            )
                     );
 
                     transaction.update(eventRef, updates);
@@ -705,10 +718,14 @@ public class EventPoolStorage {
                             transaction.delete(waitlistedRef);
                             waitlistCount = Math.max(0, waitlistCount - 1);
                             updates.put("waitlistCount", waitlistCount);
-                            updates.put("status",
-                                    waitlistCount >= waitlistCapacity
-                                            ? Event.EventStatus.REG_CLOSED.name()
-                                            : Event.EventStatus.REG_OPEN.name()
+                            updates.put(
+                                    "status",
+                                    resolveEventStatusAfterChange(
+                                            eventSnap,
+                                            waitlistCount,
+                                            invitationCount,
+                                            enrolledCount
+                                    )
                             );
                             break;
 
@@ -808,6 +825,36 @@ public class EventPoolStorage {
                 );
             }
         }).addOnFailureListener(onFailure);
+    }
+
+    private String resolveEventStatusAfterChange(
+            DocumentSnapshot eventSnap,
+            int updatedWaitlistCount,
+            int updatedInvitationCount,
+            int updatedEnrolledCount
+    ) {
+        Boolean drawn = eventSnap.getBoolean("hasDrawnLottery");
+        boolean hasDrawnLottery = drawn != null && drawn;
+
+        int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null
+                ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
+
+        int eventCapacity = eventSnap.getLong("eventCapacity") != null
+                ? eventSnap.getLong("eventCapacity").intValue() : 0;
+
+        if (hasDrawnLottery) {
+            if (updatedEnrolledCount >= eventCapacity) {
+                return Event.EventStatus.EVENT_FULL.name();
+            }
+            if (updatedInvitationCount > 0 || updatedEnrolledCount > 0) {
+                return Event.EventStatus.EVENT_OPEN.name();
+            }
+            return Event.EventStatus.REG_CLOSED.name();
+        }
+
+        return updatedWaitlistCount >= waitlistCapacity
+                ? Event.EventStatus.REG_FULL.name()
+                : Event.EventStatus.REG_OPEN.name();
     }
 
 }
