@@ -216,6 +216,7 @@ public class EventStorage {
         data.put("status", event.getStatus().name());
         data.put("hasDrawnLottery", event.hasDrawnLottery());
         data.put("hasGeoConstraint", event.hasGeoConstraint());
+        data.put("privateEvent", event.isPrivateEvent());
         data.put("eventCapacity", event.getEventCapacity());
         data.put("waitlistCapacity", event.getWaitlistCapacity());
         data.put("enrolledCount", event.getEnrolledCount());
@@ -360,6 +361,9 @@ public class EventStorage {
 
         Boolean hasGeoConstraint = doc.getBoolean("hasGeoConstraint");
         event.setHasGeoConstraint(hasGeoConstraint != null && hasGeoConstraint);
+
+        Boolean privateEvent = doc.getBoolean("privateEvent");
+        event.setPrivateEvent(privateEvent != null && privateEvent);
 
         event.setTitle(doc.getString("title"));
         event.setPosterUrl(doc.getString("posterUrl"));
@@ -539,7 +543,7 @@ public class EventStorage {
             OnSuccessListener<List<Event>> onSuccess,
             OnFailureListener onFailure
     ) {
-        Query query = db.collection("events");
+        Query query = db.collection("events").whereEqualTo("privateEvent", false);
         queryEventsWithAddresses(query, onSuccess, onFailure);
     }
 
@@ -582,7 +586,7 @@ public class EventStorage {
             OnFailureListener onFailure
     ) {
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_OPEN.name());
+                .whereEqualTo("status", Event.EventStatus.REG_OPEN.name()).whereEqualTo("privateEvent", false);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);
@@ -602,7 +606,7 @@ public class EventStorage {
             OnFailureListener onFailure
     ) {
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_CLOSED.name());
+                .whereEqualTo("status", Event.EventStatus.REG_CLOSED.name()).whereEqualTo("privateEvent", false);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);
@@ -622,7 +626,7 @@ public class EventStorage {
             OnFailureListener onFailure
     ) {
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_FULL.name());
+                .whereEqualTo("status", Event.EventStatus.REG_FULL.name()).whereEqualTo("privateEvent", false);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);
@@ -642,7 +646,7 @@ public class EventStorage {
             OnFailureListener onFailure
     ) {
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_UPCOMING.name());
+                .whereEqualTo("status", Event.EventStatus.REG_UPCOMING.name()).whereEqualTo("privateEvent", false);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);

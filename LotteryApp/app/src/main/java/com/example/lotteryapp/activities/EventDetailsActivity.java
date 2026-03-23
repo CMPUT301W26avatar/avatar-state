@@ -13,10 +13,15 @@ import static com.example.lotteryapp.models.Event.EventStatus.REG_FULL;
 import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -40,7 +45,9 @@ import com.google.android.material.textview.MaterialTextView;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.lang.reflect.Method;
 
 /**
  * Displays the details of a selected event and provides actions
@@ -75,13 +82,14 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialButton btnBeginLotterySelection;
     private MaterialButton btnViewEventMap;
     private MaterialButton btnShowInvitesDashboard;
+    private MaterialButton btnSendInvite;
     // poster
     private ImageView ivEventPoster;
 
     // Admin Tech Details Views
     private View layoutAdminInfo;
     private TextView tvAdminEventId, tvAdminOrganizerId, tvAdminStatus, tvAdminCapacity,
-            tvAdminWaitlistCap, tvAdminEnrolled, tvAdminWaitlistCount, tvAdminRegStart, tvAdminPosterUrl;
+            tvAdminWaitlistCap, tvAdminEnrolled, tvAdminWaitlistCount, tvAdminRegStart, tvAdminPosterUrl, tvEventVisibilityTag;
 
     private String eventId;
     private String currentUserId;
@@ -164,7 +172,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnBeginLotterySelection = findViewById(R.id.btn_begin_lottery_selection);
         btnViewEventMap = findViewById(R.id.btn_view_event_map);
         btnShowInvitesDashboard = findViewById(R.id.btn_show_invites_dashboard);
-
+        btnSendInvite = findViewById(R.id.btn_send_invite);
         ivEventPoster = findViewById(R.id.iv_event_poster);
 
         // Admin Info
@@ -178,6 +186,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminWaitlistCount = findViewById(R.id.tv_admin_waitlist_count);
         tvAdminRegStart = findViewById(R.id.tv_admin_reg_start);
         tvAdminPosterUrl = findViewById(R.id.tv_admin_poster_url);
+        tvEventVisibilityTag = findViewById(R.id.tv_event_visibility_tag);
     }
 
     /**
@@ -189,7 +198,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 eventId,
                 event -> {
                     this.currentEvent = event;
-                    android.util.Log.d("EventDetailsActivity",
+                    Log.d("EventDetailsActivity",
                             "Event loaded: id=" + currentEvent.getEventId()
                                     + ", title=" + currentEvent.getTitle()
                                     + ", eventDateMs=" + currentEvent.getEventDateMs()
@@ -211,17 +220,23 @@ public class EventDetailsActivity extends AppCompatActivity {
                     if (isOrganizer(event)) {
                         listOfX.setVisibility(VISIBLE);
                         Event.EventStatus status = event.getStatus();
-                        if (status == REG_OPEN || status == REG_FULL || status == REG_CLOSED) {
+                        tvEventVisibilityTag.setBackgroundTintList(
+                                ColorStateList.valueOf(getResources().getColor(R.color.tag_public))
+                        );
+                        if (isPrivateEvent(event)) {
+                            tvEntrants.setText("Invited / Enrolled");
+                            tvEventVisibilityTag.setText("PRIVATE");
+                            tvEventVisibilityTag.setBackgroundTintList(
+                                    ColorStateList.valueOf(getResources().getColor(R.color.tag_private))
+                            );
+                            listEntrants(eventId);
+                        } else if (status == REG_OPEN || status == REG_FULL || status == REG_CLOSED) {
                             listWaitlisted(eventId);
                         } else if (status == EVENT_OPEN || status == EVENT_FULL) {
                             listEntrants(eventId);
-                            // showInvitesDashboard
                         } else if (status == EVENT_CLOSED) {
                             tvEntrants.setText("Final Entrants");
                             listEntrants(eventId);
-                            //showInvitesDashboard
-                        } else {
-                            //showInvitesDashboard
                         }
 
                     } else {
@@ -229,7 +244,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                     }
                 },
                 e -> {
-                    android.util.Log.e("EventDetailsActivity",
+                    Log.e("EventDetailsActivity",
                             "Failed to load event: " + e.getMessage(), e);
                     e.printStackTrace();
                 }
@@ -248,6 +263,56 @@ public class EventDetailsActivity extends AppCompatActivity {
         intent.putExtra(InvitesDashboardActivity.EXTRA_EVENT_ID, eventId);
         startActivity(intent);
     }
+
+    private void openInviteUserSearch() {
+        Intent intent = new Intent(this, SearchUsersToInviteActivity.class);
+        intent.putExtra(EXTRA_EVENT_ID, eventId);
+        startActivity(intent);
+    }
+
+    private boolean isPrivateEvent(Event event) {
+        if (event == null) {
+            return false;
+        }
+        try {
+            Method method = event.getClass().getMethod("isPrivateEvent");
+            Object result = method.invoke(event);
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private void renderPrivateEntrantActions(Event event, Entrant.EntrantStatus status) {
+        btnJoin.setVisibility(View.GONE);
+        btnLeave.setVisibility(View.GONE);
+        invitations_layout.setVisibility(View.GONE);
+        btnBeginLotterySelection.setVisibility(View.GONE);
+        btnViewEventMap.setVisibility(View.GONE);
+
+        if (status == Entrant.EntrantStatus.INVITED) {
+            invitations_layout.setVisibility(VISIBLE);
+            btnAccept.setOnClickListener(v -> acceptInvitation());
+            btnDecline.setOnClickListener(v -> declineInvitation());
+            return;
+        }
+
+        if (status == ENROLLED) {
+            btnJoin.setVisibility(VISIBLE);
+            btnJoin.setEnabled(true);
+            btnJoin.setText("Unenroll");
+            btnJoin.setOnClickListener(v -> unenroll());
+            return;
+        }
+
+        if (status == DECLINED) {
+            showJoinDisabled("Invitation Declined");
+            return;
+        }
+
+        showJoinDisabled("Private event");
+    }
+
 
     private void renderEntrants(LinearLayout linearLayout, TextView textView, List<Entrant> entrants) {
         if (entrants == null || entrants.isEmpty()) {
@@ -371,6 +436,25 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnDeleteImage.setVisibility(View.GONE);
         layoutAdminInfo.setVisibility(View.GONE);
 
+        if (isPrivateEvent(event)) {
+            btnViewEventMap.setVisibility(View.VISIBLE);
+            btnViewEventMap.setOnClickListener(v -> openEventMap());
+
+            btnBeginLotterySelection.setVisibility(View.GONE);
+            btnBeginLotterySelection.setEnabled(false);
+
+            btnShowInvitesDashboard.setVisibility(View.VISIBLE);
+            btnShowInvitesDashboard.setEnabled(true);
+            btnShowInvitesDashboard.setText("Manage Private Invites");
+            btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
+
+            btnSendInvite.setVisibility(View.VISIBLE);
+            btnSendInvite.setEnabled(true);
+            btnSendInvite.setText("Send Invite");
+            btnSendInvite.setOnClickListener(v -> openInviteUserSearch());
+            return;
+        }
+
         btnViewEventMap.setVisibility(View.VISIBLE);
         btnViewEventMap.setOnClickListener(v -> openEventMap());
 
@@ -416,6 +500,22 @@ public class EventDetailsActivity extends AppCompatActivity {
      * call to renderEntrantActions for state-based action selection
      */
     private void setupEntrantActions(Event event) {
+        if (isPrivateEvent(event)) {
+            eventPoolStorage.getEntrantStatus(
+                    event.getEventId(),
+                    currentUserId,
+                    status -> {
+                        currentStatus = status;
+                        renderPrivateEntrantActions(event, status);
+                    },
+                    e -> {
+                        currentStatus = null;
+                        renderPrivateEntrantActions(event, null);
+                    }
+            );
+            return;
+        }
+
         if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
             showJoinDisabled("Registration Unavailable");
             return;
@@ -433,6 +533,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 }
         );
     }
+
 
     /**
      * Determine which actions/buttons are valid to show a User based on their state as an Entrant
@@ -539,7 +640,8 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         if (event.getTitle() != null && !event.getTitle().trim().isEmpty()) {
-            tvName.setText(event.getTitle());
+            String title = event.getTitle();
+            tvName.setText(isPrivateEvent(event) ? title + " (Private)" : title);
         } else if (event.getEventId() != null) {
             tvName.setText(event.getEventId());
         }
@@ -678,7 +780,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private void leaveWaitlist() {
         btnLeave.setEnabled(false);
 
-        eventPoolStorage.removeFromWaitlist(
+        eventPoolStorage.removeFromInvited(
                 eventId,
                 currentUserId,
                 unused -> removeJoinedMapForCurrentUser(

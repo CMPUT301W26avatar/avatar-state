@@ -16,6 +16,7 @@ public class Event {
     public EventStatus status;
     public boolean hasDrawnLottery;
     private boolean hasGeoConstraint;
+    private boolean privateEvent;
 
     public int eventCapacity;
 
@@ -56,6 +57,7 @@ public class Event {
         this.address = null;
         this.hasDrawnLottery = false;
         this.hasGeoConstraint = false;
+        this.privateEvent = false;
     }
 
     // pk
@@ -213,6 +215,10 @@ public class Event {
     public void setAddress(EventAddress address) {
         this.address = address;
     }
+
+    public boolean isPrivateEvent() { return privateEvent; }
+
+    public void setPrivateEvent(boolean privateEvent) { this.privateEvent = privateEvent; }
 
     public String getPosterUrl() { return posterUrl; }
 

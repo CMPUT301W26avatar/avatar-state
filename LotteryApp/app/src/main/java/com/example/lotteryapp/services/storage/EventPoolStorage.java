@@ -111,6 +111,11 @@ public class EventPoolStorage {
                         throw new IllegalStateException("Event does not exist");
                     }
 
+                    Boolean privateEvent = eventSnap.getBoolean("privateEvent");
+                    if (privateEvent != null && privateEvent) {
+                        throw new IllegalStateException("Private events cannot be joined through the waitlist");
+                    }
+
                     // enforce no double waitlisting
                     if (waitlistedSnap.exists() && (waitlistedSnap.getString("status").equals("WAITLISTED"))) {
                         throw new IllegalStateException("Entrant already waitlisted");
@@ -150,6 +155,74 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
+
+    /** firebase storage
+     * Stores a single entrant directly inside of the invited subcollection for a private event
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
+    public void inviteDirectToPrivateEvent(
+            String eventId,
+            Entrant entrant,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        DocumentReference eventRef = db.collection("events").document(eventId);
+        DocumentReference invitedRef = invitedDoc(eventId, entrant.getEntrantId());
+        DocumentReference enrolledRef = enrolledDoc(eventId, entrant.getEntrantId());
+        DocumentReference waitlistedRef = waitlistedDoc(eventId, entrant.getEntrantId());
+        DocumentReference declinedRef = declinedDoc(eventId, entrant.getEntrantId());
+
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+                    DocumentSnapshot eventSnap = transaction.get(eventRef);
+                    DocumentSnapshot invitedSnap = transaction.get(invitedRef);
+                    DocumentSnapshot enrolledSnap = transaction.get(enrolledRef);
+                    DocumentSnapshot waitlistedSnap = transaction.get(waitlistedRef);
+                    DocumentSnapshot declinedSnap = transaction.get(declinedRef);
+
+                    if (!eventSnap.exists()) {
+                        throw new IllegalStateException("Event does not exist");
+                    }
+
+                    Boolean privateEvent = eventSnap.getBoolean("privateEvent");
+                    if (privateEvent == null || !privateEvent) {
+                        throw new IllegalStateException("Direct invites are only allowed for private events");
+                    }
+
+                    if (invitedSnap.exists()) {
+                        throw new IllegalStateException("Entrant already invited");
+                    }
+
+                    if (enrolledSnap.exists()) {
+                        throw new IllegalStateException("Entrant already enrolled");
+                    }
+
+                    if (waitlistedSnap.exists()) {
+                        throw new IllegalStateException("Entrant already in waitlist flow");
+                    }
+
+                    Map<String, Object> data = mapEntrantData(
+                            eventId,
+                            entrant.getEntrantId(),
+                            INVITED.name()
+                    );
+
+                    transaction.set(invitedRef, data);
+                    if (declinedSnap.exists()) {
+                        transaction.delete(declinedRef);
+                    }
+
+                    int invitationCount = eventSnap.getLong("invitationCount") != null
+                            ? eventSnap.getLong("invitationCount").intValue() : 0;
+
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("invitationCount", invitationCount + 1);
+                    transaction.update(eventRef, updates);
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
     /** firebase storage
      * Stores a single entrant inside of the invited subcollection
      * Removes the aforementioned entrant from the waitlisted subcollection
@@ -175,6 +248,15 @@ public class EventPoolStorage {
 
                     if (!eventSnap.exists()) {
                         throw new IllegalStateException("Event does not exist");
+                    }
+
+                    Boolean privateEvent = eventSnap.getBoolean("privateEvent");
+                    if (privateEvent != null && privateEvent) {
+                        throw new IllegalStateException("Use direct invites for private events");
+                    }
+
+                    if (!waitlistedSnap.exists()) {
+                        throw new IllegalStateException("Entrant is not waitlisted");
                     }
 
                     // enforce no double invitation
@@ -209,8 +291,8 @@ public class EventPoolStorage {
                             "status",
                             resolveEventStatusAfterChange(
                                     eventSnap,
-                                    waitlistCount,
-                                    invitationCount,
+                                    updatedWaitlistCount,
+                                    invitationCount + 1,
                                     enrolledCount
                             )
                     );

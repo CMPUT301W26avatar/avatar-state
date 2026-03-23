@@ -38,6 +38,7 @@
         <activity android:name=".activities.UserPrivacyActivity" />
         <activity android:name=".activities.NotificationSettingsActivity" />
         <activity android:name=".activities.EventMapActivity" />
+        <activity android:name=".activities.SearchUsersToInviteActivity" />
 
         <service
             android:name=".services.MyFirebaseMessagingService"

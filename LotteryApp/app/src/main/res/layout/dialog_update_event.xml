@@ -226,6 +226,37 @@
                 android:layout_marginTop="24dp">
 
                 <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/tv_private_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Private Event"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Invite-only (skips waitlist)"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tv_private_label" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switch_private_event"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp">
+
+                <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/tv_geo_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
