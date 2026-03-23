@@ -44,6 +44,7 @@ public class SearchFragment extends Fragment {
     private EventStorage estore = ServiceLocator.getEventStorage();
     private GridEventAdapter suggestedAdapter, popularAdapter;
     private List<HomeFragment.DisplayGridEvent> suggestedEvents, popularEvents;
+    private boolean isSearchActive = false;
 
     /**
      * Inflates the HomeFragment layout and initializes UI components.
@@ -79,7 +80,102 @@ public class SearchFragment extends Fragment {
             loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
         }
 
+        if (searchView != null) {
+            searchView.getEditText().setOnEditorActionListener((v, actionId, event) -> {
+                String query = searchView.getEditText().getText().toString();
+                if (!query.isEmpty()) {
+                    isSearchActive = true;
+                    performSearch(query);
+                    searchView.hide();
+                }
+                return false;
+            });
+
+            searchView.addTransitionListener((searchView1, previousState, newState) -> {
+                if (newState == SearchView.TransitionState.HIDDEN && searchView1.getEditText().getText().length() == 0 && isSearchActive) {
+                    resetDashboard();
+                }
+            });
+        }
+
+        if (searchBar != null) {
+            searchBar.setNavigationOnClickListener(v -> {
+                if (isSearchActive) {
+                    resetDashboard();
+                }
+            });
+        }
+
         return view;
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        // Temporary migration call to fix existing events
+        estore.syncAllEventKeywords(
+                unused -> android.util.Log.d("Migration", "All events updated with keywords!"),
+                e -> android.util.Log.e("Migration", "Failed to update events", e)
+        );
+    }
+
+    /**
+     * Executes the search query and updates the popular section with results.
+     */
+    private void performSearch(String query) {
+        View view = getView();
+        if (view != null) {
+            View categories = view.findViewById(R.id.categories_section);
+            View nearYouTitle = view.findViewById(R.id.near_you_title);
+            View yourEventsHeader = view.findViewById(R.id.your_events_header);
+            View yourEventsRecycler = view.findViewById(R.id.recycler_view_suggested);
+            View upcomingHeader = view.findViewById(R.id.upcoming_header);
+            View upcomingContent = view.findViewById(R.id.upcoming_content);
+
+            if (categories != null) categories.setVisibility(View.GONE);
+            if (nearYouTitle instanceof android.widget.TextView) {
+                ((android.widget.TextView) nearYouTitle).setText("Search Results");
+            }
+            if (yourEventsHeader != null) yourEventsHeader.setVisibility(View.GONE);
+            if (yourEventsRecycler != null) yourEventsRecycler.setVisibility(View.GONE);
+            if (upcomingHeader != null) upcomingHeader.setVisibility(View.GONE);
+            if (upcomingContent != null) upcomingContent.setVisibility(View.GONE);
+        }
+
+        estore.searchEvents(query, fetchedEvents -> {
+            popularEvents.clear();
+            for (Event event : fetchedEvents) {
+                popularEvents.add(eventToDisplayEvent(event));
+            }
+            popularAdapter.notifyDataSetChanged();
+        }, error -> error.printStackTrace());
+    }
+
+    /**
+     * Reset the dashboard to its original state by clearing search results.
+     */
+    private void resetDashboard() {
+        isSearchActive = false;
+        View view = getView();
+        if (view != null) {
+            View categories = view.findViewById(R.id.categories_section);
+            View nearYouTitle = view.findViewById(R.id.near_you_title);
+            View yourEventsHeader = view.findViewById(R.id.your_events_header);
+            View yourEventsRecycler = view.findViewById(R.id.recycler_view_suggested);
+            View upcomingHeader = view.findViewById(R.id.upcoming_header);
+            View upcomingContent = view.findViewById(R.id.upcoming_content);
+
+            if (categories != null) categories.setVisibility(View.VISIBLE);
+            if (nearYouTitle instanceof android.widget.TextView) {
+                ((android.widget.TextView) nearYouTitle).setText("Near You");
+            }
+            if (yourEventsHeader != null) yourEventsHeader.setVisibility(View.VISIBLE);
+            if (yourEventsRecycler != null) yourEventsRecycler.setVisibility(View.VISIBLE);
+            if (upcomingHeader != null) upcomingHeader.setVisibility(View.VISIBLE);
+            if (upcomingContent != null) upcomingContent.setVisibility(View.VISIBLE);
+        }
+        loadPopularEvents(popularEvents, popularAdapter, 4);
+        loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
     }
 
     /**
@@ -89,8 +185,10 @@ public class SearchFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        loadPopularEvents(popularEvents, popularAdapter, 4);
-        loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
+        if (!isSearchActive) {
+            loadPopularEvents(popularEvents, popularAdapter, 4);
+            loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
+        }
     }
 
     /**
