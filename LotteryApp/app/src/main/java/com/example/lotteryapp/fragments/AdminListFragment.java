@@ -1,10 +1,5 @@
 package com.example.lotteryapp.fragments;
 
-import static com.example.lotteryapp.models.NotificationLog.NotificationType.COMMENT;
-import static com.example.lotteryapp.models.NotificationLog.NotificationType.INVITATION;
-import static com.example.lotteryapp.models.NotificationLog.NotificationType.LOTTERY_RESULT;
-import static com.google.firebase.messaging.Constants.MessageTypes.MESSAGE;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -34,7 +29,6 @@ import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Collectors;
 /**
  * fragment for displaying admin lists inside of AdminActivity
@@ -172,6 +166,21 @@ public class AdminListFragment extends Fragment {
                 Toast.makeText(requireContext(), "Failed to load notification logs", Toast.LENGTH_SHORT).show();
             });
         }
+
+        if (TYPE_REQUESTED_ADMINS.equals(type)) {
+            progressBar.setVisibility(View.VISIBLE);
+            ServiceLocator.getAdminStorage().getRequestedAdmins(requestIds -> {
+                ServiceLocator.getUserStorage().getAllUsers(users -> {
+                    allItems.clear();
+                    for (User user : users) {
+                        if (requestIds.contains(user.getUUID())) {
+                            allItems.add(user);
+                        }
+                    }
+                    applyFilterAndSort();
+                }, e -> progressBar.setVisibility(View.GONE));
+            }, e -> progressBar.setVisibility(View.GONE));
+        }
     }
 
     /**
@@ -201,10 +210,26 @@ public class AdminListFragment extends Fragment {
             String title = ((Event) item).getTitle();
             return (title != null && !title.isEmpty()) ? title : "Untitled Event (" + ((Event) item).getEventId() + ")";
         }
-        else if (item instanceof User) {
-            String name = ((User) item).getName();
-            return (name != null && !name.isEmpty()) ? name : "Anonymous User (" + ((User) item).getUUID() + ")";
+        if (item instanceof User) {
+            if (TYPE_REQUESTED_ADMINS.equals(type)) {
+                String uid = ((User) item).getUUID();
+                String name = ((User) item).getName();
+                return "Requested Admin: "+ name + "\n(" + uid + ")";
+
+            } else {
+                User user = (User) item;
+                String name = user.getName();
+                String uid = user.getUUID();
+                return (name != null && !name.isEmpty())
+                        ? name
+                        : "User (" + uid + ")";
+            }
         }
+
+        if (item instanceof NotificationLog) {
+            return formatNotificationRow((NotificationLog) item);
+        }
+
         return "Unknown Item";
     }
 

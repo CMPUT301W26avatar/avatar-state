@@ -231,6 +231,7 @@ public class EventStorage {
      * Synchronous
      */
     private Map<String, Object> eventToMap(Event event) {
+        event.generateKeywords(); // Generate keywords before saving
         Map<String, Object> data = new HashMap<>();
         data.put("eventId", event.getEventId());
         data.put("organizerId", event.getOrganizerId());
@@ -253,6 +254,7 @@ public class EventStorage {
         data.put("createdAt", FieldValue.serverTimestamp());
         data.put("updatedAt", FieldValue.serverTimestamp());
         data.put("description", event.getDescription());
+        data.put("keywords", event.getKeywords()); // Save keywords to Firestore
         return data;
     }
 
@@ -831,6 +833,29 @@ public class EventStorage {
         queryEventsWithAddresses(query, onSuccess, onFailure);
     }
 
+    /**
+     * function searchEvents will search using the keywords array
+     * partial word matching.
+     */
+    public void searchEvents(
+            String query,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (query == null || query.trim().isEmpty()) {
+            onSuccess.onSuccess(new ArrayList<>());
+            return;
+        }
+
+        String lowerQuery = query.toLowerCase().trim();
+
+        // Efficient case-insensitive search using array-contains
+        Query searchQuery = db.collection("events")
+                .whereArrayContains("keywords", lowerQuery);
+
+        queryEventsWithAddresses(searchQuery, onSuccess, onFailure);
+    }
+
     public void getEventsNearUser(
             @NonNull String uid,
             @NonNull User.UserAddressMode userAddressMode,
@@ -1048,4 +1073,26 @@ public class EventStorage {
         return Math.pow(Math.sin(val / 2), 2);
     }
 
+    /**
+     ** One time migration tool to update all existing events with keywords.
+     */
+    public void syncAllEventKeywords(OnSuccessListener<Void> onSuccess, OnFailureListener onFailure) {
+        getAllEvents(events -> {
+            if (events.isEmpty()) {
+                onSuccess.onSuccess(null);
+                return;
+            }
+
+            WriteBatch batch = db.batch();
+            for (Event event : events) {
+                event.generateKeywords();
+                DocumentReference ref = eventDoc(event.getEventId());
+                batch.update(ref, "keywords", event.getKeywords());
+            }
+
+            batch.commit()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+        }, onFailure);
+    }
 }

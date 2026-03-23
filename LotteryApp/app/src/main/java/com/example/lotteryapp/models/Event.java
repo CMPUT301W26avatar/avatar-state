@@ -41,6 +41,7 @@ public class Event {
     private String criteriaGuidelines;
     private String tag;
     private String posterUrl;
+    private java.util.List<String> keywords;
 
     public enum EventStatus {
         REG_UPCOMING,
@@ -234,4 +235,33 @@ public class Event {
     public String getPosterUrl() { return posterUrl; }
 
     public void setPosterUrl(String posterUrl) { this.posterUrl = posterUrl; }
+
+    public java.util.List<String> getKeywords() { return keywords; }
+
+    public void setKeywords(java.util.List<String> keywords) { this.keywords = keywords; }
+
+    /**
+     * Generates a list of keywords for searching.
+     * Includes all words in the title and description
+     * and their prefixes.
+     */
+    public void generateKeywords() {
+        this.keywords = new java.util.ArrayList<>();
+        if (title != null) {
+            addKeywordsFromText(title);
+        }
+
+    }
+
+    private void addKeywordsFromText(String text) {
+        String[] words = text.toLowerCase().split("\\s+");
+        for (String word : words) {
+            for (int i = 1; i <= word.length(); i++) {
+                String prefix = word.substring(0, i);
+                if (!keywords.contains(prefix)) {
+                    keywords.add(prefix);
+                }
+            }
+        }
+    }
 }
