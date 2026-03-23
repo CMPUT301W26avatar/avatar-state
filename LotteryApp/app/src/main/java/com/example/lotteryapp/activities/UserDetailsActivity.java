@@ -146,7 +146,18 @@ public class UserDetailsActivity extends AppCompatActivity {
                     etName.setText(user.getName() != null ? user.getName() : "");
                     etPhone.setText(user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
                     etEmail.setText(user.getEmail() != null ? user.getEmail() : "");
-                    etLocation.setText(user.getUserAddress().getLocation() != null ? user.getUserAddress().getLocation() : "");
+                    
+                    // User address is stored in a subcollection and not loaded by getUserProfile
+                    etLocation.setText("");
+                    ustore.getPreferredUserAddress(uid, user.getAddressMode(),
+                            address -> {
+                                if (address != null && address.getLocation() != null) {
+                                    etLocation.setText(address.getLocation());
+                                }
+                            },
+                            e -> android.util.Log.e("UserDetailsActivity", "Failed to load address", e)
+                    );
+
                     tvDeviceId.setText(user.getUUID());
 
                     // Admin can see delete buttons
@@ -185,7 +196,7 @@ public class UserDetailsActivity extends AppCompatActivity {
         String location = doc.getString("location");
 
         etName.setText(name != null ? name : "");
-        etEmail.setText(email != null ? name : "");
+        etEmail.setText(email != null ? email : "");
         etPhone.setText(phone != null ? phone : "");
         etLocation.setText(location != null ? location : "");
     }
