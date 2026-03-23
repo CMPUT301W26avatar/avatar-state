@@ -71,6 +71,10 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
 
     private InviteSearchAdapter adapter;
 
+    /**
+     * initialize and associate all UI components with their xml counterparts
+     * setup activity with required data such as intent extras, storage access, current uid
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -110,18 +114,29 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         validateAccessAndLoad();
     }
 
+    /**
+     *  associate all of the activity's UI components with their xml counterparts
+     *      - minus the recyclerView and search bar
+     */
+
     private void bindViews() {
         searchBar = findViewById(R.id.search_bar);
         btnClose = findViewById(R.id.btn_close);
         resultsRecycler = findViewById(R.id.search_results_recycler);
     }
 
+    /**
+     * associates the RecyclerView from xml to its respective layout and list item adapter on the app side
+     */
     private void setupRecycler() {
         adapter = new InviteSearchAdapter(filteredUsers, this::confirmInviteUser);
         resultsRecycler.setLayoutManager(new LinearLayoutManager(this));
         resultsRecycler.setAdapter(adapter);
     }
 
+    /**
+     * associates the Search Bar from xml to its app-side counterpart, and sets its text based on the user search mode
+     */
     private void setupSearchBar() {
         if (isCoorganizerMode) {
             searchBar.setHint("Search for co-organizers");
@@ -134,6 +149,10 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
                 : searchBar.getText().toString()));
     }
 
+    /**
+     * validate that the current user is an organizer, and that the event is valid
+     * preload a list of users to remove from the search query such as organizer, and all current entrants
+     */
     private void validateAccessAndLoad() {
         eventStorage.getEvent(
                 eventId,
@@ -152,13 +171,7 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
                         return;
                     }
 
-                    // Only require private events for direct entrant invites
-                    if (!isCoorganizerMode && !isPrivateEvent(event)) {
-                        Toast.makeText(this, "Direct invites are only available for private events", Toast.LENGTH_SHORT).show();
-                        finish();
-                        return;
-                    }
-
+                    // load users to remove from the search query
                     preloadBlockedInviteUsers();
                 },
                 e -> {
@@ -168,20 +181,10 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         );
     }
 
-    private boolean isPrivateEvent(Event event) {
-        if (event == null) {
-            return false;
-        }
-
-        try {
-            Method method = event.getClass().getMethod("isPrivateEvent");
-            Object result = method.invoke(event);
-            return result instanceof Boolean && (Boolean) result;
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
+    /**
+     * add users to a blocked users list for the search query to prevent duplicate invites
+     *      users who get blocked: the organizer, those who are currently enrolled in the event, or have a pending invitation.
+     */
     private void preloadBlockedInviteUsers() {
         blockedInviteUserIds.clear();
         blockedInviteUserIds.add(currentUserId);
@@ -212,6 +215,9 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * load all of the users from the database and clear those in the blocked list from the result
+     */
     private void loadAllUsers() {
         db.collection("users")
                 .get()
@@ -245,6 +251,11 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
                 );
     }
 
+    /**
+     * Instantiate a User object from a firebase document
+     *      events/{eventId}/coorganizer_invites/{userId} for coorganizer invites, and
+     *      events/{eventId}/invited/{userId} for private events
+     */
     private User documentToUser(QueryDocumentSnapshot doc) {
         String uid = doc.getId();
         if (uid == null || uid.trim().isEmpty()) {
@@ -270,6 +281,10 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         return user;
     }
 
+    /**
+     * Show the search dialog that pops up when clicking on a list item (User)
+     *      confirms whether the user wants to send an invite to the user or not
+     */
     private void showSearchDialog(String existingQuery) {
         TextInputLayout inputLayout = new TextInputLayout(this);
         inputLayout.setHint("Username, email, or phone");
@@ -308,6 +323,10 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    /**
+     * Resolve the user's input into a search query, run the query
+     *  for each User returned by the query, add these users to the list of users to display as a search result
+     */
     private void applySearch(String rawQuery) {
         String query = normalize(rawQuery);
         searchBar.setText(rawQuery == null ? "" : rawQuery.trim());
@@ -333,16 +352,27 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Helper for determining if a portion, or whole of a Users profile attributes match the users search query input
+     */
     private boolean matchesQuery(User user, String query) {
         return normalize(user.getName()).contains(query)
                 || normalize(user.getEmail()).contains(query)
                 || normalize(user.getPhoneNumber()).contains(query);
     }
 
+    /**
+     * Helper for normalizing strings to lowercase, and stripping whitespace
+     */
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.CANADA);
     }
 
+    /**
+     * One extra layer of confirmation for the user
+     *      when the user clicks confirm, this dialog is launched so that the user can confirm they selected the right user
+     *      displays the User's display name (username) for final confirmation for the user
+     */
     private void confirmInviteUser(User user) {
         if (user == null) {
             return;
@@ -366,6 +396,10 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    /**
+     * Call the EventPoolStorage service to add the selected User to the correct subcollection
+     *      - invited for private event inviting entrants
+     */
     private void sendInvite(User user) {
         if (isCoorganizerMode) {
             sendCoorganizerInvite(user);
@@ -403,6 +437,10 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Call the EventPoolStorage service to add the selected User to the correct subcollection
+     *      - coorganizer invites for coorganizers
+     */
     private void sendCoorganizerInvite(User user) {
         if (user == null || user.getUUID() == null || user.getUUID().trim().isEmpty()) {
             Toast.makeText(this, "Invalid user", Toast.LENGTH_SHORT).show();
@@ -453,6 +491,12 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         // TODO: Send a notification to a user that they have been invited to be a co-organizer...
     }
 
+    /**
+     * Recycler View adapter so we can set an onClickListener for each User resolved to a list item
+     *      clicking on the user launches the first confirmation dialog
+     *      binds views and sets subtitles for the item
+     *      the InviteSearchAdapter also tracks the number of items in the recycler
+     */
     private static final class InviteSearchAdapter
             extends RecyclerView.Adapter<InviteSearchAdapter.InviteViewHolder> {
 
