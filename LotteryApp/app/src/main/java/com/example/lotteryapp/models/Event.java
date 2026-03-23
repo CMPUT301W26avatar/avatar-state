@@ -1,5 +1,6 @@
 package com.example.lotteryapp.models;
 
+import java.util.List;
 import java.util.UUID;
 
 /** Model class for an Event
@@ -13,6 +14,8 @@ import java.util.UUID;
 public class Event {
     public String eventId;
     public final String organizerId;
+
+    private List<String> coOrganizerIds;
     public EventStatus status;
     public boolean hasDrawnLottery;
     private boolean hasGeoConstraint;
@@ -74,6 +77,14 @@ public class Event {
     // fk
     public String getOrganizerId() {
         return organizerId;
+    }
+
+    public List<String> getCoOrganizerIds() {
+        return coOrganizerIds;
+    }
+
+    public void setCoOrganizerIds(List<String> coOrganizerIds) {
+        this.coOrganizerIds = coOrganizerIds;
     }
 
     public boolean isRegistrationOpen() {

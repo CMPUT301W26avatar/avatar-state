@@ -16,12 +16,8 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.inputmethod.EditorInfo;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -45,7 +41,6 @@ import com.google.android.material.textview.MaterialTextView;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.lang.reflect.Method;
 
@@ -82,7 +77,9 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialButton btnBeginLotterySelection;
     private MaterialButton btnViewEventMap;
     private MaterialButton btnShowInvitesDashboard;
-    private MaterialButton btnSendInvite;
+    private MaterialButton btnSearchForUsers;
+    private MaterialButton btnSearchForCoorganizers;
+
     // poster
     private ImageView ivEventPoster;
 
@@ -155,25 +152,33 @@ public class EventDetailsActivity extends AppCompatActivity {
      * Associate all of the xml components with their application counterparts
      */
     private void bindViews() {
+        // common components
         tvName = findViewById(R.id.tv_event_name);
         tvLocation = findViewById(R.id.tv_location);
         tvDescription = findViewById(R.id.tv_description);
         tvDate = findViewById(R.id.tv_event_date);
         tvRegEndDate = findViewById(R.id.tv_reg_end_date);
         tvCriteriaGuidelines = findViewById(R.id.tv_criteria_guidelines);
-        invitations_layout = findViewById(R.id.invitations_layout);
         btnClose = findViewById(R.id.btn_close);
+        ivEventPoster = findViewById(R.id.iv_event_poster);
+
+        // entrant components
         btnJoin = findViewById(R.id.btn_join_waitlist);
         btnLeave = findViewById(R.id.btn_leave_waitlist);
         btnAccept = findViewById(R.id.btn_accept_invitation);
         btnDecline = findViewById(R.id.btn_decline_invitation);
-        btnDeleteImage = findViewById(R.id.btn_delete_image);
-        btnRemoveEvent = findViewById(R.id.btn_remove_event);
+        invitations_layout = findViewById(R.id.invitations_layout);
+
+        // organizer components
         btnBeginLotterySelection = findViewById(R.id.btn_begin_lottery_selection);
         btnViewEventMap = findViewById(R.id.btn_view_event_map);
         btnShowInvitesDashboard = findViewById(R.id.btn_show_invites_dashboard);
-        btnSendInvite = findViewById(R.id.btn_send_invite);
-        ivEventPoster = findViewById(R.id.iv_event_poster);
+        btnSearchForUsers = findViewById(R.id.btn_send_invite);
+        btnSearchForCoorganizers = findViewById(R.id.btn_invite_coorganizers);
+
+        // admin components
+        btnDeleteImage = findViewById(R.id.btn_delete_image);
+        btnRemoveEvent = findViewById(R.id.btn_remove_event);
 
         // Admin Info
         layoutAdminInfo = findViewById(R.id.layout_admin_info);
@@ -195,59 +200,59 @@ public class EventDetailsActivity extends AppCompatActivity {
      */
     private void loadEvent() {
         eventStorage.getEvent(
-                eventId,
-                event -> {
-                    this.currentEvent = event;
-                    Log.d("EventDetailsActivity",
-                            "Event loaded: id=" + currentEvent.getEventId()
-                                    + ", title=" + currentEvent.getTitle()
-                                    + ", eventDateMs=" + currentEvent.getEventDateMs()
-                                    + ", regStartMs=" + currentEvent.getRegStartMs()
-                                    + ", regEndMs=" + currentEvent.getRegEndMs()
-                                    + ", capacity=" + currentEvent.getEventCapacity());
+            eventId,
+            event -> {
+                this.currentEvent = event;
+                Log.d("EventDetailsActivity",
+                    "Event loaded: id=" + currentEvent.getEventId()
+                        + ", title=" + currentEvent.getTitle()
+                        + ", eventDateMs=" + currentEvent.getEventDateMs()
+                        + ", regStartMs=" + currentEvent.getRegStartMs()
+                        + ", regEndMs=" + currentEvent.getRegEndMs()
+                        + ", capacity=" + currentEvent.getEventCapacity());
 
-                    populateInfo(currentEvent);
-                    if (isAdminMode) {
-                        setupAdminActions();
-                    } else if (isOrganizer(currentEvent)) {
-                        setupOrganizerActions(currentEvent);
-                    } else {
-                        setupEntrantActions(currentEvent);
-                    }
-
-                    LinearLayout listOfX = findViewById(R.id.list_of_x_container);
-                    TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
-                    if (isOrganizer(event)) {
-                        listOfX.setVisibility(VISIBLE);
-                        Event.EventStatus status = event.getStatus();
-                        tvEventVisibilityTag.setBackgroundTintList(
-                                ColorStateList.valueOf(getResources().getColor(R.color.tag_public))
-                        );
-                        if (isPrivateEvent(event)) {
-                            tvEntrants.setText("Invited / Enrolled");
-                            tvEventVisibilityTag.setText("PRIVATE");
-                            tvEventVisibilityTag.setBackgroundTintList(
-                                    ColorStateList.valueOf(getResources().getColor(R.color.tag_private))
-                            );
-                            listEntrants(eventId);
-                        } else if (status == REG_OPEN || status == REG_FULL || status == REG_CLOSED) {
-                            listWaitlisted(eventId);
-                        } else if (status == EVENT_OPEN || status == EVENT_FULL) {
-                            listEntrants(eventId);
-                        } else if (status == EVENT_CLOSED) {
-                            tvEntrants.setText("Final Entrants");
-                            listEntrants(eventId);
-                        }
-
-                    } else {
-                        listOfX.setVisibility(GONE);
-                    }
-                },
-                e -> {
-                    Log.e("EventDetailsActivity",
-                            "Failed to load event: " + e.getMessage(), e);
-                    e.printStackTrace();
+                populateInfo(currentEvent);
+                if (isAdminMode) {
+                    setupAdminActions();
+                } else if (isOrganizer(currentEvent)) {
+                    setupOrganizerActions(currentEvent);
+                } else {
+                    setupEntrantActions(currentEvent);
                 }
+
+                LinearLayout listOfX = findViewById(R.id.list_of_x_container);
+                TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
+                if (isOrganizer(event)) {
+                    listOfX.setVisibility(VISIBLE);
+                    Event.EventStatus status = event.getStatus();
+                    tvEventVisibilityTag.setBackgroundTintList(
+                            ColorStateList.valueOf(getResources().getColor(R.color.tag_public))
+                    );
+                    if (isPrivateEvent(event)) {
+                        tvEntrants.setText("Invited / Enrolled");
+                        tvEventVisibilityTag.setText("PRIVATE");
+                        tvEventVisibilityTag.setBackgroundTintList(
+                                ColorStateList.valueOf(getResources().getColor(R.color.tag_private))
+                        );
+                        listEntrants(eventId);
+                    } else if (status == REG_OPEN || status == REG_FULL || status == REG_CLOSED) {
+                        listWaitlisted(eventId);
+                    } else if (status == EVENT_OPEN || status == EVENT_FULL) {
+                        listEntrants(eventId);
+                    } else if (status == EVENT_CLOSED) {
+                        tvEntrants.setText("Final Entrants");
+                        listEntrants(eventId);
+                    }
+
+                } else {
+                    listOfX.setVisibility(GONE);
+                }
+            },
+            e -> {
+                Log.e("EventDetailsActivity",
+                        "Failed to load event: " + e.getMessage(), e);
+                e.printStackTrace();
+            }
         );
     }
 
@@ -258,18 +263,53 @@ public class EventDetailsActivity extends AppCompatActivity {
         return event.getOrganizerId().equals(currentUserId);
     }
 
+    /**
+     * helper for launching the InvitesDashboardActivity via the manage invites button
+     */
     private void openInvitesDashboard() {
         Intent intent = new Intent(this, InvitesDashboardActivity.class);
         intent.putExtra(InvitesDashboardActivity.EXTRA_EVENT_ID, eventId);
         startActivity(intent);
     }
 
-    private void openInviteUserSearch() {
-        Intent intent = new Intent(this, SearchUsersToInviteActivity.class);
+    /**
+     * helper for launching the EventMapActivity via the event map button
+     */
+    private void openEventMap() {
+        if (eventId == null || eventId.trim().isEmpty()) {
+            Toast.makeText(this, "Missing event ID", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Intent intent = new Intent(this, EventMapActivity.class);
         intent.putExtra(EXTRA_EVENT_ID, eventId);
         startActivity(intent);
     }
 
+    /**
+     * helper for launching the SearchUsersToInviteActivity via the "Search for users to invite" button
+     */
+    private void openInviteUserSearch() {
+        Intent intent = new Intent(this, SearchUsersToInviteActivity.class);
+        intent.putExtra(EXTRA_EVENT_ID, eventId);
+        intent.putExtra(SearchUsersToInviteActivity.EXTRA_IS_COORGANIZER_MODE, false);
+        startActivity(intent);
+    }
+
+    /**
+     * helper for launching the SearchUsersToInviteActivity via the "Invite Co-Organizers" button
+     */
+    private void openInviteCoorganizerSearch() {
+        Intent intent = new Intent(this, SearchUsersToInviteActivity.class);
+        intent.putExtra(EXTRA_EVENT_ID, eventId);
+        intent.putExtra(SearchUsersToInviteActivity.EXTRA_IS_COORGANIZER_MODE, true);
+        startActivity(intent);
+    }
+
+    /**
+     * helper for determining if the current event is private or not.
+     *      Every event should have this attribute set (non-null), but there exists null handling just in case
+     */
     private boolean isPrivateEvent(Event event) {
         if (event == null) {
             return false;
@@ -283,38 +323,13 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
     }
 
-    private void renderPrivateEntrantActions(Event event, Entrant.EntrantStatus status) {
-        btnJoin.setVisibility(View.GONE);
-        btnLeave.setVisibility(View.GONE);
-        invitations_layout.setVisibility(View.GONE);
-        btnBeginLotterySelection.setVisibility(View.GONE);
-        btnViewEventMap.setVisibility(View.GONE);
-
-        if (status == Entrant.EntrantStatus.INVITED) {
-            invitations_layout.setVisibility(VISIBLE);
-            btnAccept.setOnClickListener(v -> acceptInvitation());
-            btnDecline.setOnClickListener(v -> declineInvitation());
-            return;
-        }
-
-        if (status == ENROLLED) {
-            btnJoin.setVisibility(VISIBLE);
-            btnJoin.setEnabled(true);
-            btnJoin.setText("Unenroll");
-            btnJoin.setOnClickListener(v -> unenroll());
-            return;
-        }
-
-        if (status == DECLINED) {
-            showJoinDisabled("Invitation Declined");
-            return;
-        }
-
-        showJoinDisabled("Private event");
-    }
-
-
-    private void renderEntrants(LinearLayout linearLayout, TextView textView, List<Entrant> entrants) {
+    /**
+     * render entrant helper - gets the name and email of each Entrant inside the entrants list from UserStorage
+     *      this function can be written without taking a layout and textview as a parameter, just use a global or method-local attr.
+     *      needs a list of entrants to get the profile for as an argument
+     *      inflates a UI component for each entrant in the list
+     */
+    private void renderEntrantProfiles(LinearLayout linearLayout, TextView textView, List<Entrant> entrants) {
         if (entrants == null || entrants.isEmpty()) {
             linearLayout.setVisibility(GONE);
             textView.setVisibility(GONE);
@@ -347,6 +362,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Get the enrolled entrants from firebase and reflect them onto the EventDetailsActivity
+     *      reflection done via renderEntrantProfiles helper
+     */
     private void listEntrants(String eventId) {
         LinearLayout enrolledEntrants = findViewById(R.id.list_of_entrants);
         TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
@@ -355,7 +374,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         eventPoolStorage.getEnrolledEntrants(
                 eventId,
                 entrants -> {
-                    renderEntrants(enrolledEntrants, tvEntrants, entrants);
+                    renderEntrantProfiles(enrolledEntrants, tvEntrants, entrants);
                 },
                 e -> {
                     Log.e("EventDetailsActivity", "Failed to get enrolled entrants");
@@ -364,6 +383,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Get the waitlisted entrants from firebase and reflect them onto the EventDetailsActivity
+     *      reflection done via renderEntrantProfiles helper
+     */
     private void listWaitlisted(String eventId) {
         LinearLayout waitlistedEntrants = findViewById(R.id.list_of_waitlisted);
         TextView tvWaitlisted = findViewById(R.id.tv_list_of_waitlisted);
@@ -371,9 +394,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
         eventPoolStorage.getWaitlistedEntrants(
                 eventId,
-                entrants -> {
-                    renderEntrants(waitlistedEntrants, tvWaitlisted, entrants);
-                },
+                entrants -> renderEntrantProfiles(waitlistedEntrants, tvWaitlisted, entrants),
                 e -> {
                     Log.e("EventDetailsActivity", "Failed to get waitlisted entrants");
                     e.printStackTrace();
@@ -448,15 +469,24 @@ public class EventDetailsActivity extends AppCompatActivity {
             btnShowInvitesDashboard.setText("Manage Private Invites");
             btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
 
-            btnSendInvite.setVisibility(View.VISIBLE);
-            btnSendInvite.setEnabled(true);
-            btnSendInvite.setText("Send Invite");
-            btnSendInvite.setOnClickListener(v -> openInviteUserSearch());
+            btnSearchForUsers.setVisibility(View.VISIBLE);
+            btnSearchForUsers.setEnabled(true);
+            btnSearchForUsers.setText("Search for users to Invite");
+            btnSearchForUsers.setOnClickListener(v -> openInviteUserSearch());
+
+            btnSearchForCoorganizers.setVisibility(VISIBLE);
+            btnSearchForCoorganizers.setEnabled(true);
+            btnSearchForCoorganizers.setOnClickListener(v -> openInviteCoorganizerSearch());
+
             return;
         }
 
         btnViewEventMap.setVisibility(View.VISIBLE);
         btnViewEventMap.setOnClickListener(v -> openEventMap());
+
+        btnSearchForCoorganizers.setVisibility(VISIBLE);
+        btnSearchForCoorganizers.setEnabled(true);
+        btnSearchForCoorganizers.setOnClickListener(v -> openInviteCoorganizerSearch());
 
         btnBeginLotterySelection.setVisibility(View.GONE);
         btnShowInvitesDashboard.setVisibility(View.GONE);
@@ -506,11 +536,11 @@ public class EventDetailsActivity extends AppCompatActivity {
                     currentUserId,
                     status -> {
                         currentStatus = status;
-                        renderPrivateEntrantActions(event, status);
+                        renderPrivateEntrantActions(status);
                     },
                     e -> {
                         currentStatus = null;
-                        renderPrivateEntrantActions(event, null);
+                        renderPrivateEntrantActions(null);
                     }
             );
             return;
@@ -591,6 +621,43 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnJoin.setEnabled(true);
         btnJoin.setText("Join Waitlist");
         btnJoin.setOnClickListener(v -> joinWaitlist());
+    }
+
+    /**
+     * Determine which actions/buttons are valid to show a User based on their state as an Entrant for a private event
+     * NONE: yet to receive invite to private event
+     * INVITED: accept/decline invitation
+     * DECLINED: join button closed -> cannot join again -> access to event details lost
+     * ENROLLED: unenroll
+     */
+    private void renderPrivateEntrantActions(Entrant.EntrantStatus status) {
+        btnJoin.setVisibility(View.GONE);
+        btnLeave.setVisibility(View.GONE);
+        invitations_layout.setVisibility(View.GONE);
+        btnBeginLotterySelection.setVisibility(View.GONE);
+        btnViewEventMap.setVisibility(View.GONE);
+
+        if (status == Entrant.EntrantStatus.INVITED) {
+            invitations_layout.setVisibility(VISIBLE);
+            btnAccept.setOnClickListener(v -> acceptInvitation());
+            btnDecline.setOnClickListener(v -> declineInvitation());
+            return;
+        }
+
+        if (status == ENROLLED) {
+            btnJoin.setVisibility(VISIBLE);
+            btnJoin.setEnabled(true);
+            btnJoin.setText("Unenroll");
+            btnJoin.setOnClickListener(v -> unenroll());
+            return;
+        }
+
+        if (status == DECLINED) {
+            showJoinDisabled("Invitation Declined");
+            return;
+        }
+
+        showJoinDisabled("Private event");
     }
 
     /**
@@ -700,17 +767,6 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminWaitlistCount.setText("waitlistCount: " + event.getWaitlistCount());
         tvAdminRegStart.setText("regStartMs: " + event.getRegStartMs());
         tvAdminPosterUrl.setText("posterUrl: " + (event.getPosterUrl() != null ? "\"" + event.getPosterUrl() + "\"" : "null"));
-    }
-
-    private void openEventMap() {
-        if (eventId == null || eventId.trim().isEmpty()) {
-            Toast.makeText(this, "Missing event ID", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Intent intent = new Intent(this, EventMapActivity.class);
-        intent.putExtra(EXTRA_EVENT_ID, eventId);
-        startActivity(intent);
     }
 
     /**
@@ -915,6 +971,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Gets the current users selected (current or default) location from firebase
+     */
     private void loadAddressForJoinedMap(
             User.UserAddressMode addressMode,
             com.google.android.gms.tasks.OnSuccessListener<com.example.lotteryapp.models.UserAddress> onSuccess,
@@ -928,12 +987,19 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Check if the address for an event or user is valid
+     */
     private boolean isUsableJoinedMapAddress(com.example.lotteryapp.models.UserAddress address) {
         return address != null
                 && address.getLatitude() != null
                 && address.getLongitude() != null;
     }
 
+    /**
+     * Write the users selected address into the joined map document for an event
+     *      represents a snaphot of the users location when they joined the event
+     */
     private void writeJoinedMap(
             com.example.lotteryapp.models.UserAddress address,
             Runnable onSuccess,
@@ -1039,8 +1105,12 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     /**
      * Starts lottery selection for the given event
-     * adds all selected entrants to the "invited" subcollection
-     * status marked INVITED
+     *      outer wrapper handles event validation for this action
+     *      if first draw, updates the database with "hasRunLottery" attribute
+     *      - so we know whether to show sample entrants, or re-sample entrants
+     *      else, run without state change
+     *          inner function runLotteryDraw updates the db with the invited users
+     *          that were selected by the drawWinners query, and updates the UI components.
      */
     private void beginLotterySelection(Event event) {
         if (event == null) {
@@ -1084,6 +1154,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Gets the selected entrants list from EventPoolStorage
+     *      updates the EventDetails UI after lottery pull
+     */
     private void runLotteryDraw(Event event, int remainingSpots) {
         eventPoolStorage.drawWinners(
                 eventId,

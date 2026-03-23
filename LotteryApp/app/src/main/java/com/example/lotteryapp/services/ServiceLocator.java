@@ -95,10 +95,6 @@ public final class ServiceLocator {
     public static void setFirebaseServiceForTests(@Nullable FirebaseService svc) {
         overrideFirebaseService = svc;
     }
-    public static void setAuthServiceForTests(@Nullable AuthService s) {
-        overrideAuthService = s;
-    }
-    
 
     public static void setAuthServiceForTests(@Nullable AuthService as) {
         overrideAuthService = as;
