@@ -100,10 +100,6 @@ public final class ServiceLocator {
     }
     
 
-    public static void setAuthServiceForTests(@Nullable AuthService as) {
-        overrideAuthService = as;
-    }
-
     public static void setEventStorageForTests(@Nullable EventStorage s) {
         overrideEventStorage = s;
     }
