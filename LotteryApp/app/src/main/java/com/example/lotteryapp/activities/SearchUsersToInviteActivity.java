@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,6 +25,7 @@ import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.search.SearchBar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -47,6 +49,11 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
 
+    public static final String EXTRA_IS_COORGANIZER_MODE = "isCoorganizerMode";
+
+    private boolean isCoorganizerMode = false;
+    private ImageButton btnClose;
+
     private SearchBar searchBar;
     private RecyclerView resultsRecycler;
 
@@ -69,13 +76,19 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_search_users_to_invite);
 
+        // associate UI components with their xml counterparts
         bindViews();
 
+        // init. storage classes from the service locator
         db = FirebaseFirestore.getInstance();
         eventStorage = ServiceLocator.getEventStorage();
         eventPoolStorage = ServiceLocator.getEventPoolStorage();
 
+        // get event and coOrganizer mode from intent extras
         eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
+        isCoorganizerMode = getIntent().getBooleanExtra(EXTRA_IS_COORGANIZER_MODE, false);
+
+        // get the user uuid from the service locator
         currentUserId = ServiceLocator.uid();
 
         if (eventId == null || eventId.trim().isEmpty()) {
@@ -90,6 +103,8 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
             return;
         }
 
+        // setup UI components
+        btnClose.setOnClickListener(v -> finish());
         setupRecycler();
         setupSearchBar();
         validateAccessAndLoad();
@@ -97,6 +112,7 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
 
     private void bindViews() {
         searchBar = findViewById(R.id.search_bar);
+        btnClose = findViewById(R.id.btn_close);
         resultsRecycler = findViewById(R.id.search_results_recycler);
     }
 
@@ -107,14 +123,15 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
     }
 
     private void setupSearchBar() {
-        searchBar.setHint("Search users");
+        if (isCoorganizerMode) {
+            searchBar.setHint("Search for co-organizers");
+        } else {
+            searchBar.setHint("Search for entrants");
+        }
 
-        // SearchBar in your current layout is treated like a trigger that opens an input dialog.
         searchBar.setOnClickListener(v -> showSearchDialog(searchBar.getText() == null
                 ? ""
                 : searchBar.getText().toString()));
-
-        searchBar.setNavigationOnClickListener(v -> finish());
     }
 
     private void validateAccessAndLoad() {
@@ -135,7 +152,8 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
                         return;
                     }
 
-                    if (!isPrivateEvent(event)) {
+                    // Only require private events for direct entrant invites
+                    if (!isCoorganizerMode && !isPrivateEvent(event)) {
                         Toast.makeText(this, "Direct invites are only available for private events", Toast.LENGTH_SHORT).show();
                         finish();
                         return;
@@ -269,8 +287,10 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         inputLayout.addView(editText);
 
         AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("Search users")
                 .setView(inputLayout)
+                .setTitle(isCoorganizerMode
+                        ? "Invite a user to co-organize your event"
+                        : "Invite a user to your private event")
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Search", (d, which) ->
                         applySearch(editText.getText() == null ? "" : editText.getText().toString()))
@@ -332,15 +352,26 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
                 ? "this user"
                 : user.getName().trim();
 
-        new AlertDialog.Builder(this)
-                .setTitle("Send invite")
-                .setMessage("Send a private event invite to " + displayName + "?")
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this)
+                .setTitle(isCoorganizerMode ? "Send co-organizer invite" : "Send invite")
                 .setNegativeButton("Cancel", null)
-                .setPositiveButton("Invite", (DialogInterface dialog, int which) -> sendInvite(user))
-                .show();
+                .setPositiveButton("Invite", (DialogInterface d, int which) -> sendInvite(user));
+
+        if (isCoorganizerMode) {
+            dialog.setMessage("Send a co-organizer invite to " + displayName + "?");
+        } else {
+            dialog.setMessage("Send a private event invite to " + displayName + "?");
+        }
+
+        dialog.show();
     }
 
     private void sendInvite(User user) {
+        if (isCoorganizerMode) {
+            sendCoorganizerInvite(user);
+            return;
+        }
+
         Entrant entrant = new Entrant(
                 user.getUUID(),
                 eventId,
@@ -351,8 +382,7 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
                 eventId,
                 entrant,
                 unused -> {
-                    // send an Invite Notification to the user to let them know they can join the event if they would like to
-                    sendInviteNotification(user.getUUID(), eventId);
+                    sendPrivateInviteNotification(user.getUUID(), eventId);
 
                     blockedInviteUserIds.add(user.getUUID());
                     allEligibleUsers.remove(user);
@@ -373,12 +403,54 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         );
     }
 
+    private void sendCoorganizerInvite(User user) {
+        if (user == null || user.getUUID() == null || user.getUUID().trim().isEmpty()) {
+            Toast.makeText(this, "Invalid user", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        eventStorage.inviteCoorganizer(
+                eventId,
+                currentUserId,
+                user.getUUID(),
+                unused -> {
+                    blockedInviteUserIds.add(user.getUUID());
+                    allEligibleUsers.remove(user);
+                    filteredUsers.remove(user);
+                    adapter.notifyDataSetChanged();
+
+                    sendCoorganizerInviteNotification(user.getUUID(), eventId);
+
+                    String invitedName = user.getName() == null || user.getName().trim().isEmpty()
+                            ? "Co-organizer invite sent"
+                            : "Co-organizer invite sent to " + user.getName().trim();
+
+                    Toast.makeText(this, invitedName, Toast.LENGTH_SHORT).show();
+                },
+                e -> Toast.makeText(
+                        this,
+                        e.getMessage() == null
+                                ? "Failed to send co-organizer invite"
+                                : e.getMessage(),
+                        Toast.LENGTH_SHORT
+                ).show()
+        );
+    }
+
     /**
      * Sends a notification to a user that they have been invited to a private event.
      * - TO DO!!
      */
-    private void sendInviteNotification(String invitedUserId, String eventId) {
+    private void sendPrivateInviteNotification(String invitedUserId, String eventId) {
         // TODO: Send a notification to a user that they have been invited to the private event...
+    }
+
+    /**
+     * Sends a notification to a user that they have been invited to be a co-organizer for an event
+     * - TO DO!!
+     */
+    private void sendCoorganizerInviteNotification(String invitedUserId, String eventId) {
+        // TODO: Send a notification to a user that they have been invited to be a co-organizer...
     }
 
     private static final class InviteSearchAdapter
