@@ -31,7 +31,10 @@ import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
+<<<<<<< unit-tests
+=======
 import java.io.IOException;
+>>>>>>> main
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
