@@ -10,6 +10,7 @@ import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.models.UserAddress;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -95,6 +96,21 @@ public class EventStorage {
         return db.collection("users").document(uid);
     }
 
+    /**
+     * Returns the comments subcollection for an event.
+     * Stored under /events/{eventId}/comments
+     */
+    private CollectionReference eventCommentsCollection(@NonNull String eventId) {
+        return eventDoc(eventId).collection("comments");
+    }
+
+    /**
+     * Returns the reported comments subcollection for an event.
+     * Stored under /events/{eventId}/reported_comments
+     */
+    private CollectionReference eventReportedCommentsCollection(@NonNull String eventId) {
+        return eventDoc(eventId).collection("reported_comments");
+    }
 
     /** firebase storage
      * Takes in an Event as a parameter and creates/upserts it into the database.
@@ -299,7 +315,7 @@ public class EventStorage {
     /** firebase retrieval
      * Returns a single Event from the database
      * Asynchronous: requires OnSuccess and OnFailure listeners
-     * Address hydration is best-effort and will not cause the main event query to fail.
+     * Address hydration is best-effort and not cause the main event query to fail.
      */
     public void getEvent(
             String eventId,
@@ -531,6 +547,7 @@ public class EventStorage {
         eventDoc(eventId).delete();
     }
 
+
     public void inviteCoorganizer(
             @NonNull String eventId,
             @NonNull String organizerId,
@@ -683,6 +700,143 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /**
+     * Adds a single comment to an event's comments subcollection.
+     */
+    public void addEventComment(
+            @NonNull String eventId,
+            @NonNull String uid,
+            @NonNull String authorName,
+            @NonNull String message,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        String trimmedMessage = message.trim();
+        String trimmedAuthor = authorName.trim();
+
+        if (eventId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("eventId required"));
+            return;
+        }
+
+        if (uid.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("uid required"));
+            return;
+        }
+
+        if (trimmedMessage.isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("comment message required"));
+            return;
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("eventId", eventId);
+        data.put("uid", uid);
+        data.put("authorName", trimmedAuthor.isEmpty() ? "Unknown User" : trimmedAuthor);
+        data.put("message", trimmedMessage);
+        data.put("createdAt", FieldValue.serverTimestamp());
+        data.put("createdAtMs", System.currentTimeMillis());
+
+        eventCommentsCollection(eventId)
+                .document()
+                .set(data)
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Returns all comments for an event ordered by newest first.
+     */
+    public void getEventComments(
+            @NonNull String eventId,
+            OnSuccessListener<List<Map<String, Object>>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        eventCommentsCollection(eventId)
+                .orderBy("createdAtMs", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Map<String, Object>> comments = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> comment = new HashMap<>();
+                        comment.put("commentId", doc.getId());
+                        comment.put("uid", doc.getString("uid"));
+                        comment.put("authorName", doc.getString("authorName"));
+                        comment.put("message", doc.getString("message"));
+                        comment.put("createdAtMs", doc.getLong("createdAtMs"));
+                        comments.add(comment);
+                    }
+                    onSuccess.onSuccess(comments);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Deletes a comment from an event.
+     */
+    public void deleteEventComment(
+            @NonNull String eventId,
+            @NonNull String commentId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        eventCommentsCollection(eventId)
+                .document(commentId)
+                .delete()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Reports a comment.
+     * Reports are stored in a subcollection "reported_comments" under the event document.
+     */
+    public void reportComment(
+            @NonNull String eventId,
+            @NonNull String commentId,
+            @NonNull String reportedByUid,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        Map<String, Object> report = new HashMap<>();
+        report.put("commentId", commentId);
+        report.put("reportedByUid", reportedByUid);
+        report.put("timestamp", FieldValue.serverTimestamp());
+
+        eventReportedCommentsCollection(eventId)
+                .document(commentId) // use commentId as doc ID to avoid duplicate reports per comment
+                .set(report, SetOptions.merge())
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Returns all reported comments for an event.
+     */
+    public void getEventReportedComments(
+            @NonNull String eventId,
+            OnSuccessListener<List<Map<String, Object>>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        eventReportedCommentsCollection(eventId)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Map<String, Object>> reports = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        Map<String, Object> report = new HashMap<>();
+                        report.put("reportId", doc.getId());
+                        report.put("commentId", doc.getString("commentId"));
+                        report.put("reportedByUid", doc.getString("reportedByUid"));
+                        // timestamp might be null if it hasn't synced with server yet
+                        Object ts = doc.get("timestamp");
+                        report.put("timestamp", ts);
+                        reports.add(report);
+                    }
+                    onSuccess.onSuccess(reports);
+                })
+                .addOnFailureListener(onFailure);
+    }
     public void declineInviteToBeCoorganizer(
             @NonNull String eventId,
             @NonNull String invitedUserId,
