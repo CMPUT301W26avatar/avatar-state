@@ -143,6 +143,12 @@ public class UserDetailsActivity extends AppCompatActivity {
         ustore.getUserProfile(
                 uid,
                 user -> {
+                    if (user == null) {
+                        Toast.makeText(this, "User profile not found", Toast.LENGTH_SHORT).show();
+                        finish();
+                        return;
+                    }
+
                     etName.setText(user.getName() != null ? user.getName() : "");
                     etPhone.setText(user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
                     etEmail.setText(user.getEmail() != null ? user.getEmail() : "");
@@ -160,21 +166,18 @@ public class UserDetailsActivity extends AppCompatActivity {
 
                     tvDeviceId.setText(user.getUUID());
 
-                    // Admin can see delete buttons
-                    if (isAdminMode && user.getProfilePicUrl() != null && !user.getProfilePicUrl().isEmpty()) {
+                    if (isAdminMode
+                            && user.getProfilePicUrl() != null
+                            && !user.getProfilePicUrl().isEmpty()) {
                         btnDeleteProfilePic.setVisibility(View.VISIBLE);
-                    }
-                    else { // no one else can!
+                    } else {
                         btnDeleteProfilePic.setVisibility(View.GONE);
                     }
                 },
                 e -> {
                     android.util.Log.e("UserDetailsActivity",
                             "Failed to load user profile for uid=" + uid, e);
-
-                    Toast.makeText(this,
-                            "Failed to load profile",
-                            Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Failed to load profile", Toast.LENGTH_SHORT).show();
                 }
         );
     }

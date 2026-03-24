@@ -7,6 +7,7 @@ import com.example.lotteryapp.services.storage.AdminStorage;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
+import com.google.android.gms.auth.api.Auth;
 import com.google.firebase.auth.FirebaseAuth;
 import com.example.lotteryapp.services.storage.NotificationLogStorage;
 
