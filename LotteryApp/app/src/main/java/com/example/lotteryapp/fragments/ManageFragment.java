@@ -22,22 +22,34 @@ import androidx.core.util.Pair;
 import androidx.fragment.app.Fragment;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.models.Entrant;
+import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.activities.EventDetailsActivity;
+import com.example.lotteryapp.activities.EnrolledListActivity;
+import com.example.lotteryapp.activities.InvitedListActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
+import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * ManageFragment displays a list of organizer-managed events and supports
@@ -50,6 +62,17 @@ public class ManageFragment extends Fragment {
 
     private LinearLayout upcomingEventListContainer;
     private EventStorage eventStorage;
+    private EventPoolStorage eventPoolStorage;
+    private UserStorage userStorage;
+
+    private String csvDataToExport = "";
+
+    private final androidx.activity.result.ActivityResultLauncher<String> createDocumentLauncher =
+            registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv"), uri -> {
+                if (uri != null) {
+                    writeCsvToUri(uri);
+                }
+            });
 
     /**
      * Inflates the fragment layout and set up UI elements
@@ -66,6 +89,8 @@ public class ManageFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_manage, container, false);
 
         eventStorage = ServiceLocator.getEventStorage();
+        eventPoolStorage = ServiceLocator.getEventPoolStorage();
+        userStorage = ServiceLocator.getUserStorage();
         upcomingEventListContainer = view.findViewById(R.id.layout_upcoming_event_item);
 
         FloatingActionButton fab = view.findViewById(R.id.fab_add_event);
@@ -135,22 +160,14 @@ public class ManageFragment extends Fragment {
             TextView tvSubtitle = row.findViewById(R.id.tv_event_subtitle);
             View btnDetails = row.findViewById(R.id.btn_event_details);
             View btnEdit = row.findViewById(R.id.btn_edit_event);
-
-            //View btnEnrolled = row.findViewById(R.id.btn_view_enrolled);
+            View btnExportCsv = row.findViewById(R.id.btn_export_csv);
+            View btnEnrolled = row.findViewById(R.id.btn_view_enrolled);
+            View btnInvited = row.findViewById(R.id.btn_view_invited);
 
             String title = event.getTitle();
             tvTitle.setText(title != null && !title.trim().isEmpty() ? title : event.getEventId());
             tvSubtitle.setText(buildSubtitle(event));
 
-            btnDetails.setOnClickListener(v -> openEventDetails(event));
-            btnEdit.setOnClickListener(v -> showUpdateEventDialog(event));
-
-            /*btnEnrolled.setOnClickListener(v -> {
-                Intent intent = new Intent(requireContext(), EnrolledListActivity.class);
-                intent.putExtra(EventDetailsActivity.EXTRA_EVENT_ID, event.getEventId());
-                startActivity(intent);
-            });*/
-          
             btnDetails.setOnClickListener(v -> openEventDetails(event));
             btnEdit.setOnClickListener(v ->
                     eventStorage.getEvent(
@@ -159,8 +176,101 @@ public class ManageFragment extends Fragment {
                             e -> Toast.makeText(requireContext(), "Failed to load event", Toast.LENGTH_SHORT).show()
                     )
             );
+            btnExportCsv.setOnClickListener(v -> exportEnrolledEntrantsToCsv(event));
+
+            btnEnrolled.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), EnrolledListActivity.class);
+                intent.putExtra(EnrolledListActivity.EXTRA_EVENT_ID, event.getEventId());
+                startActivity(intent);
+            });
+
+            btnInvited.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), InvitedListActivity.class);
+                intent.putExtra(InvitedListActivity.EXTRA_EVENT_ID, event.getEventId());
+                startActivity(intent);
+            });
 
             upcomingEventListContainer.addView(row);
+        }
+    }
+
+    private void exportEnrolledEntrantsToCsv(Event event) {
+        eventPoolStorage.getEnrolledEntrants(event.getEventId(), enrolledEntrants -> {
+            if (enrolledEntrants.isEmpty()) {
+                Toast.makeText(requireContext(), "No enrolled entrants to export", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            fetchUsersAndGenerateCsv(event, enrolledEntrants);
+        }, e -> Toast.makeText(requireContext(), "Failed to load enrolled entrants", Toast.LENGTH_SHORT).show());
+    }
+
+    private void fetchUsersAndGenerateCsv(Event event, List<Entrant> entrants) {
+        Map<String, User> userMap = new HashMap<>();
+        AtomicInteger count = new AtomicInteger(0);
+        int total = entrants.size();
+
+        for (Entrant entrant : entrants) {
+            String entrantId = entrant.getEntrantId();
+            userStorage.getUserProfile(entrantId, user -> {
+                userMap.put(entrantId, user);
+                if (count.incrementAndGet() == total) {
+                    generateAndPromptSaveCsv(event, entrants, userMap);
+                }
+            }, e -> {
+                if (count.incrementAndGet() == total) {
+                    generateAndPromptSaveCsv(event, entrants, userMap);
+                }
+            });
+        }
+    }
+
+    private void generateAndPromptSaveCsv(Event event, List<Entrant> entrants, Map<String, User> userMap) {
+        StringBuilder csv = new StringBuilder();
+        csv.append("Entrant ID,Name,Email,Phone Number\n");
+        for (Entrant entrant : entrants) {
+            String eid = entrant.getEntrantId();
+            User user = userMap.get(eid);
+
+            String name = "";
+            String email = "";
+            String phone = "";
+
+            if (user != null) {
+                name = (user.getName() != null) ? user.getName().trim() : "";
+                email = (user.getEmail() != null) ? user.getEmail().trim() : "";
+                phone = (user.getPhoneNumber() != null) ? user.getPhoneNumber().trim() : "";
+            }
+
+            // Fallback: if name is missing, use Entrant ID
+            if (name.isEmpty()) {
+                name = eid;
+            }
+
+            csv.append(sanitizeForCsv(eid)).append(",")
+                    .append(sanitizeForCsv(name)).append(",")
+                    .append(sanitizeForCsv(email)).append(",")
+                    .append(sanitizeForCsv(phone)).append("\n");
+        }
+
+        csvDataToExport = csv.toString();
+        String fileName = "enrolled_" + (event.getTitle() != null ? event.getTitle().replaceAll("[^a-zA-Z0-9]", "_") : event.getEventId()) + ".csv";
+        createDocumentLauncher.launch(fileName);
+    }
+
+    private String sanitizeForCsv(String text) {
+        if (text == null) return "";
+        return text.replace(",", " ").replace("\n", " ").trim();
+    }
+
+    private void writeCsvToUri(android.net.Uri uri) {
+        try (OutputStream outputStream = requireContext().getContentResolver().openOutputStream(uri)) {
+            if (outputStream != null) {
+                outputStream.write(csvDataToExport.getBytes(StandardCharsets.UTF_8));
+                Toast.makeText(requireContext(), "CSV exported successfully", Toast.LENGTH_SHORT).show();
+            }
+        } catch (IOException e) {
+            Toast.makeText(requireContext(), "Failed to export CSV", Toast.LENGTH_SHORT).show();
         }
     }
 

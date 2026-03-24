@@ -1,7 +1,6 @@
 package com.example.lotteryapp.activities;
 
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,7 +10,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -23,40 +21,34 @@ import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * US 02.06.03 & 02.06.05
- * Displays final list of entrants enrolled in specified event and allows CSV export as a file.
+ * US 02.06.01
+ * Displays list of entrants invited (winners) to specified event.
  * Accessible by the organizer through Manage Events screen.
+ * Gets invited entrants from EventPoolStorage and displays them.
+ * Shows empty message if none invited.
  */
-public class EnrolledListActivity extends AppCompatActivity {
+public class InvitedListActivity extends AppCompatActivity {
     public static final String EXTRA_EVENT_ID = "eventId";
 
     private RecyclerView recyclerView;
     private TextView tvEmpty;
-    private MaterialButton btnExportCsv;
+    private MaterialButton btnClose;
     private EntrantAdapter adapter;
     private EventPoolStorage eventPoolStorage;
     private UserStorage userStorage;
-    private String eventId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_enrolled_list);
+        setContentView(R.layout.activity_invited_list);
 
-        recyclerView = findViewById(R.id.rv_enrolled);
-        tvEmpty = findViewById(R.id.tv_empty);
-        MaterialButton btnClose = findViewById(R.id.btn_close);
-        btnExportCsv = findViewById(R.id.btn_export_csv);
+        recyclerView = findViewById(R.id.rv_invited);
+        tvEmpty = findViewById(R.id.tv_empty_invited);
+        btnClose = findViewById(R.id.btn_close_invited);
 
         eventPoolStorage = ServiceLocator.getEventPoolStorage();
         userStorage = ServiceLocator.getUserStorage();
@@ -66,122 +58,36 @@ public class EnrolledListActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
 
         btnClose.setOnClickListener(v -> finish());
-        btnExportCsv.setOnClickListener(v -> exportToCSV());
 
-        eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
+        String eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
         if (eventId == null || eventId.trim().isEmpty()) {
             Toast.makeText(this, "Missing eventID", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
 
-        loadEnrolledEntrants(eventId);
+        loadInvitedEntrants(eventId);
     }
 
-    private void loadEnrolledEntrants(String eventId) {
-        eventPoolStorage.getEnrolledEntrants(
+    private void loadInvitedEntrants(String eventId) {
+        eventPoolStorage.getInvitedEntrants(
                 eventId,
                 entrants -> {
                     if (entrants.isEmpty()) {
                         tvEmpty.setVisibility(View.VISIBLE);
                         recyclerView.setVisibility(View.GONE);
-                        btnExportCsv.setEnabled(false);
                     } else {
                         tvEmpty.setVisibility(View.GONE);
                         recyclerView.setVisibility(View.VISIBLE);
-                        btnExportCsv.setEnabled(true);
                         adapter.setEntrants(entrants);
                     }
                 },
                 e -> {
-                    Toast.makeText(this, "Failed to load entrants", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Failed to load invited entrants", Toast.LENGTH_SHORT).show();
                     tvEmpty.setVisibility(View.VISIBLE);
-                    tvEmpty.setText("Error loading entrants");
-                    btnExportCsv.setEnabled(false);
+                    tvEmpty.setText("Error loading invited entrants");
                 }
         );
-    }
-
-    /**
-     * Gathers all enrolled entrants and their profiles for CSV export.
-     */
-    private void exportToCSV() {
-        List<Entrant> entrants = adapter.getEntrants();
-        if (entrants.isEmpty()) {
-            Toast.makeText(this, "No entrants to export", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Map<String, User> userMap = new HashMap<>();
-        AtomicInteger count = new AtomicInteger(0);
-        int total = entrants.size();
-
-        for (Entrant entrant : entrants) {
-            userStorage.getUserProfile(entrant.getEntrantId(), user -> {
-                if (user != null) {
-                    userMap.put(entrant.getEntrantId(), user);
-                }
-                if (count.incrementAndGet() == total) {
-                    generateAndShareCSVFile(entrants, userMap);
-                }
-            }, e -> {
-                if (count.incrementAndGet() == total) {
-                    generateAndShareCSVFile(entrants, userMap);
-                }
-            });
-        }
-    }
-
-    /**
-     * Builds the CSV string, writes it to a file, and triggers a share intent.
-     */
-    private void generateAndShareCSVFile(List<Entrant> entrants, Map<String, User> userMap) {
-        StringBuilder csv = new StringBuilder();
-        csv.append("Name,Email,Phone,Status\n");
-
-        for (Entrant entrant : entrants) {
-            User user = userMap.get(entrant.getEntrantId());
-            String name = (user != null && user.getName() != null) ? user.getName() : "Unknown";
-            String email = (user != null && user.getEmail() != null) ? user.getEmail() : "N/A";
-            String phone = (user != null && user.getPhoneNumber() != null) ? user.getPhoneNumber() : "N/A";
-            String status = "Enrolled";
-
-            csv.append(sanitize(name)).append(",")
-                    .append(sanitize(email)).append(",")
-                    .append(sanitize(phone)).append(",")
-                    .append(sanitize(status)).append("\n");
-        }
-
-        try {
-            // 1. Generate Physical File
-            File cachePath = new File(getCacheDir(), "exports");
-            cachePath.mkdirs();
-            File csvFile = new File(cachePath, "Enrolled_Entrants.csv");
-            FileOutputStream stream = new FileOutputStream(csvFile);
-            stream.write(csv.toString().getBytes());
-            stream.close();
-
-            // 2. Use FileProvider for URI
-            Uri contentUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", csvFile);
-
-            // 3. Update Intent to send file stream
-            Intent intent = new Intent(Intent.ACTION_SEND);
-            intent.setType("text/csv");
-            intent.putExtra(Intent.EXTRA_SUBJECT, "Enrolled_Entrants.csv");
-            intent.putExtra(Intent.EXTRA_STREAM, contentUri);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            
-            startActivity(Intent.createChooser(intent, "Export Enrolled Entrants"));
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Error generating CSV file", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private String sanitize(String value) {
-        if (value == null) return "";
-        return value.replace(",", " ").replace("\n", " ").trim();
     }
 
     private static class EntrantAdapter extends RecyclerView.Adapter<EntrantAdapter.ViewHolder> {
@@ -198,10 +104,6 @@ public class EnrolledListActivity extends AppCompatActivity {
             notifyDataSetChanged();
         }
 
-        public List<Entrant> getEntrants() {
-            return new ArrayList<>(entrants);
-        }
-
         @NonNull
         @Override
         public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -212,6 +114,7 @@ public class EnrolledListActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             Entrant entrant = entrants.get(position);
+            
             holder.tvEntrantName.setText("Loading...");
             holder.tvEntrantEmail.setText(entrant.getEntrantId());
 

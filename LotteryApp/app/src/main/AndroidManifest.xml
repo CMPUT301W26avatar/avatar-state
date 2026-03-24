@@ -33,11 +33,22 @@
         <activity android:name=".activities.EventDetailsActivity"/>
         <activity android:name=".activities.AdminActivity"/>
         <activity android:name=".activities.EnrolledListActivity"/>
+        <activity android:name=".activities.InvitedListActivity"/>
         <activity android:name=".activities.InvitesDashboardActivity" />
         <activity android:name=".activities.PromoteNewAdminActivity" />
         <activity android:name=".activities.UserPrivacyActivity" />
         <activity android:name=".activities.NotificationSettingsActivity" />
         <activity android:name=".activities.EventMapActivity" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <service
             android:name=".services.MyFirebaseMessagingService"
