@@ -1,5 +1,6 @@
 package com.example.lotteryapp;
 
+import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.PENDING;
 import static com.example.lotteryapp.models.NotificationLog.NotificationType.INVITATION;
 import static com.example.lotteryapp.models.NotificationLog.NotificationType.LOTTERY_RESULT;
 import static org.junit.Assert.assertEquals;
@@ -9,11 +10,14 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import static java.time.LocalDateTime.now;
+
 import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.NotificationLogStorage;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.Timestamp;
 
 import org.junit.After;
 import org.junit.Before;
@@ -67,7 +71,7 @@ public class NotificationLogStorageUnitTest {
     @Test
     public void logNotificationCallsOnSuccessWithDocId() {
         doAnswer(invocation -> {
-            OnSuccessListener<String> success = invocation.getArgument(5);
+            OnSuccessListener<String> success = invocation.getArgument(6);
             success.onSuccess("fake-doc-id");
             return null;
         }).when(mockStorage).logNotification(any(), any(), any(), any(), any(), any(), any(), any());
@@ -75,7 +79,12 @@ public class NotificationLogStorageUnitTest {
         AtomicReference<String> result = new AtomicReference<>();
 
         ServiceLocator.getNotificationLogStorage().logNotification(
-                "event-1", "organizer-1", "user-1", "Title", "Message", INVITATION,
+                "event-1",
+                "organizer-1",
+                "user-1",
+                "Title",
+                "Message",
+                INVITATION,
                 result::set,
                 e -> {}
         );
@@ -89,9 +98,26 @@ public class NotificationLogStorageUnitTest {
      */
     @Test
     public void getAllLogsReturnsCorrectList() {
-        NotificationLog log1 = new NotificationLog("e1", "o1", "u1", "Invited!", "Congrats", INVITATION, null);
-        NotificationLog log2 = new NotificationLog("e2", "o2","u2", "Result", "Better luck", LOTTERY_RESULT, null);
-        List<NotificationLog> fakeLogs = Arrays.asList(log1, log2);
+        NotificationLog log1 = new NotificationLog(
+                "e1",
+                "o1",
+                "u1",
+                "Invited!",
+                "Congrats",
+                NotificationLog.NotificationType.INVITATION,
+                PENDING,
+                Timestamp.now()
+        );
+        NotificationLog log2 = new NotificationLog(
+                "e2",
+                "o2",
+                "u2",
+                "Result",
+                "Better luck",
+                NotificationLog.NotificationType.LOTTERY_RESULT,
+                PENDING,
+                Timestamp.now()
+        );        List<NotificationLog> fakeLogs = Arrays.asList(log1, log2);
 
         doAnswer(invocation -> {
             OnSuccessListener<List<NotificationLog>> success = invocation.getArgument(0);
