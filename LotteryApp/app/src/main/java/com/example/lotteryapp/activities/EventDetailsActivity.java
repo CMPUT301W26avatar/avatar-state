@@ -13,6 +13,7 @@ import static com.example.lotteryapp.models.Event.EventStatus.REG_FULL;
 import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -109,11 +110,22 @@ public class EventDetailsActivity extends AppCompatActivity {
 
         isAdminMode = getIntent().getBooleanExtra("isAdminMode", false);
 
+        Intent intent = getIntent();
+        Uri data = intent.getData();
+
+        if (data != null) {
+            Toast toast = Toast.makeText(getBaseContext(), "Hello, QR Code User!", Toast.LENGTH_SHORT);
+            toast.show();
+            eventId = data.getQueryParameter("event");
+
+        } else {
+            eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
+        }
+
         bindViews();
 
         btnClose.setOnClickListener(v -> finish());
 
-        eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
 
         if (eventId == null || eventId.trim().isEmpty()) {
             populateFromIntentExtras();
