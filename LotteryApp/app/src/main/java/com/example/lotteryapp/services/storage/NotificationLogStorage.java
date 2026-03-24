@@ -1,5 +1,7 @@
 package com.example.lotteryapp.services.storage;
 
+import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.PENDING;
+
 import com.example.lotteryapp.models.NotificationLog;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -66,11 +68,40 @@ public class NotificationLogStorage {
         data.put("title", title);
         data.put("message", message);
         data.put("type", type == null ? null : type.name());
+        data.put("status", PENDING);
         data.put("timestamp", FieldValue.serverTimestamp());
+        data.put("updatedAt", FieldValue.serverTimestamp());
 
         db.collection(COLLECTION)
                 .add(data)
                 .addOnSuccessListener(ref -> onSuccess.onSuccess(ref.getId()))
+                .addOnFailureListener(onFailure);
+    }
+
+    public void updateNotificationStatus(
+            String notificationId,
+            String status,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (notificationId == null || notificationId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("notificationId required"));
+            return;
+        }
+
+        if (status == null || status.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("status required"));
+            return;
+        }
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("status", status);
+        updates.put("updatedAt", FieldValue.serverTimestamp());
+
+        db.collection(COLLECTION)
+                .document(notificationId)
+                .update(updates)
+                .addOnSuccessListener(onSuccess)
                 .addOnFailureListener(onFailure);
     }
 
@@ -104,13 +135,14 @@ public class NotificationLogStorage {
      * Gets notifications for one user, newest first.
      * This is the method HomeFragment should use for the red popup / swipeable notification UI.
      */
-    public void getNotificationsForUser(
+    public void getPendingNotificationsForUser(
             String userId,
             OnSuccessListener<List<NotificationLog>> onSuccess,
             OnFailureListener onFailure
     ) {
         db.collection(COLLECTION)
                 .whereEqualTo("userId", userId)
+                .whereEqualTo("status", PENDING)
                 .get()
                 .addOnSuccessListener(snapshot -> {
                     List<NotificationLog> logs = new ArrayList<>();

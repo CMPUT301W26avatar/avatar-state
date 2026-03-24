@@ -103,7 +103,7 @@ public class ManageFragment extends Fragment {
 
         upcomingEventListContainer.removeAllViews();
 
-        eventStorage.getEventsByOrganizer(
+        eventStorage.getManagedEventsForUser(
                 organizerId,
                 this::renderUpcomingEvents,
                 e -> Toast.makeText(requireContext(), "Failed to load organizer events", Toast.LENGTH_SHORT).show()

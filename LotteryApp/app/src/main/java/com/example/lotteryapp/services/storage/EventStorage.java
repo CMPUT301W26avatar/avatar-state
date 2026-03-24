@@ -683,6 +683,28 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    public void declineInviteToBeCoorganizer(
+            @NonNull String eventId,
+            @NonNull String invitedUserId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (eventId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("eventId required"));
+            return;
+        }
+
+        if (invitedUserId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("invitedUserId required"));
+            return;
+        }
+
+        eventCoorganizerInviteDoc(eventId, invitedUserId)
+                .delete()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
     /** firebase boolean retrieval
      * Returns true or false for if the current user is the organizer for any event
      * Asynchronous: requires OnSuccess and OnFailure listeners
@@ -704,13 +726,42 @@ public class EventStorage {
      * Returns all events by the organizerId given to the method as a parameter
      * Asynchronous: requires OnSuccess and OnFailure listeners
      */
-    public void getEventsByOrganizer(
-            String organizerId,
+    public void getManagedEventsForUser(
+            String userId,
             OnSuccessListener<List<Event>> onSuccess,
             OnFailureListener onFailure
     ) {
-        Query query = db.collection("events").whereEqualTo("organizerId", organizerId);
-        queryEventsWithAddresses(query, onSuccess, onFailure);
+        db.collection("events")
+                .whereEqualTo("organizerId", userId)
+                .get()
+                .addOnSuccessListener(organizerSnapshot -> {
+                    db.collection("events")
+                            .whereArrayContains("coOrganizerIds", userId)
+                            .get()
+                            .addOnSuccessListener(coOrganizerSnapshot -> {
+                                Map<String, Event> merged = new HashMap<>();
+
+                                for (QueryDocumentSnapshot doc : organizerSnapshot) {
+                                    Event e = documentToEvent(doc);
+                                    merged.put(e.getEventId(), e);
+                                }
+
+                                for (QueryDocumentSnapshot doc : coOrganizerSnapshot) {
+                                    Event e = documentToEvent(doc);
+                                    merged.put(e.getEventId(), e);
+                                }
+
+                                List<Event> events = new ArrayList<>(merged.values());
+                                if (events.isEmpty()) {
+                                    onSuccess.onSuccess(events);
+                                    return;
+                                }
+
+                                populateEventAddressesSafely(events, 0, onSuccess);
+                            })
+                            .addOnFailureListener(onFailure);
+                })
+                .addOnFailureListener(onFailure);
     }
 
     /** firebase retrieval

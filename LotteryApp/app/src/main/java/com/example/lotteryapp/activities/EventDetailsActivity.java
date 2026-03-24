@@ -214,7 +214,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 populateInfo(currentEvent);
                 if (isAdminMode) {
                     setupAdminActions();
-                } else if (isOrganizer(currentEvent)) {
+                } else if (canManageEvent(currentEvent)) {
                     setupOrganizerActions(currentEvent);
                 } else {
                     setupEntrantActions(currentEvent);
@@ -222,7 +222,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
                 LinearLayout listOfX = findViewById(R.id.list_of_x_container);
                 TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
-                if (isOrganizer(event)) {
+                if (canManageEvent(event)) {
                     listOfX.setVisibility(VISIBLE);
                     Event.EventStatus status = event.getStatus();
                     tvEventVisibilityTag.setBackgroundTintList(
@@ -259,8 +259,23 @@ public class EventDetailsActivity extends AppCompatActivity {
     /**
      * Determines whether the current user is the organizer of the given event.
      */
-    private boolean isOrganizer(Event event) {
-        return event.getOrganizerId().equals(currentUserId);
+    private boolean isPrimaryOrganizer(Event event) {
+        return event != null
+                && currentUserId != null
+                && currentUserId.equals(event.getOrganizerId());
+    }
+
+    private boolean canManageEvent(Event event) {
+        if (event == null || currentUserId == null) {
+            return false;
+        }
+
+        if (currentUserId.equals(event.getOrganizerId())) {
+            return true;
+        }
+
+        List<String> coOrganizerIds = event.getCoOrganizerIds();
+        return coOrganizerIds != null && coOrganizerIds.contains(currentUserId);
     }
 
     /**
@@ -474,7 +489,7 @@ public class EventDetailsActivity extends AppCompatActivity {
             btnSearchForUsers.setText("Search for users to Invite");
             btnSearchForUsers.setOnClickListener(v -> openInviteUserSearch());
 
-            btnSearchForCoorganizers.setVisibility(VISIBLE);
+            btnSearchForCoorganizers.setVisibility(isPrimaryOrganizer(event) ? View.VISIBLE : View.GONE);
             btnSearchForCoorganizers.setEnabled(true);
             btnSearchForCoorganizers.setOnClickListener(v -> openInviteCoorganizerSearch());
 
@@ -484,8 +499,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnViewEventMap.setVisibility(View.VISIBLE);
         btnViewEventMap.setOnClickListener(v -> openEventMap());
 
-        btnSearchForCoorganizers.setVisibility(VISIBLE);
-        btnSearchForCoorganizers.setEnabled(true);
+        btnSearchForCoorganizers.setVisibility(isPrimaryOrganizer(event) ? View.VISIBLE : View.GONE);        btnSearchForCoorganizers.setEnabled(true);
         btnSearchForCoorganizers.setOnClickListener(v -> openInviteCoorganizerSearch());
 
         btnBeginLotterySelection.setVisibility(View.GONE);

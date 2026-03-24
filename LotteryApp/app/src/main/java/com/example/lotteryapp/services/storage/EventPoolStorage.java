@@ -100,8 +100,6 @@ public class EventPoolStorage {
     ) {
         DocumentReference eventRef = db.collection("events").document(eventId);
         DocumentReference entrantWaitlistedRef = waitlistedDoc(eventId, entrant.getEntrantId());
-        DocumentReference entrantInvitedRef = invitedDoc(eventId, entrant.getEntrantId());
-        DocumentReference entrantEnrolledRef = enrolledDoc(eventId, entrant.getEntrantId());
 
         db.runTransaction((Transaction.Function<Void>) transaction -> {
                     DocumentSnapshot eventSnap = transaction.get(eventRef);
@@ -764,7 +762,7 @@ public class EventPoolStorage {
      * Asynchronous: requires OnSuccess and OnFailure listeners
      * - returns nothing, synchronously or asynchronously
      */
-    private void deleteEntryByStatus(
+    public void deleteEntryByStatus(
             String eventId,
             String entrantId,
             Entrant.EntrantStatus status,

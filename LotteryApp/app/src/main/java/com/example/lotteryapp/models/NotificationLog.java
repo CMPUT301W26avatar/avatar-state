@@ -15,6 +15,7 @@ public class NotificationLog {
     private String title;
     private String message;
     private NotificationType type;
+    private NotificationStatus status;
     private Timestamp timestamp;
     public enum NotificationType {
         INVITATION,
@@ -23,6 +24,12 @@ public class NotificationLog {
         COMMENT,
         PRIVATE_INVITATION,
         COORGANIZER_INVITATION,
+    }
+
+    public enum NotificationStatus {
+        PENDING, // user has yet to do anything with the noti.
+        ACCEPTED,
+        DECLINED
     }
     public NotificationLog () {}
 
@@ -38,25 +45,27 @@ public class NotificationLog {
      */
     // unverified event constructor
     public NotificationLog(String eventId, String organizerId, String userId, String title,
-                           String message, NotificationType type, Timestamp timestamp) {
+                           String message, NotificationType type, NotificationStatus status, Timestamp timestamp) {
         this.eventId = eventId;
         this.organizerId = organizerId;
         this.userId = userId;
         this.title = title;
         this.message = message;
         this.type = type;
+        this.status = status;
         this.timestamp = timestamp;
     }
 
     // verified event constructor
     public NotificationLog(Event event, String userId, String title,
-                           String message, NotificationType type, Timestamp timestamp) {
+                           String message, NotificationType type, NotificationStatus status, Timestamp timestamp) {
         this.eventId = event.getEventId();
         this.organizerId = event.getOrganizerId();
         this.userId = userId;
         this.title = title;
         this.message = message;
         this.type = type;
+        this.status = status;
         this.timestamp = timestamp;
     }
 

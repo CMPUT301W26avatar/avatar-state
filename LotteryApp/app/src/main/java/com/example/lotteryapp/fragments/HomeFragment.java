@@ -1,5 +1,7 @@
 package com.example.lotteryapp.fragments;
 
+import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.ACCEPTED;
+import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.DECLINED;
 import static com.example.lotteryapp.models.NotificationLog.NotificationType.PRIVATE_INVITATION;
 
 import android.graphics.drawable.GradientDrawable;
@@ -213,7 +215,7 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        notificationLogStorage.getNotificationsForUser(
+        notificationLogStorage.getPendingNotificationsForUser(
                 uid,
                 logs -> {
                     notifications.clear();
@@ -297,10 +299,10 @@ public class HomeFragment extends Fragment {
         if (getContext() == null) return;
 
         new AlertDialog.Builder(requireContext())
-                .setTitle("Join private event?")
-                .setMessage("Would you like to join this private event?")
-                .setNegativeButton("No", null)
-                .setPositiveButton("Join", (dialog, which) -> acceptPrivateInvite(position, notification))
+                .setTitle("Private event invitation")
+                .setMessage("Would you like to accept this private event invitation?")
+                .setNegativeButton("Decline", (dialog, which) -> declinePrivateInvite(position, notification))
+                .setPositiveButton("Accept", (dialog, which) -> acceptPrivateInvite(position, notification))
                 .show();
     }
 
@@ -308,9 +310,9 @@ public class HomeFragment extends Fragment {
         if (getContext() == null) return;
 
         new AlertDialog.Builder(requireContext())
-                .setTitle("Become co-organizer?")
-                .setMessage("Would you like to become a co-organizer for this event?")
-                .setNegativeButton("No", null)
+                .setTitle("Co-organizer invitation")
+                .setMessage("Would you like to accept this co-organizer invitation?")
+                .setNegativeButton("Decline", (dialog, which) -> declineCoorganizerInvite(position, notification))
                 .setPositiveButton("Accept", (dialog, which) -> acceptCoorganizerInvite(position, notification))
                 .show();
     }
@@ -328,27 +330,51 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        if (eventPoolStorage == null) {
-            Toast.makeText(requireContext(), "Invite service unavailable", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Entrant entrant = new Entrant(
-                uid,
-                notification.eventId,
-                Entrant.EntrantStatus.ENROLLED
-        );
+        Entrant entrant = new Entrant(uid, notification.eventId, Entrant.EntrantStatus.ENROLLED);
 
         eventPoolStorage.enrollInEvent(
                 notification.eventId,
                 entrant,
-                unused -> {
-                    Toast.makeText(requireContext(), "Joined private event", Toast.LENGTH_SHORT).show();
-                    dismissNotificationAt(position);
-                },
+                unused -> resolveNotification(
+                        position,
+                        notification,
+                        ACCEPTED.name(),
+                        "Joined private event"
+                ),
                 e -> Toast.makeText(
                         requireContext(),
                         e.getMessage() == null ? "Failed to join private event" : e.getMessage(),
+                        Toast.LENGTH_SHORT
+                ).show()
+        );
+    }
+
+    private void declinePrivateInvite(int position, UserNotification notification) {
+        String uid = ServiceLocator.uid();
+
+        if (notification == null || notification.eventId == null || notification.eventId.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "Missing event for invite", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (uid == null || uid.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "User not signed in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        eventPoolStorage.deleteEntryByStatus(
+                notification.eventId,
+                uid,
+                Entrant.EntrantStatus.INVITED,
+                unused -> resolveNotification(
+                        position,
+                        notification,
+                        DECLINED.name(),
+                        "Private invite declined"
+                ),
+                e -> Toast.makeText(
+                        requireContext(),
+                        e.getMessage() == null ? "Failed to decline private invite" : e.getMessage(),
                         Toast.LENGTH_SHORT
                 ).show()
         );
@@ -367,18 +393,15 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        if (estore == null) {
-            Toast.makeText(requireContext(), "Event service unavailable", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
         estore.acceptInviteToBeCoorganizer(
                 notification.eventId,
                 uid,
-                unused -> {
-                    Toast.makeText(requireContext(), "You are now a co-organizer", Toast.LENGTH_SHORT).show();
-                    dismissNotificationAt(position);
-                },
+                unused -> resolveNotification(
+                        position,
+                        notification,
+                        ACCEPTED.name(),
+                        "You are now a co-organizer"
+                ),
                 e -> Toast.makeText(
                         requireContext(),
                         e.getMessage() == null ? "Failed to accept co-organizer invite" : e.getMessage(),
@@ -386,6 +409,38 @@ public class HomeFragment extends Fragment {
                 ).show()
         );
     }
+
+    private void declineCoorganizerInvite(int position, UserNotification notification) {
+        String uid = ServiceLocator.uid();
+
+        if (notification == null || notification.eventId == null || notification.eventId.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "Missing event for invite", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (uid == null || uid.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "User not signed in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        estore.declineInviteToBeCoorganizer(
+                notification.eventId,
+                uid,
+                unused -> resolveNotification(
+                        position,
+                        notification,
+                        DECLINED.name(),
+                        "Co-organizer invite declined"
+                ),
+                e -> Toast.makeText(
+                        requireContext(),
+                        e.getMessage() == null ? "Failed to decline co-organizer invite" : e.getMessage(),
+                        Toast.LENGTH_SHORT
+                ).show()
+        );
+    }
+
+
 
     private static final class UserNotification {
         String id;
@@ -411,6 +466,34 @@ public class HomeFragment extends Fragment {
             this.read = read;
         }
     }
+
+    private void resolveNotification(
+            int position,
+            UserNotification notification,
+            String status,
+            String successMessage
+    ) {
+        if (notification == null || notification.id == null || notification.id.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "Missing notification", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        notificationLogStorage.updateNotificationStatus(
+                notification.id,
+                status,
+                unused -> {
+                    Toast.makeText(requireContext(), successMessage, Toast.LENGTH_SHORT).show();
+                    dismissNotificationAt(position);
+                    loadNotifications();
+                },
+                e -> Toast.makeText(
+                        requireContext(),
+                        e.getMessage() == null ? "Failed to update notification" : e.getMessage(),
+                        Toast.LENGTH_SHORT
+                ).show()
+        );
+    }
+
 
     private static final class NotificationPagerAdapter
             extends RecyclerView.Adapter<NotificationPagerAdapter.NotificationViewHolder> {
