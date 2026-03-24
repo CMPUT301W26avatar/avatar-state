@@ -11,6 +11,7 @@ activity = "1.12.4"
 constraintlayout = "2.2.1"
 playServicesAuth = "21.5.1"
 playServicesPhenotype = "17.0.0"
+zxingAndroidEmbedded = "4.3.0"
 
 [libraries]
 firebase-auth = { module = "com.google.firebase:firebase-auth" }
@@ -27,6 +28,7 @@ activity = { group = "androidx.activity", name = "activity", version.ref = "acti
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
 play-services-phenotype = { module = "com.google.android.gms:play-services-phenotype", version.ref = "playServicesPhenotype" }
+zxing-android-embedded = { module = "com.journeyapps:zxing-android-embedded", version.ref = "zxingAndroidEmbedded" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
