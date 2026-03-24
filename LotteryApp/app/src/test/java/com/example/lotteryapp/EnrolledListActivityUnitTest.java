@@ -1,6 +1,7 @@
 package com.example.lotteryapp;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -17,6 +18,7 @@ import com.example.lotteryapp.activities.EnrolledListActivity;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
+import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.gms.tasks.OnSuccessListener;
 
 import org.junit.After;
@@ -34,25 +36,22 @@ import java.util.List;
 
 /**
  * Unit tests for EnrolledListActivity.
- *
- * Tests include:
- * - activity finishes if no event ID is provided
- * - empty view shown when no entrants are enrolled
- * - recycler view shown when entrants are enrolled
- *
- * Robolectric for simulating Android UI components.
+ * Updated to support UserStorage mock for US 02.06.05.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = Config.NONE, sdk = 34)
 public class EnrolledListActivityUnitTest {
 
     private EventPoolStorage mockEventPoolStorage;
+    private UserStorage mockUserStorage;
 
     @Before
     public void setUp() {
         ServiceLocator.reset();
         mockEventPoolStorage = mock(EventPoolStorage.class);
+        mockUserStorage = mock(UserStorage.class);
         ServiceLocator.setEventPoolStorageForTests(mockEventPoolStorage);
+        ServiceLocator.setUserStorageForTests(mockUserStorage);
     }
 
     @After
@@ -60,7 +59,6 @@ public class EnrolledListActivityUnitTest {
         ServiceLocator.reset();
     }
 
-    // activity should finish immediately if no eventId is passed
     @Test
     public void activityFinishesWithoutEventId() {
         EnrolledListActivity activity = Robolectric.buildActivity(EnrolledListActivity.class)
@@ -73,7 +71,6 @@ public class EnrolledListActivityUnitTest {
         assertEquals("Missing eventID", ShadowToast.getTextOfLatestToast());
     }
 
-    // empty view should be visible when enrolled list is empty
     @Test
     public void emptyViewShownWhenNoEntrantsEnrolled() {
         doAnswer(invocation -> {
@@ -95,9 +92,10 @@ public class EnrolledListActivityUnitTest {
 
         assertEquals(View.VISIBLE, activity.findViewById(R.id.tv_empty).getVisibility());
         assertEquals(View.GONE, activity.findViewById(R.id.rv_enrolled).getVisibility());
+        // Export button should be disabled if list is empty
+        assertFalse(activity.findViewById(R.id.btn_export_csv).isEnabled());
     }
 
-    // recycler view should be visible and populated when entrants are enrolled
     @Test
     public void recyclerViewShownWhenEntrantsEnrolled() {
         List<Entrant> fakeEntrants = new ArrayList<>();
@@ -123,6 +121,7 @@ public class EnrolledListActivityUnitTest {
 
         assertEquals(View.GONE, activity.findViewById(R.id.tv_empty).getVisibility());
         assertEquals(View.VISIBLE, activity.findViewById(R.id.rv_enrolled).getVisibility());
+        assertTrue(activity.findViewById(R.id.btn_export_csv).isEnabled());
 
         RecyclerView rv = activity.findViewById(R.id.rv_enrolled);
         assertEquals(2, rv.getAdapter().getItemCount());
