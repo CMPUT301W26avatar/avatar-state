@@ -1,5 +1,6 @@
 package com.example.lotteryapp.activities;
 
+import com.example.lotteryapp.services.ProfanityFilter;
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
@@ -18,6 +19,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -64,6 +66,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialTextView tvDate;
     private MaterialTextView tvRegEndDate;
     private MaterialTextView tvCriteriaGuidelines;
+    private MaterialTextView tvViewComments;
 
     // buttons
     private MaterialButton btnClose;
@@ -76,6 +79,11 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialButton btnBeginLotterySelection;
     private MaterialButton btnViewEventMap;
     private MaterialButton btnShowInvitesDashboard;
+
+    private ImageButton btnCommentIcon;
+    private ImageButton btnShareIcon;
+    private ImageButton btnSaveIcon;
+
     // poster
     private ImageView ivEventPoster;
 
@@ -122,6 +130,8 @@ public class EventDetailsActivity extends AppCompatActivity {
             eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
         }
 
+        ProfanityFilter.init(this);
+
         bindViews();
 
         btnClose.setOnClickListener(v -> finish());
@@ -153,10 +163,12 @@ public class EventDetailsActivity extends AppCompatActivity {
         // prefill any passed UI extras while backend data loads
         populateFromIntentExtras();
         loadEvent();
+
+        setupActionBar();
     }
 
     /**
-     * Associate all of the xml components with their application counterparts
+     * Associate all of the XML components with their application counterparts
      */
     private void bindViews() {
         tvName = findViewById(R.id.tv_event_name);
@@ -177,6 +189,11 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnViewEventMap = findViewById(R.id.btn_view_event_map);
         btnShowInvitesDashboard = findViewById(R.id.btn_show_invites_dashboard);
 
+        btnCommentIcon = findViewById(R.id.btn_comment_icon);
+        btnShareIcon = findViewById(R.id.btn_share_icon);
+        btnSaveIcon = findViewById(R.id.btn_save_icon);
+        tvViewComments = findViewById(R.id.tv_view_comments);
+
         ivEventPoster = findViewById(R.id.iv_event_poster);
 
         // Admin Info
@@ -190,6 +207,27 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminWaitlistCount = findViewById(R.id.tv_admin_waitlist_count);
         tvAdminRegStart = findViewById(R.id.tv_admin_reg_start);
         tvAdminPosterUrl = findViewById(R.id.tv_admin_poster_url);
+    }
+
+    private void setupActionBar() {
+        View.OnClickListener openComments = v -> {
+            Intent intent = new Intent(this, CommentsActivity.class);
+            intent.putExtra(CommentsActivity.EXTRA_EVENT_ID, eventId);
+            startActivity(intent);
+        };
+
+        btnCommentIcon.setOnClickListener(openComments);
+        tvViewComments.setOnClickListener(openComments);
+
+        btnShareIcon.setOnClickListener(v -> {
+            // TODO: Implement share functionality
+            Toast.makeText(this, "Share functionality coming soon!", Toast.LENGTH_SHORT).show();
+        });
+
+        btnSaveIcon.setOnClickListener(v -> {
+            // TODO: Implement save functionality
+            Toast.makeText(this, "Save functionality coming soon!", Toast.LENGTH_SHORT).show();
+        });
     }
 
     /**
@@ -212,7 +250,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                     populateInfo(currentEvent);
                     if (isAdminMode) {
                         setupAdminActions();
-                    } else if (isOrganizer(currentEvent)) {
+                    } else if (isOrganizer(currentEvent, currentUserId)) {
                         setupOrganizerActions(currentEvent);
                     } else {
                         setupEntrantActions(currentEvent);
@@ -220,7 +258,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
                     LinearLayout listOfX = findViewById(R.id.list_of_x_container);
                     TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
-                    if (isOrganizer(event)) {
+                    if (isOrganizer(event, currentUserId)) {
                         listOfX.setVisibility(VISIBLE);
                         Event.EventStatus status = event.getStatus();
                         if (status == REG_OPEN || status == REG_FULL || status == REG_CLOSED) {
@@ -251,8 +289,8 @@ public class EventDetailsActivity extends AppCompatActivity {
     /**
      * Determines whether the current user is the organizer of the given event.
      */
-    private boolean isOrganizer(Event event) {
-        return event.getOrganizerId().equals(currentUserId);
+    private boolean isOrganizer(Event event, String uid) {
+        return event.getOrganizerId().equals(uid);
     }
 
     private void openInvitesDashboard() {
@@ -328,6 +366,35 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    public static String getTimeAgo(long postedMs) {
+        long nowMs = System.currentTimeMillis();
+        long diffMs = nowMs - postedMs;
+
+        if (diffMs < 0) {
+            return "Just now";
+        }
+
+        long seconds = diffMs / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        long days = hours / 24;
+
+        if (seconds < 60) return "Just now";
+        if (minutes < 60) return minutes + " min ago";
+        if (hours < 24) return hours + " hr ago";
+        if (days < 7) return days + " day" + (days == 1 ? "" : "s") + " ago";
+
+        long weeks = days / 7;
+        if (weeks < 5) return weeks + " week" + (weeks == 1 ? "" : "s") + " ago";
+
+        long months = days / 30;
+        if (months < 12) return months + " month" + (months == 1 ? "" : "s") + " ago";
+
+        long years = days / 365;
+        return years + " year" + (years == 1 ? "" : "s") + " ago";
+    }
+
+
     /**
      * Configures the UI and actions available in admin mode.
      * hides all buttons except
@@ -355,10 +422,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         });
 
         btnDeleteImage.setOnClickListener(v -> {
-            eventStorage.getEvent(eventId, event -> {
-                event.setPosterUrl(null);
+            eventStorage.getEvent(eventId, currentEvent -> {
+                currentEvent.setPosterUrl(null);
                 eventStorage.upsertEvent(
-                        event,
+                        currentEvent,
                         unused -> {},
                         e -> Log.e("EventDetailsActivity:adminMode", "Failed to upsert event", e)
                 );
