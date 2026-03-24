@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.ProfanityFilter;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventStorage;
@@ -42,6 +43,7 @@ public class CommentsActivity extends AppCompatActivity {
     private CommentAdapter adapter;
     private EditText editComment;
     private Button btnPost;
+    private Event currentEvent;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,7 +69,17 @@ public class CommentsActivity extends AppCompatActivity {
 
         btnPost.setOnClickListener(v -> submitComment());
 
-        loadComments();
+        loadEventAndComments();
+    }
+
+    private void loadEventAndComments() {
+        eventStorage.getEvent(eventId, event -> {
+            this.currentEvent = event;
+            loadComments();
+        }, e -> {
+            Log.e("CommentsActivity", "Failed to load event", e);
+            loadComments();
+        });
     }
 
     /**
@@ -79,7 +91,7 @@ public class CommentsActivity extends AppCompatActivity {
                 comments -> {
                     adapter.setComments(comments);
                     if (!comments.isEmpty()) {
-                        // This scrolls to the top of the comments list
+                        // Show the newest comment at the top
                         rvComments.scrollToPosition(0);
                     }
                 },
@@ -158,11 +170,19 @@ public class CommentsActivity extends AppCompatActivity {
             Map<String, Object> comment = comments.get(position);
             String message = (String) comment.get("message");
             String authorName = (String) comment.get("authorName");
+            String uid = (String) comment.get("uid");
             Long createdAt = (Long) comment.get("createdAtMs");
 
             holder.tvMessage.setText(message);
             holder.tvAuthor.setText(authorName);
             holder.tvTime.setText(EventDetailsActivity.getTimeAgo(createdAt != null ? createdAt : 0));
+            
+            if (currentEvent != null && uid != null && uid.equals(currentEvent.getOrganizerId())) {
+                holder.tvOrganizerBadge.setVisibility(View.VISIBLE);
+            }
+            else {
+                holder.tvOrganizerBadge.setVisibility(View.GONE);
+            }
         }
 
         @Override
@@ -171,13 +191,14 @@ public class CommentsActivity extends AppCompatActivity {
         }
 
         class ViewHolder extends RecyclerView.ViewHolder {
-            TextView tvMessage, tvAuthor, tvTime;
+            TextView tvMessage, tvAuthor, tvTime, tvOrganizerBadge;
 
             public ViewHolder(@NonNull View itemView) {
                 super(itemView);
                 tvMessage = itemView.findViewById(R.id.line1);
                 tvAuthor = itemView.findViewById(R.id.line2_left);
                 tvTime = itemView.findViewById(R.id.line2_right);
+                tvOrganizerBadge = itemView.findViewById(R.id.tv_organizer_badge);
             }
         }
     }

@@ -12,6 +12,7 @@
     app:strokeColor="?attr/colorOutlineVariant">
 
     <LinearLayout
+        android:id="@+id/comment_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -30,17 +31,36 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/line2_left"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Role: Name"
+                android:text="Name"
                 android:textAppearance="?attr/textAppearanceBodySmall"
                 android:textStyle="bold"
                 android:textColor="?attr/colorOnSurfaceVariant" />
+
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/tv_organizer_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_tag"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="1dp"
+                android:text="ORGANIZER"
+                android:textColor="?attr/colorOnPrimary"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/line2_right"
