@@ -17,6 +17,7 @@ public class NotificationLog {
     private NotificationType type;
     private NotificationStatus status;
     private Timestamp timestamp;
+    // organizer side (where did it come from, why?)
     public enum NotificationType {
         INVITATION,
         LOTTERY_RESULT,
@@ -26,6 +27,7 @@ public class NotificationLog {
         COORGANIZER_INVITATION,
     }
 
+    // user side
     public enum NotificationStatus {
         PENDING, // user has yet to do anything with the noti.
         ACCEPTED,

@@ -385,6 +385,7 @@ public class ManageFragment extends Fragment {
             }
         });
 
+        // private Event toggle disables all other toggles
         if (switchPrivateEvent != null) {
             switchPrivateEvent.setOnCheckedChangeListener((buttonView, isChecked) ->
                     syncPrivateEventUi(

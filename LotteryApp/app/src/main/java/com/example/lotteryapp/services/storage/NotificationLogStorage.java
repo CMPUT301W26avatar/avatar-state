@@ -17,13 +17,9 @@ import java.util.Map;
 
 /**
  * Storage logic for notification log entries
- * R & W to notifications collection
- *
- * Call logNotification()
- *      wherever an organizer sends a notification to entrants
- * Call getAllNotificationLogs()
- *      from admin log viewer.
- * Access through ServiceLocator.getNotificationLogStorage().
+ *      logNotification() - saving a new notification
+ *      getAllNotifications() - admin view all notifications
+ *      getPendingNotificationsForUser() - notification banner in HomeFragment
  */
 public class NotificationLogStorage {
 
@@ -78,6 +74,10 @@ public class NotificationLogStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /**
+     * Update the status of a notification after a user has accepted or declined it
+     *      takes in the new status of the notification to store it
+     */
     public void updateNotificationStatus(
             String notificationId,
             String status,
@@ -132,8 +132,9 @@ public class NotificationLogStorage {
     }
 
     /**
-     * Gets notifications for one user, newest first.
-     * This is the method HomeFragment should use for the red popup / swipeable notification UI.
+     * Gets notifications for one user, newest first
+     *      only returns pending notifications
+     *          accepted or declined notifications are deleted
      */
     public void getPendingNotificationsForUser(
             String userId,
