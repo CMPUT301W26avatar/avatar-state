@@ -7,10 +7,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -24,8 +26,11 @@ import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Activity to display and post comments on an event.
@@ -43,7 +48,13 @@ public class CommentsActivity extends AppCompatActivity {
     private CommentAdapter adapter;
     private EditText editComment;
     private Button btnPost;
+    private ImageButton btnViewReports;
     private Event currentEvent;
+    private boolean isUserAdmin = false;
+    private boolean isShowingReports = false;
+
+    private List<Map<String, Object>> allComments = new ArrayList<>();
+    private Set<String> reportedCommentIds = new HashSet<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,19 +73,48 @@ public class CommentsActivity extends AppCompatActivity {
         rvComments = findViewById(R.id.rv_comments);
         editComment = findViewById(R.id.edit_comment);
         btnPost = findViewById(R.id.btn_post_comment);
+        btnViewReports = findViewById(R.id.btn_view_reports);
 
         rvComments.setLayoutManager(new LinearLayoutManager(this));
         adapter = new CommentAdapter(new ArrayList<>());
         rvComments.setAdapter(adapter);
 
         btnPost.setOnClickListener(v -> submitComment());
+        btnViewReports.setOnClickListener(v -> toggleReportsView());
 
+        checkAdminStatus();
         loadEventAndComments();
     }
 
+    private void checkAdminStatus() {
+        if (currentUserId == null) return;
+        ServiceLocator.getAdminStorage().isAdmin(currentUserId,
+                isAdmin -> {
+                    isUserAdmin = isAdmin;
+                    updateReportsButtonVisibility();
+                },
+                e -> Log.e("CommentsActivity", "Failed to check admin status", e)
+        );
+    }
+
+    private void updateReportsButtonVisibility() {
+        boolean isOrganizer = currentEvent != null && currentUserId != null && currentUserId.equals(currentEvent.getOrganizerId());
+        if (isUserAdmin || isOrganizer) {
+            btnViewReports.setVisibility(View.VISIBLE);
+        }
+        else {
+            btnViewReports.setVisibility(View.GONE);
+        }
+    }
+
     private void loadEventAndComments() {
+        if (eventId == null) {
+            Toast.makeText(this, "Error: Missing event ID", Toast.LENGTH_SHORT).show();
+            return;
+        }
         eventStorage.getEvent(eventId, event -> {
             this.currentEvent = event;
+            updateReportsButtonVisibility();
             loadComments();
         }, e -> {
             Log.e("CommentsActivity", "Failed to load event", e);
@@ -89,10 +129,15 @@ public class CommentsActivity extends AppCompatActivity {
         eventStorage.getEventComments(
                 eventId,
                 comments -> {
-                    adapter.setComments(comments);
-                    if (!comments.isEmpty()) {
-                        // Show the newest comment at the top
-                        rvComments.scrollToPosition(0);
+                    this.allComments = comments;
+                    if (isShowingReports) {
+                        loadReportsAndFilter();
+                    }
+                    else {
+                        adapter.setComments(comments);
+                        if (!comments.isEmpty()) {
+                            rvComments.scrollToPosition(0); // Show the newest comment at the top
+                        }
                     }
                 },
                 e -> {
@@ -100,6 +145,50 @@ public class CommentsActivity extends AppCompatActivity {
                     Log.e("CommentsActivity", "Error loading comments", e);
                 }
         );
+    }
+
+    /**
+     * Loads the reports for the current event from storage and filters the comments to show only the reported ones.
+     */
+    private void loadReportsAndFilter() {
+        eventStorage.getEventReportedComments(eventId,
+                reports -> {
+                    reportedCommentIds.clear();
+                    for (Map<String, Object> report : reports) {
+                        reportedCommentIds.add((String) report.get("commentId"));
+                    }
+                    
+                    List<Map<String, Object>> reportedComments = new ArrayList<>();
+                    for (Map<String, Object> comment : allComments) {
+                        if (reportedCommentIds.contains((String) comment.get("commentId"))) {
+                            reportedComments.add(comment);
+                        }
+                    }
+                    
+                    adapter.setComments(reportedComments);
+                    if (reportedComments.isEmpty()) {
+                        Toast.makeText(this, "No reported comments found", Toast.LENGTH_SHORT).show();
+                    }
+                },
+                e -> Log.e("CommentsActivity", "Failed to load reports", e)
+        );
+    }
+
+    /**
+     * Toggles the visibility of the reports view.
+     */
+    private void toggleReportsView() {
+        isShowingReports = !isShowingReports;
+        if (isShowingReports) {
+            btnViewReports.setImageResource(R.drawable.ic_close); // Reuse close icon or toggle state
+            getSupportActionBar().setTitle("Reported Comments");
+            loadReportsAndFilter();
+        }
+        else {
+            btnViewReports.setImageResource(R.drawable.ic_flag);
+            getSupportActionBar().setTitle("Comments");
+            adapter.setComments(allComments);
+        }
     }
 
     /**
@@ -139,6 +228,60 @@ public class CommentsActivity extends AppCompatActivity {
                 e -> {
                     btnPost.setEnabled(true);
                     Toast.makeText(this, "Failed to load user profile", Toast.LENGTH_SHORT).show();
+                }
+        );
+    }
+
+    private void showCommentOptions(Map<String, Object> comment) {
+        String commentId = (String) comment.get("commentId");
+        
+        boolean isOrganizer = currentEvent != null && currentUserId != null && currentUserId.equals(currentEvent.getOrganizerId());
+        boolean canDelete = isUserAdmin || isOrganizer;
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Comment Options");
+
+        List<String> options = new ArrayList<>();
+        options.add("Report Comment");
+        if (canDelete) {
+            options.add("Delete Comment");
+        }
+
+        builder.setItems(options.toArray(new String[0]), (dialog, which) -> {
+            String selected = options.get(which);
+            if (selected.equals("Report Comment")) {
+                reportComment(commentId);
+            }
+            else if (selected.equals("Delete Comment")) {
+                deleteComment(commentId);
+            }
+        });
+        builder.show();
+    }
+
+    private void reportComment(String commentId) {
+        if (eventId == null || commentId == null || currentUserId == null) {
+            Toast.makeText(this, "Failed to report: Missing IDs", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        eventStorage.reportComment(eventId, commentId, currentUserId,
+                unused -> Toast.makeText(this, "Comment reported", Toast.LENGTH_SHORT).show(),
+                e -> {
+                    Log.e("CommentsActivity", "Report failed: " + e.getMessage(), e);
+                    Toast.makeText(this, "Failed to report comment: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+        );
+    }
+
+    private void deleteComment(String commentId) {
+        eventStorage.deleteEventComment(eventId, commentId,
+                unused -> {
+                    Toast.makeText(this, "Comment deleted", Toast.LENGTH_SHORT).show();
+                    loadComments();
+                },
+                e -> {
+                    Log.e("CommentsActivity", "Delete failed: " + e.getMessage(), e);
+                    Toast.makeText(this, "Failed to delete comment", Toast.LENGTH_SHORT).show();
                 }
         );
     }
@@ -183,6 +326,11 @@ public class CommentsActivity extends AppCompatActivity {
             else {
                 holder.tvOrganizerBadge.setVisibility(View.GONE);
             }
+
+            holder.itemView.setOnLongClickListener(v -> {
+                showCommentOptions(comment);
+                return true;
+            });
         }
 
         @Override

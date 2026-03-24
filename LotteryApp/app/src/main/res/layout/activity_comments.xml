@@ -20,7 +20,21 @@
             android:background="?attr/colorSurface"
             app:navigationIcon="@drawable/ic_close"
             app:title="Comments"
-            app:titleCentered="true" />
+            app:titleCentered="true">
+
+            <ImageButton
+                android:id="@+id/btn_view_reports"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="end"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="View Reports"
+                android:src="@drawable/ic_flag"
+                android:visibility="gone"
+                app:tint="?attr/colorError" />
+
+        </com.google.android.material.appbar.MaterialToolbar>
 
     </com.google.android.material.appbar.AppBarLayout>
 
