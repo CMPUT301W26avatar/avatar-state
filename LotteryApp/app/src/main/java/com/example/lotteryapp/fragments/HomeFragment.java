@@ -1,21 +1,37 @@
 package com.example.lotteryapp.fragments;
 
+import static com.example.lotteryapp.models.NotificationLog.NotificationType.PRIVATE_INVITATION;
+
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.models.Entrant;
+import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.NotificationLogStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,12 +51,19 @@ public class HomeFragment extends Fragment {
     private MaterialCardView invitationCard;
     private MaterialButton closeInvitation;
     private EventStorage estore = ServiceLocator.getEventStorage();
+    private EventPoolStorage eventPoolStorage = ServiceLocator.getEventPoolStorage();
     private GridEventAdapter openAdapter;
     private GridEventAdapter upcomingAdapter;
     private GridEventAdapter fullAdapter;
     private List<HomeFragment.DisplayGridEvent> displayOpenGridEvents;
     private List<HomeFragment.DisplayGridEvent> displayUpcomingGridEvents;
     private List<HomeFragment.DisplayGridEvent> displayFullGridEvents;
+
+    private ViewPager2 notificationsPager;
+    private NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
+
+    private NotificationPagerAdapter notificationPagerAdapter;
+    private final List<UserNotification> notifications = new ArrayList<>();
 
     /**
      * Inflates the HomeFragment layout and initializes UI components.
@@ -50,10 +73,16 @@ public class HomeFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
-        invitationCard = view.findViewById(R.id.invitation_card);
-        closeInvitation = view.findViewById(R.id.btn_close_invitation);
+        notificationsPager = view.findViewById(R.id.notifications_pager);
 
-        closeInvitation.setOnClickListener(v -> invitationCard.setVisibility(View.GONE));
+        notificationPagerAdapter = new NotificationPagerAdapter(
+                notifications,
+                this::dismissNotificationAt,
+                this::handleNotificationClicked
+        );
+        notificationsPager.setAdapter(notificationPagerAdapter);
+
+        notificationsPager.setVisibility(View.GONE);
 
         RecyclerView recyclerViewOpen = view.findViewById(R.id.recycler_view_open);
         recyclerViewOpen.setLayoutManager(new GridLayoutManager(getContext(), 2));
@@ -77,6 +106,7 @@ public class HomeFragment extends Fragment {
         loadEventsRegOpen();
         loadEventsRegUpcoming();
         loadEventsRegFull();
+        loadNotifications();
 
         return view;
     }
@@ -90,6 +120,7 @@ public class HomeFragment extends Fragment {
         loadEventsRegOpen();
         loadEventsRegUpcoming();
         loadEventsRegFull();
+        loadNotifications();
     }
 
     /**
@@ -169,12 +200,360 @@ public class HomeFragment extends Fragment {
         );
     }
 
+    private void loadNotifications() {
+        String uid = ServiceLocator.uid();
+        if (uid == null || uid.trim().isEmpty()) {
+            notificationsPager.setVisibility(View.GONE);
+            return;
+        }
+
+        if (notificationLogStorage == null) {
+            Log.e("HomeFragment", "NotificationLogStorage is null");
+            notificationsPager.setVisibility(View.GONE);
+            return;
+        }
+
+        notificationLogStorage.getNotificationsForUser(
+                uid,
+                logs -> {
+                    notifications.clear();
+
+                    for (NotificationLog log : logs) {
+                        notifications.add(new UserNotification(
+                                log.getId(),
+                                log.getEventId(),
+                                log.getType() == null ? null : log.getType().name(),
+                                log.getTitle(),
+                                log.getMessage(),
+                                false
+                        ));
+                    }
+
+                    notificationPagerAdapter.notifyDataSetChanged();
+                    updateNotificationBannerVisibility();
+                },
+                e -> {
+                    Log.e("HomeFragment", "Failed to load notifications", e);
+                    notificationsPager.setVisibility(View.GONE);
+                }
+        );
+    }
+
+    private void updateNotificationBannerVisibility() {
+        if (notifications.isEmpty()) {
+            notificationsPager.setVisibility(View.GONE);
+            return;
+        }
+
+        notificationsPager.setVisibility(View.VISIBLE);
+        notificationPagerAdapter.notifyDataSetChanged();
+        notificationsPager.setCurrentItem(0, false);
+    }
+
+    private void dismissNotificationAt(int position) {
+        if (position < 0 || position >= notifications.size()) {
+            return;
+        }
+
+        notifications.remove(position);
+        notificationPagerAdapter.notifyDataSetChanged();
+
+        if (notifications.isEmpty()) {
+            notificationsPager.setVisibility(View.GONE);
+            return;
+        }
+
+        int nextIndex = Math.min(position, notifications.size() - 1);
+        notificationsPager.setCurrentItem(nextIndex, false);
+    }
+
+    private boolean isActionableNotification(UserNotification notification) {
+        if (notification == null || notification.type == null) {
+            return false;
+        }
+
+        return "PRIVATE_INVITATION".equals(notification.type)
+                || "COORGANIZER_INVITATION".equals(notification.type);
+    }
+
+    private void handleNotificationClicked(int position) {
+        if (position < 0 || position >= notifications.size()) {
+            return;
+        }
+
+        UserNotification notification = notifications.get(position);
+        if (!isActionableNotification(notification)) {
+            return;
+        }
+
+        if ("PRIVATE_INVITATION".equals(notification.type)) {
+            showPrivateInviteDialog(position, notification);
+        } else if ("COORGANIZER_INVITATION".equals(notification.type)) {
+            showCoorganizerInviteDialog(position, notification);
+        }
+    }
+
+    private void showPrivateInviteDialog(int position, UserNotification notification) {
+        if (getContext() == null) return;
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Join private event?")
+                .setMessage("Would you like to join this private event?")
+                .setNegativeButton("No", null)
+                .setPositiveButton("Join", (dialog, which) -> acceptPrivateInvite(position, notification))
+                .show();
+    }
+
+    private void showCoorganizerInviteDialog(int position, UserNotification notification) {
+        if (getContext() == null) return;
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Become co-organizer?")
+                .setMessage("Would you like to become a co-organizer for this event?")
+                .setNegativeButton("No", null)
+                .setPositiveButton("Accept", (dialog, which) -> acceptCoorganizerInvite(position, notification))
+                .show();
+    }
+
+    private void acceptPrivateInvite(int position, UserNotification notification) {
+        String uid = ServiceLocator.uid();
+
+        if (notification == null || notification.eventId == null || notification.eventId.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "Missing event for invite", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (uid == null || uid.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "User not signed in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (eventPoolStorage == null) {
+            Toast.makeText(requireContext(), "Invite service unavailable", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Entrant entrant = new Entrant(
+                uid,
+                notification.eventId,
+                Entrant.EntrantStatus.ENROLLED
+        );
+
+        eventPoolStorage.enrollInEvent(
+                notification.eventId,
+                entrant,
+                unused -> {
+                    Toast.makeText(requireContext(), "Joined private event", Toast.LENGTH_SHORT).show();
+                    dismissNotificationAt(position);
+                },
+                e -> Toast.makeText(
+                        requireContext(),
+                        e.getMessage() == null ? "Failed to join private event" : e.getMessage(),
+                        Toast.LENGTH_SHORT
+                ).show()
+        );
+    }
+
+    private void acceptCoorganizerInvite(int position, UserNotification notification) {
+        String uid = ServiceLocator.uid();
+
+        if (notification == null || notification.eventId == null || notification.eventId.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "Missing event for invite", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (uid == null || uid.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "User not signed in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (estore == null) {
+            Toast.makeText(requireContext(), "Event service unavailable", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        estore.acceptInviteToBeCoorganizer(
+                notification.eventId,
+                uid,
+                unused -> {
+                    Toast.makeText(requireContext(), "You are now a co-organizer", Toast.LENGTH_SHORT).show();
+                    dismissNotificationAt(position);
+                },
+                e -> Toast.makeText(
+                        requireContext(),
+                        e.getMessage() == null ? "Failed to accept co-organizer invite" : e.getMessage(),
+                        Toast.LENGTH_SHORT
+                ).show()
+        );
+    }
+
+    private static final class UserNotification {
+        String id;
+        String eventId;
+        String type;
+        String title;
+        String message;
+        boolean read;
+
+        UserNotification(
+                String id,
+                String eventId,
+                String type,
+                String title,
+                String message,
+                boolean read
+        ) {
+            this.id = id;
+            this.eventId = eventId;
+            this.type = type;
+            this.title = title;
+            this.message = message;
+            this.read = read;
+        }
+    }
+
+    private static final class NotificationPagerAdapter
+            extends RecyclerView.Adapter<NotificationPagerAdapter.NotificationViewHolder> {
+
+        interface OnDismissClickListener {
+            void onDismissClicked(int position);
+        }
+
+        interface OnNotificationClickListener {
+            void onNotificationClicked(int position);
+        }
+
+        private final List<UserNotification> notifications;
+        private final OnDismissClickListener dismissClickListener;
+        private final OnNotificationClickListener notificationClickListener;
+
+        NotificationPagerAdapter(List<UserNotification> notifications,
+                                 OnDismissClickListener dismissClickListener,
+                                 OnNotificationClickListener notificationClickListener) {
+            this.notifications = notifications;
+            this.dismissClickListener = dismissClickListener;
+            this.notificationClickListener = notificationClickListener;
+        }
+
+        @NonNull
+        @Override
+        public NotificationViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_home_notification, parent, false);
+            return new NotificationViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(@NonNull NotificationViewHolder holder, int position) {
+            UserNotification notification = notifications.get(position);
+
+            String typeText = notification.title == null || notification.title.trim().isEmpty()
+                    ? "Notification"
+                    : "Notification: " + notification.title.trim();
+
+            String message = notification.message == null || notification.message.trim().isEmpty()
+                    ? "You have a new notification."
+                    : notification.message.trim();
+
+            holder.header.setText(typeText);
+            holder.message.setText(message);
+            bindDots(holder.dotsInline, position);
+
+
+            holder.root.setOnClickListener(v -> {
+                if (notificationClickListener != null) {
+                    int adapterPosition = holder.getBindingAdapterPosition();
+                    if (adapterPosition != RecyclerView.NO_POSITION) {
+                        notificationClickListener.onNotificationClicked(adapterPosition);
+                    }
+                }
+            });
+
+            holder.closeButton.setOnClickListener(v -> {
+                if (dismissClickListener != null) {
+                    int adapterPosition = holder.getBindingAdapterPosition();
+                    if (adapterPosition != RecyclerView.NO_POSITION) {
+                        dismissClickListener.onDismissClicked(adapterPosition);
+                    }
+                }
+            });
+        }
+
+        @Override
+        public int getItemCount() {
+            return notifications.size();
+        }
+
+        static final class NotificationViewHolder extends RecyclerView.ViewHolder {
+            View root;
+            TextView header;
+            TextView message;
+            MaterialButton closeButton;
+            LinearLayout dotsInline;
+
+            NotificationViewHolder(@NonNull View itemView) {
+                super(itemView);
+                root = itemView.findViewById(R.id.notification_root);
+                header = itemView.findViewById(R.id.tv_notification_header);
+                message = itemView.findViewById(R.id.tv_notification_message);
+                closeButton = itemView.findViewById(R.id.btn_close_notification);
+                dotsInline = itemView.findViewById(R.id.notification_dots_inline);
+            }
+        }
+
+        private void bindDots(LinearLayout container, int selectedIndex) {
+            container.removeAllViews();
+
+            if (container.getContext() == null || notifications.size() <= 1) {
+                container.setVisibility(View.GONE);
+                return;
+            }
+
+            container.setVisibility(View.VISIBLE);
+
+            int sizePx = dpToPx(container, 8);
+            int marginPx = dpToPx(container, 3);
+
+            for (int i = 0; i < notifications.size(); i++) {
+                View dot = new View(container.getContext());
+
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(sizePx, sizePx);
+                params.setMargins(marginPx, 0, marginPx, 0);
+                dot.setLayoutParams(params);
+
+                GradientDrawable drawable = new GradientDrawable();
+                drawable.setShape(GradientDrawable.OVAL);
+                drawable.setColor(resolveDotColor(container));
+                dot.setBackground(drawable);
+                dot.setAlpha(i == selectedIndex ? 1f : 0.35f);
+
+                container.addView(dot);
+            }
+        }
+
+        private int dpToPx(View view, int dp) {
+            float density = view.getResources().getDisplayMetrics().density;
+            return Math.round(dp * density);
+        }
+
+        private int resolveDotColor(View view) {
+            android.util.TypedValue typedValue = new android.util.TypedValue();
+            view.getContext().getTheme().resolveAttribute(
+                    com.google.android.material.R.attr.colorOnTertiaryContainer,
+                    typedValue,
+                    true
+            );
+            return typedValue.data;
+        }
+    }
+
+
     /**
      * Simple event model for the UI
      *      Displays the
      *          title,
      *          description,
-     *          tag (to implement),
+     *          "Home fragment" (to implement),
      *          and a subtitle (EventStatus based String)
      *       for an event
      */
@@ -186,7 +565,7 @@ public class HomeFragment extends Fragment {
             this.title = title;
             this.subtitle = subtitle;
             this.description = description;
-            this.tag = tag;
+            this.tag = "Home fragment";
         }
     }
 

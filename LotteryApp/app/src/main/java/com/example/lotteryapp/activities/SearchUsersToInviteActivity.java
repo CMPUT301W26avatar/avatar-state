@@ -3,6 +3,7 @@ package com.example.lotteryapp.activities;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,22 +22,28 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.NotificationLogStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.search.SearchBar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -60,6 +67,7 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
+    private NotificationLogStorage notiStorage;
 
     private String eventId;
     private String currentUserId;
@@ -84,9 +92,10 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
         bindViews();
 
         // init. storage classes from the service locator
-        db = FirebaseFirestore.getInstance();
+        db = ServiceLocator.getFirebase().getDb();
         eventStorage = ServiceLocator.getEventStorage();
         eventPoolStorage = ServiceLocator.getEventPoolStorage();
+        notiStorage = ServiceLocator.getNotificationLogStorage();
 
         // get event and coOrganizer mode from intent extras
         eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
@@ -148,6 +157,7 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
                 ? ""
                 : searchBar.getText().toString()));
     }
+
 
     /**
      * validate that the current user is an organizer, and that the event is valid
@@ -477,18 +487,94 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
 
     /**
      * Sends a notification to a user that they have been invited to a private event.
-     * - TO DO!!
      */
     private void sendPrivateInviteNotification(String invitedUserId, String eventId) {
-        // TODO: Send a notification to a user that they have been invited to the private event...
+        if (invitedUserId == null || invitedUserId.trim().isEmpty()) {
+            Log.w("SearchUsersToInvite", "Skipping private invite notification: invitedUserId missing");
+            return;
+        }
+
+        if (eventId == null || eventId.trim().isEmpty()) {
+            Log.w("SearchUsersToInvite", "Skipping private invite notification: eventId missing");
+            return;
+        }
+
+        if (notiStorage == null) {
+            Log.w("SearchUsersToInvite", "NotificationLogStorage unavailable");
+            return;
+        }
+
+        String eventTitle = currentEvent != null
+                && currentEvent.getTitle() != null
+                && !currentEvent.getTitle().trim().isEmpty()
+                ? currentEvent.getTitle().trim()
+                : "an event";
+
+        String organizerId = currentEvent != null
+                && currentEvent.getOrganizerId() != null
+                && !currentEvent.getOrganizerId().trim().isEmpty()
+                ? currentEvent.getOrganizerId().trim()
+                : currentUserId;
+
+        String title = "Private event invite";
+        String message = "You have been invited to join " + eventTitle + ".";
+
+        notiStorage.logNotification(
+                eventId,
+                organizerId,
+                invitedUserId,
+                title,
+                message,
+                NotificationLog.NotificationType.PRIVATE_INVITATION,
+                id -> Log.d("SearchUsersToInvite", "Private invite notification logged: " + id),
+                e -> Log.e("SearchUsersToInvite", "Failed to log private invite notification", e)
+        );
     }
 
     /**
      * Sends a notification to a user that they have been invited to be a co-organizer for an event
-     * - TO DO!!
      */
     private void sendCoorganizerInviteNotification(String invitedUserId, String eventId) {
-        // TODO: Send a notification to a user that they have been invited to be a co-organizer...
+        if (invitedUserId == null || invitedUserId.trim().isEmpty()) {
+            Log.w("SearchUsersToInvite", "Skipping co-organizer invite notification: invitedUserId missing");
+            return;
+        }
+
+        if (eventId == null || eventId.trim().isEmpty()) {
+            Log.w("SearchUsersToInvite", "Skipping co-organizer invite notification: eventId missing");
+            return;
+        }
+
+        if (notiStorage == null) {
+            Log.w("SearchUsersToInvite", "NotificationLogStorage unavailable");
+            return;
+        }
+
+        String eventTitle = currentEvent != null
+                && currentEvent.getTitle() != null
+                && !currentEvent.getTitle().trim().isEmpty()
+                ? currentEvent.getTitle().trim()
+                : "an event";
+
+        String organizerId = currentEvent != null
+                && currentEvent.getOrganizerId() != null
+                && !currentEvent.getOrganizerId().trim().isEmpty()
+                ? currentEvent.getOrganizerId().trim()
+                : currentUserId;
+
+        String title = "Co-organizer invite";
+        String message = "You have been invited to co-organize " + eventTitle + ".";
+
+        notiStorage.logNotification(
+                eventId,
+                organizerId,
+                invitedUserId,
+                title,
+                message,
+                NotificationLog.NotificationType.COORGANIZER_INVITATION,
+                id -> Log.d("SearchUsersToInvite", "Co-organizer invite notification logged: " + id),
+                e -> Log.e("SearchUsersToInvite", "Failed to log co-organizer invite notification", e)
+        );
     }
 
     /**

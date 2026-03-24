@@ -21,6 +21,8 @@ public class NotificationLog {
         LOTTERY_RESULT,
         MESSAGE,
         COMMENT,
+        PRIVATE_INVITATION,
+        COORGANIZER_INVITATION,
     }
     public NotificationLog () {}
 
@@ -63,6 +65,15 @@ public class NotificationLog {
     public String getEventId() { return eventId; }
     public void setEventId(String eventId) { this.eventId = eventId; }
     public String getOrganizerId() { return organizerId; }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
     public void setOrganizerId(String organizerId) { this.organizerId = organizerId; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }

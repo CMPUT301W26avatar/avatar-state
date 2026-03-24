@@ -70,12 +70,12 @@ public class NotificationLogStorageUnitTest {
             OnSuccessListener<String> success = invocation.getArgument(5);
             success.onSuccess("fake-doc-id");
             return null;
-        }).when(mockStorage).logNotification(any(), any(), any(), any(), any(), any(), any());
+        }).when(mockStorage).logNotification(any(), any(), any(), any(), any(), any(), any(), any());
 
         AtomicReference<String> result = new AtomicReference<>();
 
         ServiceLocator.getNotificationLogStorage().logNotification(
-                "event-1", "organizer-1", "Title", "Message", INVITATION,
+                "event-1", "organizer-1", "user-1", "Title", "Message", INVITATION,
                 result::set,
                 e -> {}
         );

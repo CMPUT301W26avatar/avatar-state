@@ -52,6 +52,7 @@ public class NotificationLogStorage {
     public void logNotification(
             String eventId,
             String organizerId,
+            String userId,
             String title,
             String message,
             NotificationLog.NotificationType type,
@@ -61,9 +62,10 @@ public class NotificationLogStorage {
         Map<String, Object> data = new HashMap<>();
         data.put("eventId", eventId);
         data.put("organizerId", organizerId);
+        data.put("userId", userId);
         data.put("title", title);
         data.put("message", message);
-        data.put("type", type);
+        data.put("type", type == null ? null : type.name());
         data.put("timestamp", FieldValue.serverTimestamp());
 
         db.collection(COLLECTION)
@@ -93,6 +95,64 @@ public class NotificationLogStorage {
                         log.setId(doc.getId());
                         logs.add(log);
                     }
+                    onSuccess.onSuccess(logs);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Gets notifications for one user, newest first.
+     * This is the method HomeFragment should use for the red popup / swipeable notification UI.
+     */
+    public void getNotificationsForUser(
+            String userId,
+            OnSuccessListener<List<NotificationLog>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collection(COLLECTION)
+                .whereEqualTo("userId", userId)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    List<NotificationLog> logs = new ArrayList<>();
+
+                    for (QueryDocumentSnapshot doc : snapshot) {
+                        try {
+                            NotificationLog log = new NotificationLog();
+                            log.setId(doc.getId());
+                            log.setEventId(doc.getString("eventId"));
+                            log.setOrganizerId(doc.getString("organizerId"));
+                            log.setUserId(doc.getString("userId"));
+                            log.setTitle(doc.getString("title"));
+                            log.setMessage(doc.getString("message"));
+                            log.setTimestamp(doc.getTimestamp("timestamp"));
+
+                            Object rawType = doc.get("type");
+                            if (rawType instanceof String) {
+                                try {
+                                    log.setType(NotificationLog.NotificationType.valueOf((String) rawType));
+                                } catch (IllegalArgumentException ignored) {
+                                    log.setType(null);
+                                }
+                            } else {
+                                log.setType(null);
+                            }
+
+                            logs.add(log);
+                        } catch (Exception e) {
+                            if (onFailure != null) {
+                                onFailure.onFailure(e);
+                            }
+                            return;
+                        }
+                    }
+
+                    logs.sort((a, b) -> {
+                        if (a.getTimestamp() == null && b.getTimestamp() == null) return 0;
+                        if (a.getTimestamp() == null) return 1;
+                        if (b.getTimestamp() == null) return -1;
+                        return b.getTimestamp().compareTo(a.getTimestamp());
+                    });
+
                     onSuccess.onSuccess(logs);
                 })
                 .addOnFailureListener(onFailure);
