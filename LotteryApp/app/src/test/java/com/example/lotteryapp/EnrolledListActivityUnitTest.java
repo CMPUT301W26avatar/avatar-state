@@ -16,8 +16,10 @@ import androidx.test.core.app.ApplicationProvider;
 
 import com.example.lotteryapp.activities.EnrolledListActivity;
 import com.example.lotteryapp.models.Entrant;
+import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
+import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.gms.tasks.OnSuccessListener;
 
@@ -36,7 +38,7 @@ import java.util.List;
 
 /**
  * Unit tests for EnrolledListActivity.
- * Updated to support UserStorage mock for US 02.06.05.
+ * Updated to support EventStorage mock for dynamic status check.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = Config.NONE, sdk = 34)
@@ -44,14 +46,17 @@ public class EnrolledListActivityUnitTest {
 
     private EventPoolStorage mockEventPoolStorage;
     private UserStorage mockUserStorage;
+    private EventStorage mockEventStorage;
 
     @Before
     public void setUp() {
         ServiceLocator.reset();
         mockEventPoolStorage = mock(EventPoolStorage.class);
         mockUserStorage = mock(UserStorage.class);
+        mockEventStorage = mock(EventStorage.class);
         ServiceLocator.setEventPoolStorageForTests(mockEventPoolStorage);
         ServiceLocator.setUserStorageForTests(mockUserStorage);
+        ServiceLocator.setEventStorageForTests(mockEventStorage);
     }
 
     @After
@@ -73,6 +78,13 @@ public class EnrolledListActivityUnitTest {
 
     @Test
     public void emptyViewShownWhenNoEntrantsEnrolled() {
+        // Mock event status check to avoid hang
+        doAnswer(invocation -> {
+            OnSuccessListener<Event> success = invocation.getArgument(1);
+            success.onSuccess(new Event("organizer", 10, 10));
+            return null;
+        }).when(mockEventStorage).getEvent(eq("event-123"), any(), any());
+
         doAnswer(invocation -> {
             OnSuccessListener<List<Entrant>> success = invocation.getArgument(1);
             success.onSuccess(new ArrayList<>());
@@ -92,12 +104,18 @@ public class EnrolledListActivityUnitTest {
 
         assertEquals(View.VISIBLE, activity.findViewById(R.id.tv_empty).getVisibility());
         assertEquals(View.GONE, activity.findViewById(R.id.rv_enrolled).getVisibility());
-        // Export button should be disabled if list is empty
         assertFalse(activity.findViewById(R.id.btn_export_csv).isEnabled());
     }
 
     @Test
     public void recyclerViewShownWhenEntrantsEnrolled() {
+        // Mock event status check
+        doAnswer(invocation -> {
+            OnSuccessListener<Event> success = invocation.getArgument(1);
+            success.onSuccess(new Event("organizer", 10, 10));
+            return null;
+        }).when(mockEventStorage).getEvent(eq("event-123"), any(), any());
+
         List<Entrant> fakeEntrants = new ArrayList<>();
         fakeEntrants.add(new Entrant("entrant-1", "event-123", Entrant.EntrantStatus.ENROLLED));
         fakeEntrants.add(new Entrant("entrant-2", "event-123", Entrant.EntrantStatus.ENROLLED));
