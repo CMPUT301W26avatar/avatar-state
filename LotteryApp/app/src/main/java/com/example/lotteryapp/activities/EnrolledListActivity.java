@@ -46,7 +46,9 @@ public class EnrolledListActivity extends AppCompatActivity {
     private EntrantAdapter adapter;
     private EventPoolStorage eventPoolStorage;
     private UserStorage userStorage;
+    private com.example.lotteryapp.services.storage.EventStorage eventStorage;
     private String eventId;
+    private boolean isFinalList = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +62,7 @@ public class EnrolledListActivity extends AppCompatActivity {
 
         eventPoolStorage = ServiceLocator.getEventPoolStorage();
         userStorage = ServiceLocator.getUserStorage();
+        eventStorage = ServiceLocator.getEventStorage();
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new EntrantAdapter(userStorage);
@@ -75,7 +78,20 @@ public class EnrolledListActivity extends AppCompatActivity {
             return;
         }
 
+        checkEventStatus();
         loadEnrolledEntrants(eventId);
+    }
+
+    private void checkEventStatus() {
+        eventStorage.getEvent(eventId, event -> {
+            if (event != null && (event.getStatus() == com.example.lotteryapp.models.Event.EventStatus.REG_FULL 
+                    || event.getStatus() == com.example.lotteryapp.models.Event.EventStatus.EVENT_CLOSED)) {
+                isFinalList = true;
+                btnExportCsv.setText("Export Final CSV");
+            }
+        }, e -> {
+            // Ignore status check failure
+        });
     }
 
     private void loadEnrolledEntrants(String eventId) {
@@ -156,7 +172,8 @@ public class EnrolledListActivity extends AppCompatActivity {
             // 1. Generate Physical File
             File cachePath = new File(getCacheDir(), "exports");
             cachePath.mkdirs();
-            File csvFile = new File(cachePath, "Enrolled_Entrants.csv");
+            String fileName = isFinalList ? "Enrolled_Entrants_Final.csv" : "Enrolled_Entrants.csv";
+            File csvFile = new File(cachePath, fileName);
             FileOutputStream stream = new FileOutputStream(csvFile);
             stream.write(csv.toString().getBytes());
             stream.close();
@@ -167,11 +184,11 @@ public class EnrolledListActivity extends AppCompatActivity {
             // 3. Update Intent to send file stream
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("text/csv");
-            intent.putExtra(Intent.EXTRA_SUBJECT, "Enrolled_Entrants.csv");
+            intent.putExtra(Intent.EXTRA_SUBJECT, fileName);
             intent.putExtra(Intent.EXTRA_STREAM, contentUri);
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             
-            startActivity(Intent.createChooser(intent, "Export Enrolled Entrants"));
+            startActivity(Intent.createChooser(intent, isFinalList ? "Export Final Enrolled Entrants" : "Export Enrolled Entrants"));
 
         } catch (IOException e) {
             e.printStackTrace();
