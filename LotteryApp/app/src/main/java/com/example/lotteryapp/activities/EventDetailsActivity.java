@@ -12,6 +12,7 @@ import static com.example.lotteryapp.models.Event.EventStatus.REG_CLOSED;
 import static com.example.lotteryapp.models.Event.EventStatus.REG_FULL;
 import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -31,6 +32,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
@@ -115,6 +119,35 @@ public class EventDetailsActivity extends AppCompatActivity {
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
     private Entrant.EntrantStatus currentStatus = null;
+
+    private static int WRITE_REQUEST_CODE = 101;
+    private QRCode qrCode = null;
+
+    ActivityResultLauncher<Intent> resultLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), res -> {
+        if (res.getResultCode() == Activity.RESULT_OK) {
+            Intent data = res.getData();
+            Uri qrDownloadUri = data.getData();
+
+            if (qrDownloadUri == null) {
+                throw new RuntimeException();
+            }
+
+            ContentResolver resolver = getApplicationContext()
+                    .getContentResolver();
+
+            try (OutputStream outputStream = resolver.openOutputStream(qrDownloadUri, "w")) {
+                Log.i("QR-CODE", qrDownloadUri.toString());
+                byte[] imageData = qrCode.getPngData();
+                if (outputStream != null) {
+                    outputStream.write(imageData);
+                    outputStream.flush();
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    });
 
     private final SimpleDateFormat sdf =
             new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
@@ -1105,7 +1138,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     private void setupQrCode() {
         QRCodeService qrCodeService = new QRCodeService();
-        QRCode qrCode = qrCodeService.getQRCode(currentEvent.eventId);
+        qrCode = qrCodeService.getQRCode(currentEvent.eventId);
         Bitmap qrCodeBitMap = qrCode.getBitmap();
 
         btnQRCodeIcon.setVisibility(VISIBLE);
@@ -1126,41 +1159,20 @@ public class EventDetailsActivity extends AppCompatActivity {
 
             Button btnDownloadQrCode = view.findViewById(R.id.btn_download_qr_code);
             btnDownloadQrCode.setOnClickListener(v1 -> {
-                ContentResolver resolver = getApplicationContext()
-                        .getContentResolver();
 
-                Uri imgCollection;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    imgCollection = MediaStore.Images.Media
-                            .getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
-                } else {
-                    imgCollection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
-                }
+                Runnable downloadAction = () -> {
+                    Intent downloadIntent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    // filter to only show openable items.
+                    downloadIntent.addCategory(Intent.CATEGORY_OPENABLE);
 
-                ContentValues imageDetails = new ContentValues();
-                imageDetails.put(MediaStore.Images.Media.DISPLAY_NAME, "EVENT-" + eventId + "-QR-CODE.png");
-                imageDetails.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
-                imageDetails.put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000);
-                imageDetails.put(MediaStore.Images.Media.IS_PENDING, 1);
+                    // Create a file with the requested Mime type
+                    downloadIntent.setType("image/png");
+                    downloadIntent.putExtra(Intent.EXTRA_TITLE, "EVENT-" + eventId + "-QR-CODE.png");
+                    resultLauncher.launch(downloadIntent);
+                };
 
-                Uri imageContentUri = resolver
-                        .insert(imgCollection, imageDetails);
-
-                if (imageContentUri != null) {
-                    try (OutputStream outputStream = resolver.openOutputStream(imageContentUri)) {
-                        byte[] imageData = qrCode.getPngData();
-                        if (outputStream != null) {
-                            outputStream.write(imageData);
-                            outputStream.flush();
-                        }
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    imageDetails.clear();
-                    imageDetails.put(MediaStore.Images.Media.IS_PENDING, 0);
-                    resolver.update(imageContentUri, imageDetails, null, null);
-                }
+                Thread downloadThread = new Thread(downloadAction);
+                downloadThread.start();
 
                 dialog.dismiss();
             });
