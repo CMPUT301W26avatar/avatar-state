@@ -6,20 +6,12 @@ import android.util.Log;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.lotteryapp.services.AuthService;
-import com.example.lotteryapp.services.FirebaseService;
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.services.AuthService;
 import com.example.lotteryapp.services.ServiceLocator;
-import com.example.lotteryapp.services.storage.UserStorage;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.android.material.button.MaterialButton;
-import com.google.firebase.auth.AuthResult;
-import com.google.firebase.auth.FirebaseAuth;
 
 /**
  * Obtain user inputs for user registration

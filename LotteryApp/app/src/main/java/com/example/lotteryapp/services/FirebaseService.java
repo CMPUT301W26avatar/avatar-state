@@ -1,7 +1,7 @@
 package com.example.lotteryapp.services;
 
-import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 
 /** Firebase Wrapper: centralized db access class

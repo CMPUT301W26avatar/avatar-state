@@ -3,7 +3,6 @@ package com.example.lotteryapp.models;
 import android.graphics.Bitmap;
 import android.util.Pair;
 
-import com.example.lotteryapp.R;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.journeyapps.barcodescanner.BarcodeEncoder;

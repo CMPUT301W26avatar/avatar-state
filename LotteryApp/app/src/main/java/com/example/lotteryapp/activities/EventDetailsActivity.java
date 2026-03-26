@@ -1,8 +1,5 @@
 package com.example.lotteryapp.activities;
 
-import com.bumptech.glide.Glide;
-import com.example.lotteryapp.models.QRCode;
-import com.example.lotteryapp.services.ProfanityFilter;
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
@@ -16,17 +13,13 @@ import static com.example.lotteryapp.models.Event.EventStatus.REG_FULL;
 import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.ContentResolver;
 import android.content.ContentValues;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
-import android.os.ParcelFileDescriptor;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -35,27 +28,28 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.Toast;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.bumptech.glide.Glide;
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.models.EventAddress;
-import com.example.lotteryapp.models.EventJoinedMap;
-import com.example.lotteryapp.models.User;
-import com.example.lotteryapp.services.QRCodeService;
-import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.EventAddress;
+import com.example.lotteryapp.models.EventJoinedMap;
+import com.example.lotteryapp.models.QRCode;
+import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.services.ProfanityFilter;
+import com.example.lotteryapp.services.QRCodeService;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
