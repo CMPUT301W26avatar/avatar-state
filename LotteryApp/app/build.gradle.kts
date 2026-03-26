@@ -88,4 +88,5 @@ dependencies {
 
     // QR Code
     implementation(libs.zxing.android.embedded)
+    implementation(libs.glide)
 }
