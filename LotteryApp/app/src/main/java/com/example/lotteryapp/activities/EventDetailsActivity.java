@@ -15,13 +15,10 @@ import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ContentResolver;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -32,7 +29,6 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
@@ -46,7 +42,6 @@ import com.example.lotteryapp.models.EventJoinedMap;
 import com.example.lotteryapp.models.QRCode;
 import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ProfanityFilter;
-import com.example.lotteryapp.services.QRCodeService;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
@@ -119,16 +114,17 @@ public class EventDetailsActivity extends AppCompatActivity {
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
     private Entrant.EntrantStatus currentStatus = null;
-
-    private static int WRITE_REQUEST_CODE = 101;
     private QRCode qrCode = null;
 
     ActivityResultLauncher<Intent> resultLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(), res -> {
         if (res.getResultCode() == Activity.RESULT_OK) {
             Intent data = res.getData();
-            Uri qrDownloadUri = data.getData();
+            if (data == null) {
+                throw new RuntimeException();
+            }
 
+            Uri qrDownloadUri = data.getData();
             if (qrDownloadUri == null) {
                 throw new RuntimeException();
             }
@@ -1137,8 +1133,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     }
 
     private void setupQrCode() {
-        QRCodeService qrCodeService = new QRCodeService();
-        qrCode = qrCodeService.getQRCode(currentEvent.eventId);
+        qrCode = new QRCode(eventId);
         Bitmap qrCodeBitMap = qrCode.getBitmap();
 
         btnQRCodeIcon.setVisibility(VISIBLE);
@@ -1171,6 +1166,8 @@ public class EventDetailsActivity extends AppCompatActivity {
                     resultLauncher.launch(downloadIntent);
                 };
 
+                // Run download action on separate thread as to not
+                // slow down the current UI thread
                 Thread downloadThread = new Thread(downloadAction);
                 downloadThread.start();
 
