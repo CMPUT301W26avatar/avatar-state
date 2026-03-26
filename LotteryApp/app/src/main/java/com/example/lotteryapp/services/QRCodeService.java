@@ -28,17 +28,4 @@ public class QRCodeService {
     public QRCode getQRCode(String eventId, int width, int height) {
         return new QRCode(eventId, width, height);
     }
-
-    public Bitmap getBitmap(QRCode qrCode) {
-        final String URI = qrCode.getURI();
-        final Pair<Integer, Integer> DIMENSIONS = qrCode.getDimensions();
-
-        try {
-            return barcodeEncoder.encodeBitmap(URI, BarcodeFormat.QR_CODE, DIMENSIONS.first, DIMENSIONS.second);
-        } catch (WriterException e) {
-            // TODO: Change to proper error handling
-            throw new RuntimeException(e); // Failed to create QRCode Bitmap
-        }
-    }
-
 }

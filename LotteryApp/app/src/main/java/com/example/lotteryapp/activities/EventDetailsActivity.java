@@ -1,5 +1,7 @@
 package com.example.lotteryapp.activities;
 
+import com.bumptech.glide.Glide;
+import com.example.lotteryapp.models.QRCode;
 import com.example.lotteryapp.services.ProfanityFilter;
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
@@ -13,12 +15,23 @@ import static com.example.lotteryapp.models.Event.EventStatus.REG_CLOSED;
 import static com.example.lotteryapp.models.Event.EventStatus.REG_FULL;
 import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.ParcelFileDescriptor;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -31,6 +44,7 @@ import com.example.lotteryapp.R;
 import com.example.lotteryapp.models.EventAddress;
 import com.example.lotteryapp.models.EventJoinedMap;
 import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.services.QRCodeService;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
@@ -40,6 +54,10 @@ import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
@@ -82,6 +100,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     private ImageButton btnCommentIcon;
     private ImageButton btnShareIcon;
+    private ImageButton btnQRCodeIcon;
     private ImageButton btnSaveIcon;
 
     // poster
@@ -192,6 +211,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnCommentIcon = findViewById(R.id.btn_comment_icon);
         btnShareIcon = findViewById(R.id.btn_share_icon);
         btnSaveIcon = findViewById(R.id.btn_save_icon);
+        btnQRCodeIcon = findViewById(R.id.btn_qr_code_icon);
         tvViewComments = findViewById(R.id.tv_view_comments);
 
         ivEventPoster = findViewById(R.id.iv_event_poster);
@@ -251,6 +271,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                     if (isAdminMode) {
                         setupAdminActions();
                     } else if (isOrganizer(currentEvent, currentUserId)) {
+                        setupQrCode();
                         setupOrganizerActions(currentEvent);
                     } else {
                         setupEntrantActions(currentEvent);
@@ -1086,5 +1107,78 @@ public class EventDetailsActivity extends AppCompatActivity {
                     }
                 }
         );
+    }
+
+    private void setupQrCode() {
+        QRCodeService qrCodeService = new QRCodeService();
+        QRCode qrCode = qrCodeService.getQRCode(currentEvent.eventId);
+        Bitmap qrCodeBitMap = qrCode.getBitmap();
+
+        btnQRCodeIcon.setVisibility(VISIBLE);
+        btnQRCodeIcon.setOnClickListener(v -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(v.getContext());
+            View view = LayoutInflater.from(v.getContext()).inflate(R.layout.dialog_qr_code, null);
+            builder.setView(view);
+
+            AlertDialog dialog = builder.create();
+            dialog.show();
+
+            ImageView imgQrCode = view.findViewById(R.id.img_event_qr_code);
+
+            ImageButton btnCloseQrDialog = view.findViewById(R.id.btn_close_qr_dialog);
+            btnCloseQrDialog.setOnClickListener(v1 -> {
+                dialog.dismiss();
+            });
+
+            Button btnDownloadQrCode = view.findViewById(R.id.btn_download_qr_code);
+            btnDownloadQrCode.setOnClickListener(v1 -> {
+                ContentResolver resolver = getApplicationContext()
+                        .getContentResolver();
+
+                Uri imgCollection;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    imgCollection = MediaStore.Images.Media
+                            .getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+                } else {
+                    imgCollection = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+                }
+
+                ContentValues imageDetails = new ContentValues();
+                imageDetails.put(MediaStore.Images.Media.DISPLAY_NAME, "EVENT-" + eventId + "-QR-CODE.png");
+                imageDetails.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+                imageDetails.put(MediaStore.Images.Media.DATE_ADDED, System.currentTimeMillis() / 1000);
+                imageDetails.put(MediaStore.Images.Media.IS_PENDING, 1);
+
+                Uri imageContentUri = resolver
+                        .insert(imgCollection, imageDetails);
+
+                if (imageContentUri != null) {
+                    try (OutputStream outputStream = resolver.openOutputStream(imageContentUri)) {
+                        byte[] imageData = qrCode.getPngData();
+                        if (outputStream != null) {
+                            outputStream.write(imageData);
+                            outputStream.flush();
+                        }
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    imageDetails.clear();
+                    imageDetails.put(MediaStore.Images.Media.IS_PENDING, 0);
+                    resolver.update(imageContentUri, imageDetails, null, null);
+                }
+
+                dialog.dismiss();
+            });
+
+            Glide
+                    .with(v.getContext())
+                    .load(qrCodeBitMap)
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .into(imgQrCode);
+
+            dialog.show();
+        });
     }
 }
