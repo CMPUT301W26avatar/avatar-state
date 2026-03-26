@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.lotteryapp"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -85,4 +85,8 @@ dependencies {
 
     implementation(libs.play.services.phenotype)
     implementation(libs.play.services.auth)
+
+    // QR Code
+    implementation(libs.zxing.android.embedded)
+    implementation(libs.glide)
 }

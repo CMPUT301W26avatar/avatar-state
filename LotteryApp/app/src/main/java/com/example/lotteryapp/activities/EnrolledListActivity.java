@@ -19,8 +19,6 @@ import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.google.android.material.button.MaterialButton;
 
-import org.w3c.dom.Text;
-
 import java.util.ArrayList;
 import java.util.List;
 

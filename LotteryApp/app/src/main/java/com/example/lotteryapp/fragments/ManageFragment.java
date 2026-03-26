@@ -22,10 +22,10 @@ import androidx.core.util.Pair;
 import androidx.fragment.app.Fragment;
 
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
