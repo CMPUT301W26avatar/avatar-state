@@ -105,12 +105,15 @@ public class InviteListFragment extends Fragment {
         tvEmpty.setVisibility(View.GONE);
 
         LayoutInflater inflater = LayoutInflater.from(getContext());
+        EventPoolStorage storage = ServiceLocator.getEventPoolStorage();
 
         for (Entrant entrant : entrants) {
             View row = inflater.inflate(R.layout.item_entrant, container, false);
 
             TextView entrantName = row.findViewById(R.id.tv_entrant_name);
             TextView entrantEmail = row.findViewById(R.id.tv_entrant_email);
+
+            View btnCancel = row.findViewById(R.id.btn_cancel_invite);
 
             ServiceLocator.getUserStorage().getUserProfile(
                     entrant.getEntrantId(),
@@ -126,6 +129,49 @@ public class InviteListFragment extends Fragment {
                         entrantEmail.setText("UNKNOWN EMAIL");
                     }
             );
+
+            if (TYPE_INVITED.equals(type)) {
+                btnCancel.setVisibility(View.VISIBLE);
+
+                btnCancel.setOnClickListener(v -> {
+                    new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                            .setTitle("Cancel invitation")
+                            .setMessage("Remove this entrant from invited list?")
+                            .setNegativeButton("No", null)
+                            .setPositiveButton("Yes", (dialog, which) -> {
+
+                                btnCancel.setEnabled(false);
+
+                                storage.cancelInvitation(
+                                        eventId,
+                                        entrant.getEntrantId(),
+                                        unused -> {
+                                            android.widget.Toast.makeText(
+                                                    requireContext(),
+                                                    "Invitation cancelled",
+                                                    android.widget.Toast.LENGTH_SHORT
+                                            ).show();
+
+                                            loadEntrants();
+                                        },
+                                        e -> {
+                                            btnCancel.setEnabled(true);
+
+                                            android.widget.Toast.makeText(
+                                                    requireContext(),
+                                                    "Failed to cancel invitation",
+                                                    android.widget.Toast.LENGTH_SHORT
+                                            ).show();
+                                        }
+                                );
+                            })
+                            .show();
+                });
+
+            } else {
+                // hide button for accepted / declined tabs
+                btnCancel.setVisibility(View.GONE);
+            }
 
             container.addView(row);
         }

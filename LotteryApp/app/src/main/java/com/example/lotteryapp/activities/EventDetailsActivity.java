@@ -160,6 +160,15 @@ public class EventDetailsActivity extends AppCompatActivity {
         setupActionBar();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        if (eventId != null && !eventId.trim().isEmpty()) {
+            loadEvent();
+        }
+    }
+
     /**
      * Associate all of the XML components with their application counterparts
      */
@@ -1220,7 +1229,50 @@ public class EventDetailsActivity extends AppCompatActivity {
                 eventId,
                 remainingSpots,
                 invitedCount -> {
-                    Toast.makeText(this, "Lottery complete: sent " + invitedCount + " invite(s)", Toast.LENGTH_SHORT).show();
+                    eventStorage.getEvent(
+                            eventId,
+                            updatedEvent -> {
+                                int waitlistCount = updatedEvent.getWaitlistCount();
+                                int invitationCount = updatedEvent.getInvitationCount();
+
+                                if (waitlistCount == 0 && invitationCount == 0) {
+                                    Toast.makeText(
+                                            this,
+                                            "There are no more entrants in the waitlist to draw from",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                } else {
+                                    Toast.makeText(
+                                            this,
+                                            "Lottery complete: sent " + invitedCount + " invite(s)",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                }
+
+                                currentEvent = updatedEvent;
+                                setupOrganizerActions(updatedEvent);
+
+                                if (btnBeginLotterySelection != null) {
+                                    btnBeginLotterySelection.setEnabled(true);
+                                }
+
+                                loadEvent();
+                            },
+                            e -> {
+                                // fallback if reload fails
+                                Toast.makeText(
+                                        this,
+                                        "Lottery complete: sent " + invitedCount + " invite(s)",
+                                        Toast.LENGTH_SHORT
+                                ).show();
+
+                                if (btnBeginLotterySelection != null) {
+                                    btnBeginLotterySelection.setEnabled(true);
+                                }
+
+                                loadEvent();
+                            }
+                    );
 
                     currentEvent = event;
                     setupOrganizerActions(event);

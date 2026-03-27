@@ -17,6 +17,7 @@ import com.google.android.material.tabs.TabLayoutMediator;
 public class InvitesDashboardActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
+    ImageButton btnCancelInvite;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

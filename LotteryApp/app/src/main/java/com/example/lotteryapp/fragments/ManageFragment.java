@@ -1369,19 +1369,26 @@ public class ManageFragment extends Fragment {
             subtitle.append(event.getStatus().name());
         }
 
-        Integer waitlistCap = event.getWaitlistCapacity();
+        if (!event.hasDrawnLottery) {
+            Integer waitlistCap = event.getWaitlistCapacity();
 
-        if (waitlistCap == UNLIMITED_WAITLIST_SENTINEL) {
-            subtitle.append("\nWaitlist: ")
-                    .append(event.getWaitlistCount())
-                    .append("/")
-                    .append("∞");
+            if (waitlistCap == UNLIMITED_WAITLIST_SENTINEL) {
+                subtitle.append("\nWaitlist: ")
+                        .append(event.getWaitlistCount())
+                        .append("/")
+                        .append("∞");
 
-        } else if (waitlistCap > 0){
-            subtitle.append("\nWaitlist: ")
-                    .append(event.getWaitlistCount())
+            } else if (waitlistCap > 0) {
+                subtitle.append("\nWaitlist: ")
+                        .append(event.getWaitlistCount())
+                        .append("/")
+                        .append(waitlistCap);
+            }
+        } else {
+            subtitle.append("\nEnrolled:")
+                    .append(event.getEnrolledCount())
                     .append("/")
-                    .append(waitlistCap);
+                    .append(event.getEventCapacity());
         }
 
         if (event != null && event.getEventDateMs() != null) {
