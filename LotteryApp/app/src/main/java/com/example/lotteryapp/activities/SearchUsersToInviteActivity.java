@@ -158,6 +158,19 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
                 : searchBar.getText().toString()));
     }
 
+    private boolean canManageEvent(Event event) {
+        if (event == null || currentUserId == null) {
+            return false;
+        }
+
+        if (currentUserId.equals(event.getOrganizerId())) {
+            return true;
+        }
+
+        List<String> coOrganizerIds = event.getCoOrganizerIds();
+        return coOrganizerIds != null && coOrganizerIds.contains(currentUserId);
+    }
+
 
     /**
      * validate that the current user is an organizer, and that the event is valid
@@ -175,8 +188,8 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
                         return;
                     }
 
-                    if (!Objects.equals(event.getOrganizerId(), currentUserId)) {
-                        Toast.makeText(this, "Only the organizer can send invites", Toast.LENGTH_SHORT).show();
+                    if (!canManageEvent(event)) {
+                        Toast.makeText(this, "Only organizers can send invites", Toast.LENGTH_SHORT).show();
                         finish();
                         return;
                     }
@@ -416,35 +429,11 @@ public class SearchUsersToInviteActivity extends AppCompatActivity {
             return;
         }
 
-        Entrant entrant = new Entrant(
-                user.getUUID(),
-                eventId,
-                Entrant.EntrantStatus.INVITED
-        );
-
-        eventPoolStorage.inviteDirectToPrivateEvent(
-                eventId,
-                entrant,
-                unused -> {
-                    sendPrivateInviteNotification(user.getUUID(), eventId);
-
-                    blockedInviteUserIds.add(user.getUUID());
-                    allEligibleUsers.remove(user);
-                    filteredUsers.remove(user);
-                    adapter.notifyDataSetChanged();
-
-                    String invitedName = user.getName() == null || user.getName().trim().isEmpty()
-                            ? "User invited"
-                            : user.getName().trim() + " invited";
-
-                    Toast.makeText(this, invitedName, Toast.LENGTH_SHORT).show();
-                },
-                e -> Toast.makeText(
-                        this,
-                        e.getMessage() == null ? "Failed to send invite" : e.getMessage(),
-                        Toast.LENGTH_SHORT
-                ).show()
-        );
+        sendPrivateInviteNotification(user.getUUID(), eventId);
+        blockedInviteUserIds.add(user.getUUID());
+        allEligibleUsers.remove(user);
+        filteredUsers.remove(user);
+        adapter.notifyDataSetChanged();
     }
 
     /**

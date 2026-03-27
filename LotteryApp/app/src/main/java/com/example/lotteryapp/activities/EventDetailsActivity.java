@@ -538,54 +538,83 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnDeleteImage.setVisibility(View.GONE);
         layoutAdminInfo.setVisibility(View.GONE);
 
-        if (isPrivateEvent(event)) {
-            btnViewEventMap.setVisibility(View.VISIBLE);
-            btnViewEventMap.setOnClickListener(v -> openEventMap());
+        btnViewEventMap.setVisibility(View.VISIBLE);
+        btnViewEventMap.setOnClickListener(v -> openEventMap());
 
-            btnBeginLotterySelection.setVisibility(View.GONE);
-            btnBeginLotterySelection.setEnabled(false);
+        btnSearchForCoorganizers.setVisibility(isPrimaryOrganizer(event) ? View.VISIBLE : View.GONE);
+        btnSearchForCoorganizers.setEnabled(true);
+        btnSearchForCoorganizers.setOnClickListener(v -> openInviteCoorganizerSearch());
 
-            btnShowInvitesDashboard.setVisibility(View.VISIBLE);
-            btnShowInvitesDashboard.setEnabled(true);
-            btnShowInvitesDashboard.setText("Manage Private Invites");
-            btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
+        btnBeginLotterySelection.setVisibility(View.GONE);
+        btnBeginLotterySelection.setEnabled(false);
 
-            btnSearchForUsers.setVisibility(View.VISIBLE);
-            btnSearchForUsers.setEnabled(true);
-            btnSearchForUsers.setText("Search for users to Invite");
-            btnSearchForUsers.setOnClickListener(v -> openInviteUserSearch());
+        btnShowInvitesDashboard.setVisibility(View.GONE);
+        btnShowInvitesDashboard.setEnabled(false);
 
-            btnSearchForCoorganizers.setVisibility(isPrimaryOrganizer(event) ? View.VISIBLE : View.GONE);
-            btnSearchForCoorganizers.setEnabled(true);
-            btnSearchForCoorganizers.setOnClickListener(v -> openInviteCoorganizerSearch());
+        btnSearchForUsers.setVisibility(View.GONE);
+        btnSearchForUsers.setEnabled(false);
+
+        Event.EventStatus status = event.getStatus();
+        boolean isPrivate = isPrivateEvent(event);
+        boolean registrationClosed = status == REG_CLOSED;
+        boolean registrationFull = status == REG_FULL;
+        boolean lotteryAvailable = registrationClosed || registrationFull;
+        boolean hasSentInvites = event.hasDrawnLottery();
+
+        if (isPrivate) {
+            // Before the lottery has been run, organizer can keep searching for users
+            // while registration is still open.
+            if (!hasSentInvites && status == REG_OPEN) {
+                btnSearchForUsers.setVisibility(View.VISIBLE);
+                btnSearchForUsers.setEnabled(true);
+                btnSearchForUsers.setText("Search for users to Invite");
+                btnSearchForUsers.setOnClickListener(v -> openInviteUserSearch());
+                return;
+            }
+
+            // Once private waitlist is full / registration closes, organizer should start lottery.
+            if (lotteryAvailable && !hasSentInvites) {
+                btnBeginLotterySelection.setVisibility(View.VISIBLE);
+                btnBeginLotterySelection.setEnabled(true);
+                btnBeginLotterySelection.setText("Begin Lottery Selection");
+                btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
+
+                btnShowInvitesDashboard.setVisibility(View.VISIBLE);
+                btnShowInvitesDashboard.setEnabled(true);
+                btnShowInvitesDashboard.setText("Lottery Selection Dashboard");
+                btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
+                return;
+            }
+
+            // After the lottery has been run, organizer manages invites and can redraw until the event is closed.
+            if (hasSentInvites) {
+                btnShowInvitesDashboard.setVisibility(View.VISIBLE);
+                btnShowInvitesDashboard.setEnabled(true);
+                btnShowInvitesDashboard.setText("Lottery Selection Dashboard");
+                btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
+
+                if (status != EVENT_CLOSED) {
+                    btnBeginLotterySelection.setVisibility(View.VISIBLE);
+                    btnBeginLotterySelection.setEnabled(true);
+                    btnBeginLotterySelection.setText("Re-draw applicants");
+                    btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
+                }
+                return;
+            }
 
             return;
         }
 
-        btnViewEventMap.setVisibility(View.VISIBLE);
-        btnViewEventMap.setOnClickListener(v -> openEventMap());
+        boolean hasPublicInvites = event.hasDrawnLottery();
 
-        btnSearchForCoorganizers.setVisibility(isPrimaryOrganizer(event) ? View.VISIBLE : View.GONE);        btnSearchForCoorganizers.setEnabled(true);
-        btnSearchForCoorganizers.setOnClickListener(v -> openInviteCoorganizerSearch());
-
-        btnBeginLotterySelection.setVisibility(View.GONE);
-        btnShowInvitesDashboard.setVisibility(View.GONE);
-
-        boolean registrationClosed = event.getStatus() == REG_CLOSED;
-        boolean registrationFull = event.getStatus() == REG_FULL;
-
-        boolean lotteryAvailable = registrationClosed || registrationFull;
-
-        boolean hasSentInvites = event.hasDrawnLottery();
-
-        if (lotteryAvailable && !hasSentInvites) {
+        if (lotteryAvailable && !hasPublicInvites) {
             btnBeginLotterySelection.setVisibility(View.VISIBLE);
             btnBeginLotterySelection.setEnabled(true);
             btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
         }
 
-        if (hasSentInvites) {
-            if (!(event.getStatus() == EVENT_CLOSED)) {
+        if (hasPublicInvites) {
+            if (status != EVENT_CLOSED) {
                 btnBeginLotterySelection.setText("Re-draw applicants");
                 btnBeginLotterySelection.setVisibility(View.VISIBLE);
                 btnBeginLotterySelection.setEnabled(true);
@@ -597,6 +626,7 @@ public class EventDetailsActivity extends AppCompatActivity {
             } else {
                 btnBeginLotterySelection.setVisibility(View.GONE);
                 btnBeginLotterySelection.setEnabled(false);
+
                 btnShowInvitesDashboard.setVisibility(View.VISIBLE);
                 btnShowInvitesDashboard.setEnabled(true);
                 btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
@@ -610,22 +640,6 @@ public class EventDetailsActivity extends AppCompatActivity {
      * call to renderEntrantActions for state-based action selection
      */
     private void setupEntrantActions(Event event) {
-        if (isPrivateEvent(event)) {
-            eventPoolStorage.getEntrantStatus(
-                    event.getEventId(),
-                    currentUserId,
-                    status -> {
-                        currentStatus = status;
-                        renderPrivateEntrantActions(status);
-                    },
-                    e -> {
-                        currentStatus = null;
-                        renderPrivateEntrantActions(null);
-                    }
-            );
-            return;
-        }
-
         if (event.getRegStartMs() == null || event.getRegEndMs() == null) {
             showJoinDisabled("Registration Unavailable");
             return;
@@ -701,43 +715,6 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnJoin.setEnabled(true);
         btnJoin.setText("Join Waitlist");
         btnJoin.setOnClickListener(v -> joinWaitlist());
-    }
-
-    /**
-     * Determine which actions/buttons are valid to show a User based on their state as an Entrant for a private event
-     * NONE: yet to receive invite to private event
-     * INVITED: accept/decline invitation
-     * DECLINED: join button closed -> cannot join again -> access to event details lost
-     * ENROLLED: unenroll
-     */
-    private void renderPrivateEntrantActions(Entrant.EntrantStatus status) {
-        btnJoin.setVisibility(View.GONE);
-        btnLeave.setVisibility(View.GONE);
-        invitations_layout.setVisibility(View.GONE);
-        btnBeginLotterySelection.setVisibility(View.GONE);
-        btnViewEventMap.setVisibility(View.GONE);
-
-        if (status == Entrant.EntrantStatus.INVITED) {
-            invitations_layout.setVisibility(VISIBLE);
-            btnAccept.setOnClickListener(v -> acceptInvitation());
-            btnDecline.setOnClickListener(v -> declineInvitation());
-            return;
-        }
-
-        if (status == ENROLLED) {
-            btnJoin.setVisibility(VISIBLE);
-            btnJoin.setEnabled(true);
-            btnJoin.setText("Unenroll");
-            btnJoin.setOnClickListener(v -> unenroll());
-            return;
-        }
-
-        if (status == DECLINED) {
-            showJoinDisabled("Invitation Declined");
-            return;
-        }
-
-        showJoinDisabled("Private event");
     }
 
     /**
@@ -916,7 +893,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private void leaveWaitlist() {
         btnLeave.setEnabled(false);
 
-        eventPoolStorage.removeFromInvited(
+        eventPoolStorage.removeFromWaitlist(
                 eventId,
                 currentUserId,
                 unused -> removeJoinedMapForCurrentUser(
@@ -1112,7 +1089,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
         btnAccept.setEnabled(false);
 
-        eventPoolStorage.enrollInEvent(
+        eventPoolStorage.waitlistForEvent(
                 eventId,
                 entrant,
                 unused -> {

@@ -61,6 +61,7 @@ public class HomeFragment extends Fragment {
 
     private NotificationPagerAdapter notificationPagerAdapter;
     private final List<NotificationLog> notifications = new ArrayList<>();
+    private View invitationCard;
 
     /**
      * Inflates the HomeFragment layout and initializes UI components.
@@ -70,6 +71,7 @@ public class HomeFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
+        invitationCard = view.findViewById(R.id.invitation_card);
         notificationsPager = view.findViewById(R.id.notifications_pager);
 
         notificationPagerAdapter = new NotificationPagerAdapter(
@@ -79,6 +81,9 @@ public class HomeFragment extends Fragment {
         );
         notificationsPager.setAdapter(notificationPagerAdapter);
 
+        if (invitationCard != null) {
+            invitationCard.setVisibility(View.GONE);
+        }
         notificationsPager.setVisibility(View.GONE);
 
         RecyclerView recyclerViewOpen = view.findViewById(R.id.recycler_view_open);
@@ -205,12 +210,14 @@ public class HomeFragment extends Fragment {
     private void loadNotifications() {
         String uid = ServiceLocator.uid();
         if (uid == null || uid.trim().isEmpty()) {
+            if (invitationCard != null) invitationCard.setVisibility(View.GONE);
             notificationsPager.setVisibility(View.GONE);
             return;
         }
 
         if (notificationLogStorage == null) {
             Log.e("HomeFragment", "NotificationLogStorage is null");
+            if (invitationCard != null) invitationCard.setVisibility(View.GONE);
             notificationsPager.setVisibility(View.GONE);
             return;
         }
@@ -220,12 +227,11 @@ public class HomeFragment extends Fragment {
                 logs -> {
                     notifications.clear();
                     notifications.addAll(logs);
-
-                    notificationPagerAdapter.notifyDataSetChanged();
                     updateNotificationBannerVisibility();
                 },
                 e -> {
                     Log.e("HomeFragment", "Failed to load notifications", e);
+                    if (invitationCard != null) invitationCard.setVisibility(View.GONE);
                     notificationsPager.setVisibility(View.GONE);
                 }
         );
@@ -236,10 +242,12 @@ public class HomeFragment extends Fragment {
      */
     private void updateNotificationBannerVisibility() {
         if (notifications.isEmpty()) {
+            if (invitationCard != null) invitationCard.setVisibility(View.GONE);
             notificationsPager.setVisibility(View.GONE);
             return;
         }
 
+        if (invitationCard != null) invitationCard.setVisibility(View.VISIBLE);
         notificationsPager.setVisibility(View.VISIBLE);
         notificationPagerAdapter.notifyDataSetChanged();
         notificationsPager.setCurrentItem(0, false);
@@ -257,15 +265,12 @@ public class HomeFragment extends Fragment {
         }
 
         notifications.remove(position);
-        notificationPagerAdapter.notifyDataSetChanged();
+        updateNotificationBannerVisibility();
 
-        if (notifications.isEmpty()) {
-            notificationsPager.setVisibility(View.GONE);
-            return;
+        if (!notifications.isEmpty()) {
+            int nextIndex = Math.min(position, notifications.size() - 1);
+            notificationsPager.setCurrentItem(nextIndex, false);
         }
-
-        int nextIndex = Math.min(position, notifications.size() - 1);
-        notificationsPager.setCurrentItem(nextIndex, false);
     }
 
     /**
@@ -353,7 +358,7 @@ public class HomeFragment extends Fragment {
 
         Entrant entrant = new Entrant(uid, notification.getEventId(), Entrant.EntrantStatus.ENROLLED);
 
-        eventPoolStorage.enrollInEvent(
+        eventPoolStorage.waitlistForEvent(
                 notification.getEventId(),
                 entrant,
                 unused -> resolveNotification(

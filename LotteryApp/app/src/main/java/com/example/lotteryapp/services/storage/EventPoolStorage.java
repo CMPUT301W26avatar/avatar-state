@@ -108,11 +108,7 @@ public class EventPoolStorage {
                     if (!eventSnap.exists()) {
                         throw new IllegalStateException("Event does not exist");
                     }
-
-                    Boolean privateEvent = eventSnap.getBoolean("privateEvent");
-                    if (privateEvent != null && privateEvent) {
-                        throw new IllegalStateException("Private events cannot be joined through the waitlist");
-                    }
+                    
 
                     // enforce no double waitlisting
                     if (waitlistedSnap.exists() && (waitlistedSnap.getString("status").equals("WAITLISTED"))) {

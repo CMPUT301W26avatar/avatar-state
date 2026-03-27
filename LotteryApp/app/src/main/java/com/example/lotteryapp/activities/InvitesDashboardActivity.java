@@ -65,7 +65,7 @@ public class InvitesDashboardActivity extends AppCompatActivity {
 
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             if (position == 0) {
-                tab.setText("Invited");
+                tab.setText("Pending");
             } else if (position == 1) {
                 tab.setText("Declined");
             } else {

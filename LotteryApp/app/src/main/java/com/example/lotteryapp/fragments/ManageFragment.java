@@ -232,13 +232,15 @@ public class ManageFragment extends Fragment {
             privateInviteLayout.setVisibility(isPrivate ? View.VISIBLE : View.GONE);
         }
 
+        // Private events should STILL be allowed to configure waitlist capacity
         if (switchWaitlist != null) {
-            switchWaitlist.setEnabled(!isPrivate);
-            if (isPrivate) {
-                switchWaitlist.setChecked(false);
+            boolean waitlistEnabled = switchWaitlist.isChecked();
+            if (layoutWaitlistCapacity != null) {
+                layoutWaitlistCapacity.setVisibility(waitlistEnabled ? View.VISIBLE : View.GONE);
             }
         }
 
+        // Private events should NOT allow geolocation constraints
         if (switchGeo != null) {
             switchGeo.setEnabled(!isPrivate);
             if (isPrivate) {
@@ -246,19 +248,13 @@ public class ManageFragment extends Fragment {
             }
         }
 
-        if (isPrivate) {
-            if (layoutWaitlistCapacity != null) {
-                layoutWaitlistCapacity.setVisibility(View.GONE);
-            }
-            if (layoutLocationRadius != null) {
-                layoutLocationRadius.setVisibility(View.GONE);
-            }
-            if (etWaitlistCapacity != null) {
-                etWaitlistCapacity.setText("");
-            }
-            if (etLocationRadiusKm != null) {
-                etLocationRadiusKm.setText("");
-            }
+        if (layoutLocationRadius != null) {
+            boolean geoEnabled = switchGeo != null && switchGeo.isChecked() && !isPrivate;
+            layoutLocationRadius.setVisibility(geoEnabled ? View.VISIBLE : View.GONE);
+        }
+
+        if (isPrivate && etLocationRadiusKm != null) {
+            etLocationRadiusKm.setText("");
         }
     }
 
@@ -466,7 +462,7 @@ public class ManageFragment extends Fragment {
             String capacityText = etEventCapacity.getText().toString().trim();
             String radiusText = etLocationRadiusKm.getText().toString().trim();
             boolean isPrivateEvent = switchPrivateEvent != null && switchPrivateEvent.isChecked();
-            boolean waitlistHasLimit = !isPrivateEvent && switchWaitlist.isChecked();
+            boolean waitlistHasLimit = switchWaitlist.isChecked();
             boolean geoConstraint = !isPrivateEvent && switchGeo.isChecked();
 
             // input entry enforcement
@@ -587,7 +583,7 @@ public class ManageFragment extends Fragment {
                 newEvent.setRegStartMs(localStartDateMs[0]);
                 newEvent.setRegEndMs(localEndDateMs[0]);
                 newEvent.setEventCapacity(eventCapacity);
-                newEvent.setWaitlistCapacity(isPrivateEvent ? 0 : finalWaitlistCapacity);
+                newEvent.setWaitlistCapacity(finalWaitlistCapacity);
                 newEvent.setWaitlistCount(0);
                 newEvent.setInvitationCount(0);
                 newEvent.setHasDrawnLottery(false);
@@ -923,7 +919,7 @@ public class ManageFragment extends Fragment {
                     String capacityText = etEventCapacity.getText().toString().trim();
                     String radiusText = etLocationRadiusKm.getText().toString().trim();
                     boolean isPrivateEvent = switchPrivateEvent != null && switchPrivateEvent.isChecked();
-                    boolean waitlistHasLimit = !isPrivateEvent && switchWaitlist.isChecked();
+                    boolean waitlistHasLimit = switchWaitlist.isChecked();
                     boolean geoConstraint = !isPrivateEvent && switchGeo.isChecked();
 
                     // input entry enforcement
@@ -1036,7 +1032,7 @@ public class ManageFragment extends Fragment {
                 event.setEventCapacity(eventCapacity);
 
                 setPrivateEventFlag(event, isPrivateEvent);
-                event.setWaitlistCapacity(isPrivateEvent ? 0 : finalWaitlistCapacity);
+                event.setWaitlistCapacity(finalWaitlistCapacity);
                 setOptionalString(event, "setDescription", description);
 
                 EventAddress updatedAddress = null;
@@ -1364,35 +1360,28 @@ public class ManageFragment extends Fragment {
      */
     private String buildSubtitle(Event event) {
         StringBuilder subtitle = new StringBuilder();
-        if (!isPrivateEvent(event)) {
-            if (event != null && event.getStatus() != null) {
-                subtitle.append(event.getStatus().name());
-            }
 
-            Integer waitlistCap = event.getWaitlistCapacity();
+        if (isPrivateEvent(event)) {
+            subtitle.append("Private •");
+        }
 
-            if (waitlistCap == -1) {
-                subtitle.append("\nWaitlist: ")
-                        .append(event.getWaitlistCount())
-                        .append("/")
-                        .append("∞");
+        if (event != null && event.getStatus() != null) {
+            subtitle.append(event.getStatus().name());
+        }
 
-            } else if (waitlistCap > 0){
-                subtitle.append("\nWaitlist: ")
-                        .append(event.getWaitlistCount())
-                        .append("/")
-                        .append(waitlistCap);
-            }
+        Integer waitlistCap = event.getWaitlistCapacity();
 
-        } else {
-            subtitle.append("Private");
-
-            int eventCap = event.getEventCapacity();
-            subtitle.append(" • Enrolled: ")
-                    .append(event.getEnrolledCount())
+        if (waitlistCap == UNLIMITED_WAITLIST_SENTINEL) {
+            subtitle.append("\nWaitlist: ")
+                    .append(event.getWaitlistCount())
                     .append("/")
-                    .append(eventCap)
-                    .append("\n");
+                    .append("∞");
+
+        } else if (waitlistCap > 0){
+            subtitle.append("\nWaitlist: ")
+                    .append(event.getWaitlistCount())
+                    .append("/")
+                    .append(waitlistCap);
         }
 
         if (event != null && event.getEventDateMs() != null) {
