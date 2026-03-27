@@ -1,7 +1,7 @@
 package com.example.lotteryapp.activities;
 
-import static com.example.lotteryapp.models.User.UserAddressMode.DEFAULT;
 import static com.example.lotteryapp.models.User.UserAddressMode.CURRENT;
+import static com.example.lotteryapp.models.User.UserAddressMode.DEFAULT;
 
 import android.Manifest;
 import android.content.pm.PackageManager;

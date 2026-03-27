@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">LotteryApp</string>
-
+    <string name="app_name_android_scheme">lotteryapp.example.com</string>
     <string name="title_invited_entrants">Invited Entrants</string>
     <string name="msg_no_entrants_found">No entrants found</string>
     <string name="hint_entrant_name">Entrant Name</string>
@@ -9,4 +9,6 @@
         randomly selected by the app and will be sent invitations for enrollment. You may accept or decline your invitation.
         Note that if you choose to decline your invitation, you will not have further opportunity to enroll in this event.
         This process will be repreated until the event has reached enrollment capacity.</string>
+    <string name="btn_export_csv">Export CSV</string>
+    <string name="qr_code_base_url">https://avatar-state-api.web.app/event</string>
 </resources>

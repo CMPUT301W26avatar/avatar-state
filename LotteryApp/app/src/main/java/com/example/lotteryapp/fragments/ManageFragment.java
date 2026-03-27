@@ -24,21 +24,36 @@ import androidx.fragment.app.Fragment;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.services.ServiceLocator;
+import com.example.lotteryapp.models.Entrant;
+import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.services.ServiceLocator;
+import com.example.lotteryapp.activities.EventDetailsActivity;
+import com.example.lotteryapp.activities.EnrolledListActivity;
+import com.example.lotteryapp.activities.InvitedListActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
+import com.example.lotteryapp.services.storage.EventPoolStorage;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TimeZone;
 import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * ManageFragment displays a list of organizer-managed events and supports
@@ -135,22 +150,13 @@ public class ManageFragment extends Fragment {
             TextView tvSubtitle = row.findViewById(R.id.tv_event_subtitle);
             View btnDetails = row.findViewById(R.id.btn_event_details);
             View btnEdit = row.findViewById(R.id.btn_edit_event);
-
-            //View btnEnrolled = row.findViewById(R.id.btn_view_enrolled);
+            View btnEnrolled = row.findViewById(R.id.btn_view_enrolled);
+            View btnInvited = row.findViewById(R.id.btn_view_invited);
 
             String title = event.getTitle();
             tvTitle.setText(title != null && !title.trim().isEmpty() ? title : event.getEventId());
             tvSubtitle.setText(buildSubtitle(event));
 
-            btnDetails.setOnClickListener(v -> openEventDetails(event));
-            btnEdit.setOnClickListener(v -> showUpdateEventDialog(event));
-
-            /*btnEnrolled.setOnClickListener(v -> {
-                Intent intent = new Intent(requireContext(), EnrolledListActivity.class);
-                intent.putExtra(EventDetailsActivity.EXTRA_EVENT_ID, event.getEventId());
-                startActivity(intent);
-            });*/
-          
             btnDetails.setOnClickListener(v -> openEventDetails(event));
             btnEdit.setOnClickListener(v ->
                     eventStorage.getEvent(
@@ -159,6 +165,18 @@ public class ManageFragment extends Fragment {
                             e -> Toast.makeText(requireContext(), "Failed to load event", Toast.LENGTH_SHORT).show()
                     )
             );
+
+            btnEnrolled.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), EnrolledListActivity.class);
+                intent.putExtra(EnrolledListActivity.EXTRA_EVENT_ID, event.getEventId());
+                startActivity(intent);
+            });
+
+            btnInvited.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), InvitedListActivity.class);
+                intent.putExtra(InvitedListActivity.EXTRA_EVENT_ID, event.getEventId());
+                startActivity(intent);
+            });
 
             upcomingEventListContainer.addView(row);
         }
