@@ -4,7 +4,6 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -15,11 +14,11 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 
+import com.example.lotteryapp.R;
 import com.example.lotteryapp.fragments.HomeFragment;
 import com.example.lotteryapp.fragments.JoinedFragment;
 import com.example.lotteryapp.fragments.ManageFragment;
 import com.example.lotteryapp.fragments.ProfileFragment;
-import com.example.lotteryapp.R;
 import com.example.lotteryapp.fragments.SearchFragment;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.google.android.material.bottomnavigation.BottomNavigationView;

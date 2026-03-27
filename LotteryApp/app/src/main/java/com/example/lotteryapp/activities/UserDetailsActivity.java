@@ -1,5 +1,6 @@
 package com.example.lotteryapp.activities;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
@@ -7,7 +8,6 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.content.Intent;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -143,27 +143,41 @@ public class UserDetailsActivity extends AppCompatActivity {
         ustore.getUserProfile(
                 uid,
                 user -> {
+                    if (user == null) {
+                        Toast.makeText(this, "User profile not found", Toast.LENGTH_SHORT).show();
+                        finish();
+                        return;
+                    }
+
                     etName.setText(user.getName() != null ? user.getName() : "");
                     etPhone.setText(user.getPhoneNumber() != null ? user.getPhoneNumber() : "");
                     etEmail.setText(user.getEmail() != null ? user.getEmail() : "");
-                    etLocation.setText(user.getUserAddress().getLocation() != null ? user.getUserAddress().getLocation() : "");
+                    
+                    // User address is stored in a subcollection and not loaded by getUserProfile
+                    etLocation.setText("");
+                    ustore.getPreferredUserAddress(uid, user.getAddressMode(),
+                            address -> {
+                                if (address != null && address.getLocation() != null) {
+                                    etLocation.setText(address.getLocation());
+                                }
+                            },
+                            e -> android.util.Log.e("UserDetailsActivity", "Failed to load address", e)
+                    );
+
                     tvDeviceId.setText(user.getUUID());
 
-                    // Admin can see delete buttons
-                    if (isAdminMode && user.getProfilePicUrl() != null && !user.getProfilePicUrl().isEmpty()) {
+                    if (isAdminMode
+                            && user.getProfilePicUrl() != null
+                            && !user.getProfilePicUrl().isEmpty()) {
                         btnDeleteProfilePic.setVisibility(View.VISIBLE);
-                    }
-                    else { // no one else can!
+                    } else {
                         btnDeleteProfilePic.setVisibility(View.GONE);
                     }
                 },
                 e -> {
                     android.util.Log.e("UserDetailsActivity",
                             "Failed to load user profile for uid=" + uid, e);
-
-                    Toast.makeText(this,
-                            "Failed to load profile",
-                            Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Failed to load profile", Toast.LENGTH_SHORT).show();
                 }
         );
     }
@@ -185,7 +199,7 @@ public class UserDetailsActivity extends AppCompatActivity {
         String location = doc.getString("location");
 
         etName.setText(name != null ? name : "");
-        etEmail.setText(email != null ? name : "");
+        etEmail.setText(email != null ? email : "");
         etPhone.setText(phone != null ? phone : "");
         etLocation.setText(location != null ? location : "");
     }

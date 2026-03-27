@@ -31,6 +31,7 @@ import com.example.lotteryapp.activities.InvitedListActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.datepicker.MaterialDatePicker;

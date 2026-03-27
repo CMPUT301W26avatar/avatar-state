@@ -9,7 +9,7 @@
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:paddingBottom="160dp"
+        android:paddingBottom="100dp"
         android:clipToPadding="false">
 
         <LinearLayout
@@ -106,12 +106,64 @@
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
+            <!-- Action Bar -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="8dp">
+
+                <ImageButton
+                    android:id="@+id/btn_comment_icon"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Comment"
+                    android:src="@drawable/ic_comment"
+                    app:tint="?attr/colorOnSurface" />
+
+                <ImageButton
+                    android:id="@+id/btn_share_icon"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Share"
+                    android:src="@drawable/ic_share"
+                    app:tint="?attr/colorOnSurface" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <ImageButton
+                    android:id="@+id/btn_qr_code_icon"
+                    android:visibility="gone"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="QR Code"
+                    android:src="@drawable/ic_qr_code"
+                    app:tint="?attr/colorOnSurface" />
+
+                <ImageButton
+                    android:id="@+id/btn_save_icon"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Save"
+                    android:src="@drawable/ic_save"
+                    app:tint="?attr/colorOnSurface" />
+
+            </LinearLayout>
+
             <!-- Content Section -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="24dp">
+                android:paddingHorizontal="24dp"
+                android:paddingBottom="24dp">
 
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
@@ -174,16 +226,27 @@
                     android:id="@+id/tv_description"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
+                    android:layout_marginTop="16dp"
                     android:text="Description"
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
                 <com.google.android.material.textview.MaterialTextView
+                    android:id="@+id/tv_view_comments"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="View all comments"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:clickable="true"
+                    android:focusable="true"/>
+
+                <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/tv_reg_end_date"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="48dp"
+                    android:layout_marginTop="24dp"
                     android:text="Register End Date"
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textStyle="bold" />
@@ -192,7 +255,7 @@
                     android:id="@+id/tv_criteria_guidelines"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="48dp"
+                    android:layout_marginTop="24dp"
                     android:text="Criteria/Guidelines"
                     android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textStyle="bold" />
@@ -202,7 +265,7 @@
                     android:id="@+id/list_of_x_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="48dp"
+                    android:layout_marginTop="32dp"
                     android:orientation="vertical"
                     android:visibility="gone"> <!-- Default GONE, VISIBLE when user is an ORGANIZER -->
                     <androidx.constraintlayout.widget.ConstraintLayout

@@ -12,31 +12,45 @@ import static com.example.lotteryapp.models.Event.EventStatus.REG_CLOSED;
 import static com.example.lotteryapp.models.Event.EventStatus.REG_FULL;
 import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ContentResolver;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.Toast;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.bumptech.glide.Glide;
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.models.EventAddress;
-import com.example.lotteryapp.models.EventJoinedMap;
-import com.example.lotteryapp.models.User;
-import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.EventAddress;
+import com.example.lotteryapp.models.EventJoinedMap;
+import com.example.lotteryapp.models.QRCode;
+import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.services.ProfanityFilter;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
@@ -63,6 +77,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialTextView tvDate;
     private MaterialTextView tvRegEndDate;
     private MaterialTextView tvCriteriaGuidelines;
+    private MaterialTextView tvViewComments;
 
     // buttons
     private MaterialButton btnClose;
@@ -75,6 +90,12 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialButton btnBeginLotterySelection;
     private MaterialButton btnViewEventMap;
     private MaterialButton btnShowInvitesDashboard;
+
+    private ImageButton btnCommentIcon;
+    private ImageButton btnShareIcon;
+    private ImageButton btnQRCodeIcon;
+    private ImageButton btnSaveIcon;
+
     // poster
     private ImageView ivEventPoster;
 
@@ -93,6 +114,36 @@ public class EventDetailsActivity extends AppCompatActivity {
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
     private Entrant.EntrantStatus currentStatus = null;
+    private QRCode qrCode = null;
+
+    ActivityResultLauncher<Intent> resultLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), res -> {
+        if (res.getResultCode() == Activity.RESULT_OK) {
+            Intent data = res.getData();
+            if (data == null) {
+                throw new RuntimeException();
+            }
+
+            Uri qrDownloadUri = data.getData();
+            if (qrDownloadUri == null) {
+                throw new RuntimeException();
+            }
+
+            ContentResolver resolver = getApplicationContext()
+                    .getContentResolver();
+
+            try (OutputStream outputStream = resolver.openOutputStream(qrDownloadUri, "w")) {
+                Log.i("QR-CODE", qrDownloadUri.toString());
+                byte[] imageData = qrCode.getPngData();
+                if (outputStream != null) {
+                    outputStream.write(imageData);
+                    outputStream.flush();
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    });
 
     private final SimpleDateFormat sdf =
             new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
@@ -109,11 +160,24 @@ public class EventDetailsActivity extends AppCompatActivity {
 
         isAdminMode = getIntent().getBooleanExtra("isAdminMode", false);
 
+        Intent intent = getIntent();
+        Uri data = intent.getData();
+
+        if (data != null) {
+            Toast toast = Toast.makeText(getBaseContext(), "Hello, QR Code User!", Toast.LENGTH_SHORT);
+            toast.show();
+            eventId = data.getQueryParameter("event");
+
+        } else {
+            eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
+        }
+
+        ProfanityFilter.init(this);
+
         bindViews();
 
         btnClose.setOnClickListener(v -> finish());
 
-        eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
 
         if (eventId == null || eventId.trim().isEmpty()) {
             populateFromIntentExtras();
@@ -141,10 +205,12 @@ public class EventDetailsActivity extends AppCompatActivity {
         // prefill any passed UI extras while backend data loads
         populateFromIntentExtras();
         loadEvent();
+
+        setupActionBar();
     }
 
     /**
-     * Associate all of the xml components with their application counterparts
+     * Associate all of the XML components with their application counterparts
      */
     private void bindViews() {
         tvName = findViewById(R.id.tv_event_name);
@@ -165,6 +231,12 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnViewEventMap = findViewById(R.id.btn_view_event_map);
         btnShowInvitesDashboard = findViewById(R.id.btn_show_invites_dashboard);
 
+        btnCommentIcon = findViewById(R.id.btn_comment_icon);
+        btnShareIcon = findViewById(R.id.btn_share_icon);
+        btnSaveIcon = findViewById(R.id.btn_save_icon);
+        btnQRCodeIcon = findViewById(R.id.btn_qr_code_icon);
+        tvViewComments = findViewById(R.id.tv_view_comments);
+
         ivEventPoster = findViewById(R.id.iv_event_poster);
 
         // Admin Info
@@ -178,6 +250,27 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminWaitlistCount = findViewById(R.id.tv_admin_waitlist_count);
         tvAdminRegStart = findViewById(R.id.tv_admin_reg_start);
         tvAdminPosterUrl = findViewById(R.id.tv_admin_poster_url);
+    }
+
+    private void setupActionBar() {
+        View.OnClickListener openComments = v -> {
+            Intent intent = new Intent(this, CommentsActivity.class);
+            intent.putExtra(CommentsActivity.EXTRA_EVENT_ID, eventId);
+            startActivity(intent);
+        };
+
+        btnCommentIcon.setOnClickListener(openComments);
+        tvViewComments.setOnClickListener(openComments);
+
+        btnShareIcon.setOnClickListener(v -> {
+            // TODO: Implement share functionality
+            Toast.makeText(this, "Share functionality coming soon!", Toast.LENGTH_SHORT).show();
+        });
+
+        btnSaveIcon.setOnClickListener(v -> {
+            // TODO: Implement save functionality
+            Toast.makeText(this, "Save functionality coming soon!", Toast.LENGTH_SHORT).show();
+        });
     }
 
     /**
@@ -200,7 +293,8 @@ public class EventDetailsActivity extends AppCompatActivity {
                     populateInfo(currentEvent);
                     if (isAdminMode) {
                         setupAdminActions();
-                    } else if (isOrganizer(currentEvent)) {
+                    } else if (isOrganizer(currentEvent, currentUserId)) {
+                        setupQrCode();
                         setupOrganizerActions(currentEvent);
                     } else {
                         setupEntrantActions(currentEvent);
@@ -208,7 +302,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
                     LinearLayout listOfX = findViewById(R.id.list_of_x_container);
                     TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
-                    if (isOrganizer(event)) {
+                    if (isOrganizer(event, currentUserId)) {
                         listOfX.setVisibility(VISIBLE);
                         Event.EventStatus status = event.getStatus();
                         if (status == REG_OPEN || status == REG_FULL || status == REG_CLOSED) {
@@ -239,8 +333,8 @@ public class EventDetailsActivity extends AppCompatActivity {
     /**
      * Determines whether the current user is the organizer of the given event.
      */
-    private boolean isOrganizer(Event event) {
-        return event.getOrganizerId().equals(currentUserId);
+    private boolean isOrganizer(Event event, String uid) {
+        return event.getOrganizerId().equals(uid);
     }
 
     private void openInvitesDashboard() {
@@ -316,6 +410,35 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    public static String getTimeAgo(long postedMs) {
+        long nowMs = System.currentTimeMillis();
+        long diffMs = nowMs - postedMs;
+
+        if (diffMs < 0) {
+            return "Just now";
+        }
+
+        long seconds = diffMs / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        long days = hours / 24;
+
+        if (seconds < 60) return "Just now";
+        if (minutes < 60) return minutes + " min ago";
+        if (hours < 24) return hours + " hr ago";
+        if (days < 7) return days + " day" + (days == 1 ? "" : "s") + " ago";
+
+        long weeks = days / 7;
+        if (weeks < 5) return weeks + " week" + (weeks == 1 ? "" : "s") + " ago";
+
+        long months = days / 30;
+        if (months < 12) return months + " month" + (months == 1 ? "" : "s") + " ago";
+
+        long years = days / 365;
+        return years + " year" + (years == 1 ? "" : "s") + " ago";
+    }
+
+
     /**
      * Configures the UI and actions available in admin mode.
      * hides all buttons except
@@ -343,10 +466,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         });
 
         btnDeleteImage.setOnClickListener(v -> {
-            eventStorage.getEvent(eventId, event -> {
-                event.setPosterUrl(null);
+            eventStorage.getEvent(eventId, currentEvent -> {
+                currentEvent.setPosterUrl(null);
                 eventStorage.upsertEvent(
-                        event,
+                        currentEvent,
                         unused -> {},
                         e -> Log.e("EventDetailsActivity:adminMode", "Failed to upsert event", e)
                 );
@@ -1007,5 +1130,58 @@ public class EventDetailsActivity extends AppCompatActivity {
                     }
                 }
         );
+    }
+
+    private void setupQrCode() {
+        qrCode = new QRCode(eventId);
+        Bitmap qrCodeBitMap = qrCode.getBitmap();
+
+        btnQRCodeIcon.setVisibility(VISIBLE);
+        btnQRCodeIcon.setOnClickListener(v -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(v.getContext());
+            View view = LayoutInflater.from(v.getContext()).inflate(R.layout.dialog_qr_code, null);
+            builder.setView(view);
+
+            AlertDialog dialog = builder.create();
+            dialog.show();
+
+            ImageView imgQrCode = view.findViewById(R.id.img_event_qr_code);
+
+            ImageButton btnCloseQrDialog = view.findViewById(R.id.btn_close_qr_dialog);
+            btnCloseQrDialog.setOnClickListener(v1 -> {
+                dialog.dismiss();
+            });
+
+            Button btnDownloadQrCode = view.findViewById(R.id.btn_download_qr_code);
+            btnDownloadQrCode.setOnClickListener(v1 -> {
+
+                Runnable downloadAction = () -> {
+                    Intent downloadIntent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    // filter to only show openable items.
+                    downloadIntent.addCategory(Intent.CATEGORY_OPENABLE);
+
+                    // Create a file with the requested Mime type
+                    downloadIntent.setType("image/png");
+                    downloadIntent.putExtra(Intent.EXTRA_TITLE, "EVENT-" + eventId + "-QR-CODE.png");
+                    resultLauncher.launch(downloadIntent);
+                };
+
+                // Run download action on separate thread as to not
+                // slow down the current UI thread
+                Thread downloadThread = new Thread(downloadAction);
+                downloadThread.start();
+
+                dialog.dismiss();
+            });
+
+            Glide
+                    .with(v.getContext())
+                    .load(qrCodeBitMap)
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .into(imgQrCode);
+
+            dialog.show();
+        });
     }
 }

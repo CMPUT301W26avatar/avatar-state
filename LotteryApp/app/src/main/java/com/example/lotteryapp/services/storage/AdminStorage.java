@@ -72,12 +72,12 @@ public class AdminStorage {
         data.put("uuid", uuid);
 
         db.collection("admin")
-            .document("requests")
-            .collection("requested")
-            .document(uuid)
-            .set(data)
-            .addOnSuccessListener(onSuccess)
-            .addOnFailureListener(onFailure);
+                .document("requests")
+                .collection("requested")
+                .document(uuid)
+                .set(data)
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
     }
 
     /** Add a new admin to the current>users subcollection.
@@ -161,20 +161,23 @@ public class AdminStorage {
             OnFailureListener onFailure
     ) {
         db.collection("admin")
-            .document("requests")
-            .collection("requested")
-            .get()
-            .addOnSuccessListener(snapshot -> {
-                List<String> ids = new ArrayList<>();
-                for (QueryDocumentSnapshot doc : snapshot) {
-                    String uuid = doc.getString("uuid");
-                    if (uuid != null && !uuid.trim().isEmpty()) {
-                        ids.add(uuid);
+                .document("requests")
+                .collection("requested")
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    List<String> users = new ArrayList<>();
+
+                    for (QueryDocumentSnapshot doc : snapshot) {
+                        String uuid = doc.getString("uuid");
+
+                        if (uuid != null && !uuid.trim().isEmpty()) {
+                            users.add(uuid);
+                        }
                     }
-                }
-                onSuccess.onSuccess(ids);
-            })
-            .addOnFailureListener(onFailure);
+
+                    onSuccess.onSuccess(users);
+                })
+                .addOnFailureListener(onFailure);
     }
 
     /** Get all current admins from the current subcollection.
