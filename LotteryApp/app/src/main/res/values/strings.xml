@@ -9,5 +9,6 @@
         randomly selected by the app and will be sent invitations for enrollment. You may accept or decline your invitation.
         Note that if you choose to decline your invitation, you will not have further opportunity to enroll in this event.
         This process will be repreated until the event has reached enrollment capacity.</string>
+    <string name="btn_export_csv">Export CSV</string>
     <string name="qr_code_base_url">https://avatar-state-api.web.app/event</string>
 </resources>
