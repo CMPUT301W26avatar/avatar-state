@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -28,6 +29,7 @@ public class InviteListFragment extends Fragment {
     public static final String TYPE_INVITED = "invited";
     public static final String TYPE_DECLINED = "declined";
     public static final String TYPE_ACCEPTED = "accepted";
+    public static final String TYPE_CANCELLED = "cancelled";
 
     private String eventId;
     private String type;
@@ -82,6 +84,12 @@ public class InviteListFragment extends Fragment {
                     eventId,
                     this::renderEntrants,
                     e -> handleError("Failed to load declined entrants", e)
+            );
+        } else if (TYPE_CANCELLED.equals(type)) {
+            storage.getCancelledEntrants(
+                    eventId,
+                    this::renderEntrants,
+                    e -> handleError("Failed to load cancelled entrants", e)
             );
         } else {
             storage.getEnrolledEntrants(
@@ -146,22 +154,15 @@ public class InviteListFragment extends Fragment {
                                         eventId,
                                         entrant.getEntrantId(),
                                         unused -> {
-                                            android.widget.Toast.makeText(
-                                                    requireContext(),
-                                                    "Invitation cancelled",
-                                                    android.widget.Toast.LENGTH_SHORT
-                                            ).show();
+                                            Toast.makeText(requireContext(), "Invitation cancelled", Toast.LENGTH_SHORT).show();
 
-                                            loadEntrants();
+                                            if (requireActivity() instanceof com.example.lotteryapp.activities.InvitesDashboardActivity) {
+                                                ((com.example.lotteryapp.activities.InvitesDashboardActivity) requireActivity()).refreshDashboard();
+                                            }
                                         },
                                         e -> {
                                             btnCancel.setEnabled(true);
-
-                                            android.widget.Toast.makeText(
-                                                    requireContext(),
-                                                    "Failed to cancel invitation",
-                                                    android.widget.Toast.LENGTH_SHORT
-                                            ).show();
+                                            Toast.makeText(requireContext(), "Failed to cancel invitation", Toast.LENGTH_SHORT).show();
                                         }
                                 );
                             })

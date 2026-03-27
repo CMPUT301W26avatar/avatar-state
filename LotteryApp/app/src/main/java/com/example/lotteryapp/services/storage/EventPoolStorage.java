@@ -75,6 +75,13 @@ public class EventPoolStorage {
                 .document(entrantId);
     }
 
+    private DocumentReference cancelledDoc(String eventId, String entrantId) {
+        return db.collection("events")
+                .document(eventId)
+                .collection("cancelled")
+                .document(entrantId);
+    }
+
     /** firebase storage helper
      * - takes database fields to store as parameters, and returns a Map with those fields
      */
@@ -158,6 +165,7 @@ public class EventPoolStorage {
     ) {
         DocumentReference eventRef = db.collection("events").document(eventId);
         DocumentReference invitedRef = invitedDoc(eventId, entrantId);
+        DocumentReference cancelledRef = cancelledDoc(eventId, entrantId);
 
         db.runTransaction((Transaction.Function<Void>) transaction -> {
                     DocumentSnapshot eventSnap = transaction.get(eventRef);
@@ -180,7 +188,15 @@ public class EventPoolStorage {
 
                     int updatedInvitationCount = Math.max(0, invitationCount - 1);
 
+                    Map<String, Object> data = mapEntrantData(
+                            eventId,
+                            entrantId,
+                            Entrant.EntrantStatus.CANCELLED.name()
+                    );
+                    data.put("joinedAt", invitedSnap.get("joinedAt"));
+
                     transaction.delete(invitedRef);
+                    transaction.set(cancelledRef, data);
 
                     Map<String, Object> updates = new HashMap<>();
                     updates.put("invitationCount", updatedInvitationCount);
@@ -670,6 +686,31 @@ public class EventPoolStorage {
                                     entrantId,
                                     eid,
                                     ENROLLED
+                            ));
+                        }
+                    }
+                    onSuccess.onSuccess(entrants);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    public void getCancelledEntrants(String eventId,
+                                     OnSuccessListener<List<Entrant>> onSuccess,
+                                     OnFailureListener onFailure) {
+        db.collection("events")
+                .document(eventId)
+                .collection("cancelled")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Entrant> entrants = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String entrantId = doc.getString("entrantId");
+                        String eid = doc.getString("eventId");
+                        if (entrantId != null && eid != null) {
+                            entrants.add(new Entrant(
+                                    entrantId,
+                                    eid,
+                                    Entrant.EntrantStatus.CANCELLED
                             ));
                         }
                     }
