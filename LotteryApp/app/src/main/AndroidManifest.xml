@@ -40,7 +40,6 @@
         <activity android:name=".activities.MainActivity" />
         <activity android:name=".activities.SignupActivity"/>
         <activity android:name=".activities.UserDetailsActivity"/>
-        <activity android:name=".activities.EventDetailsActivity"/>
         <activity android:name=".activities.AdminActivity"/>
         <activity android:name=".activities.EnrolledListActivity"/>
         <activity android:name=".activities.InvitedListActivity"/>
