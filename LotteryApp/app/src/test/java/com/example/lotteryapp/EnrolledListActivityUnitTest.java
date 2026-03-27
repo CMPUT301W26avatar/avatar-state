@@ -1,6 +1,7 @@
 package com.example.lotteryapp;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,8 +16,11 @@ import androidx.test.core.app.ApplicationProvider;
 
 import com.example.lotteryapp.activities.EnrolledListActivity;
 import com.example.lotteryapp.models.Entrant;
+import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
+import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.gms.tasks.OnSuccessListener;
 
 import org.junit.After;
@@ -34,25 +38,25 @@ import java.util.List;
 
 /**
  * Unit tests for EnrolledListActivity.
- *
- * Tests include:
- * - activity finishes if no event ID is provided
- * - empty view shown when no entrants are enrolled
- * - recycler view shown when entrants are enrolled
- *
- * Robolectric for simulating Android UI components.
+ * Updated to support EventStorage mock for dynamic status check.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = Config.NONE, sdk = 34)
 public class EnrolledListActivityUnitTest {
 
     private EventPoolStorage mockEventPoolStorage;
+    private UserStorage mockUserStorage;
+    private EventStorage mockEventStorage;
 
     @Before
     public void setUp() {
         ServiceLocator.reset();
         mockEventPoolStorage = mock(EventPoolStorage.class);
+        mockUserStorage = mock(UserStorage.class);
+        mockEventStorage = mock(EventStorage.class);
         ServiceLocator.setEventPoolStorageForTests(mockEventPoolStorage);
+        ServiceLocator.setUserStorageForTests(mockUserStorage);
+        ServiceLocator.setEventStorageForTests(mockEventStorage);
     }
 
     @After
@@ -60,7 +64,6 @@ public class EnrolledListActivityUnitTest {
         ServiceLocator.reset();
     }
 
-    // activity should finish immediately if no eventId is passed
     @Test
     public void activityFinishesWithoutEventId() {
         EnrolledListActivity activity = Robolectric.buildActivity(EnrolledListActivity.class)
@@ -73,9 +76,15 @@ public class EnrolledListActivityUnitTest {
         assertEquals("Missing eventID", ShadowToast.getTextOfLatestToast());
     }
 
-    // empty view should be visible when enrolled list is empty
     @Test
     public void emptyViewShownWhenNoEntrantsEnrolled() {
+        // Mock event status check to avoid hang
+        doAnswer(invocation -> {
+            OnSuccessListener<Event> success = invocation.getArgument(1);
+            success.onSuccess(new Event("organizer", 10, 10));
+            return null;
+        }).when(mockEventStorage).getEvent(eq("event-123"), any(), any());
+
         doAnswer(invocation -> {
             OnSuccessListener<List<Entrant>> success = invocation.getArgument(1);
             success.onSuccess(new ArrayList<>());
@@ -95,11 +104,18 @@ public class EnrolledListActivityUnitTest {
 
         assertEquals(View.VISIBLE, activity.findViewById(R.id.tv_empty).getVisibility());
         assertEquals(View.GONE, activity.findViewById(R.id.rv_enrolled).getVisibility());
+        assertFalse(activity.findViewById(R.id.btn_export_csv).isEnabled());
     }
 
-    // recycler view should be visible and populated when entrants are enrolled
     @Test
     public void recyclerViewShownWhenEntrantsEnrolled() {
+        // Mock event status check
+        doAnswer(invocation -> {
+            OnSuccessListener<Event> success = invocation.getArgument(1);
+            success.onSuccess(new Event("organizer", 10, 10));
+            return null;
+        }).when(mockEventStorage).getEvent(eq("event-123"), any(), any());
+
         List<Entrant> fakeEntrants = new ArrayList<>();
         fakeEntrants.add(new Entrant("entrant-1", "event-123", Entrant.EntrantStatus.ENROLLED));
         fakeEntrants.add(new Entrant("entrant-2", "event-123", Entrant.EntrantStatus.ENROLLED));
@@ -123,6 +139,7 @@ public class EnrolledListActivityUnitTest {
 
         assertEquals(View.GONE, activity.findViewById(R.id.tv_empty).getVisibility());
         assertEquals(View.VISIBLE, activity.findViewById(R.id.rv_enrolled).getVisibility());
+        assertTrue(activity.findViewById(R.id.btn_export_csv).isEnabled());
 
         RecyclerView rv = activity.findViewById(R.id.rv_enrolled);
         assertEquals(2, rv.getAdapter().getItemCount());

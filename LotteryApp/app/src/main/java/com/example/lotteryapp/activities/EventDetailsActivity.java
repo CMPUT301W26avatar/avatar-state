@@ -1,6 +1,5 @@
 package com.example.lotteryapp.activities;
 
-import com.example.lotteryapp.services.ProfanityFilter;
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.DECLINED;
@@ -13,33 +12,46 @@ import static com.example.lotteryapp.models.Event.EventStatus.REG_CLOSED;
 import static com.example.lotteryapp.models.Event.EventStatus.REG_FULL;
 import static com.example.lotteryapp.models.Event.EventStatus.REG_OPEN;
 
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.Toast;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.bumptech.glide.Glide;
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.models.EventAddress;
-import com.example.lotteryapp.models.EventJoinedMap;
-import com.example.lotteryapp.models.User;
-import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.EventAddress;
+import com.example.lotteryapp.models.EventJoinedMap;
+import com.example.lotteryapp.models.QRCode;
+import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.services.ProfanityFilter;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
@@ -86,6 +98,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     private ImageButton btnCommentIcon;
     private ImageButton btnShareIcon;
+    private ImageButton btnQRCodeIcon;
     private ImageButton btnSaveIcon;
 
     // poster
@@ -106,6 +119,36 @@ public class EventDetailsActivity extends AppCompatActivity {
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
     private Entrant.EntrantStatus currentStatus = null;
+    private QRCode qrCode = null;
+
+    ActivityResultLauncher<Intent> resultLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), res -> {
+        if (res.getResultCode() == Activity.RESULT_OK) {
+            Intent data = res.getData();
+            if (data == null) {
+                throw new RuntimeException();
+            }
+
+            Uri qrDownloadUri = data.getData();
+            if (qrDownloadUri == null) {
+                throw new RuntimeException();
+            }
+
+            ContentResolver resolver = getApplicationContext()
+                    .getContentResolver();
+
+            try (OutputStream outputStream = resolver.openOutputStream(qrDownloadUri, "w")) {
+                Log.i("QR-CODE", qrDownloadUri.toString());
+                byte[] imageData = qrCode.getPngData();
+                if (outputStream != null) {
+                    outputStream.write(imageData);
+                    outputStream.flush();
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    });
 
     private final SimpleDateFormat sdf =
             new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
@@ -122,13 +165,24 @@ public class EventDetailsActivity extends AppCompatActivity {
 
         isAdminMode = getIntent().getBooleanExtra("isAdminMode", false);
 
+        Intent intent = getIntent();
+        Uri data = intent.getData();
+
+        if (data != null) {
+            Toast toast = Toast.makeText(getBaseContext(), "Hello, QR Code User!", Toast.LENGTH_SHORT);
+            toast.show();
+            eventId = data.getQueryParameter("event");
+
+        } else {
+            eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
+        }
+
         ProfanityFilter.init(this);
 
         bindViews();
 
         btnClose.setOnClickListener(v -> finish());
 
-        eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
 
         if (eventId == null || eventId.trim().isEmpty()) {
             populateFromIntentExtras();
@@ -192,6 +246,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnCommentIcon = findViewById(R.id.btn_comment_icon);
         btnShareIcon = findViewById(R.id.btn_share_icon);
         btnSaveIcon = findViewById(R.id.btn_save_icon);
+        btnQRCodeIcon = findViewById(R.id.btn_qr_code_icon);
         tvViewComments = findViewById(R.id.tv_view_comments);
 
         ivEventPoster = findViewById(R.id.iv_event_poster);
@@ -252,6 +307,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 if (isAdminMode) {
                     setupAdminActions();
                 } else if (canManageEvent(currentEvent)) {
+                    setupQrCode();
                     setupOrganizerActions(currentEvent);
                 } else {
                     setupEntrantActions(currentEvent);
@@ -1240,5 +1296,58 @@ public class EventDetailsActivity extends AppCompatActivity {
                     }
                 }
         );
+    }
+
+    private void setupQrCode() {
+        qrCode = new QRCode(eventId);
+        Bitmap qrCodeBitMap = qrCode.getBitmap();
+
+        btnQRCodeIcon.setVisibility(VISIBLE);
+        btnQRCodeIcon.setOnClickListener(v -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(v.getContext());
+            View view = LayoutInflater.from(v.getContext()).inflate(R.layout.dialog_qr_code, null);
+            builder.setView(view);
+
+            AlertDialog dialog = builder.create();
+            dialog.show();
+
+            ImageView imgQrCode = view.findViewById(R.id.img_event_qr_code);
+
+            ImageButton btnCloseQrDialog = view.findViewById(R.id.btn_close_qr_dialog);
+            btnCloseQrDialog.setOnClickListener(v1 -> {
+                dialog.dismiss();
+            });
+
+            Button btnDownloadQrCode = view.findViewById(R.id.btn_download_qr_code);
+            btnDownloadQrCode.setOnClickListener(v1 -> {
+
+                Runnable downloadAction = () -> {
+                    Intent downloadIntent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    // filter to only show openable items.
+                    downloadIntent.addCategory(Intent.CATEGORY_OPENABLE);
+
+                    // Create a file with the requested Mime type
+                    downloadIntent.setType("image/png");
+                    downloadIntent.putExtra(Intent.EXTRA_TITLE, "EVENT-" + eventId + "-QR-CODE.png");
+                    resultLauncher.launch(downloadIntent);
+                };
+
+                // Run download action on separate thread as to not
+                // slow down the current UI thread
+                Thread downloadThread = new Thread(downloadAction);
+                downloadThread.start();
+
+                dialog.dismiss();
+            });
+
+            Glide
+                    .with(v.getContext())
+                    .load(qrCodeBitMap)
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .into(imgQrCode);
+
+            dialog.show();
+        });
     }
 }

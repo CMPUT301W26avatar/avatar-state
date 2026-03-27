@@ -27,9 +27,12 @@ import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
+import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.NotificationLogStorage;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
 
 import java.util.ArrayList;
 import java.util.List;

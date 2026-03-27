@@ -13,8 +13,8 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.activities.LoginActivity;
 import com.example.lotteryapp.activities.AdminActivity;
+import com.example.lotteryapp.activities.LoginActivity;
 import com.example.lotteryapp.activities.NotificationSettingsActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
 import com.example.lotteryapp.activities.UserPrivacyActivity;

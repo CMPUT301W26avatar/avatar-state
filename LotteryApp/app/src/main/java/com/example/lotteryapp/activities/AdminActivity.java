@@ -4,10 +4,8 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -18,8 +16,6 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.fragments.AdminListFragment;
-import com.example.lotteryapp.services.ServiceLocator;
-import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;

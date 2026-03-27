@@ -137,6 +137,16 @@
                     android:layout_weight="1" />
 
                 <ImageButton
+                    android:id="@+id/btn_qr_code_icon"
+                    android:visibility="gone"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="QR Code"
+                    android:src="@drawable/ic_qr_code"
+                    app:tint="?attr/colorOnSurface" />
+
+                <ImageButton
                     android:id="@+id/btn_save_icon"
                     android:layout_width="48dp"
                     android:layout_height="48dp"

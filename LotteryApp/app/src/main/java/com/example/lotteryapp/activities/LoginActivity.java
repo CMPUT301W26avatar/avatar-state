@@ -2,14 +2,13 @@ package com.example.lotteryapp.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.lotteryapp.services.AuthService;
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.services.AuthService;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.google.android.material.button.MaterialButton;
 
