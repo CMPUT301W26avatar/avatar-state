@@ -24,36 +24,24 @@ import androidx.fragment.app.Fragment;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.services.ServiceLocator;
-import com.example.lotteryapp.models.Entrant;
-import com.example.lotteryapp.models.User;
-import com.example.lotteryapp.services.ServiceLocator;
-import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.activities.EnrolledListActivity;
 import com.example.lotteryapp.activities.InvitedListActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
-import com.example.lotteryapp.services.storage.EventPoolStorage;
-import com.example.lotteryapp.services.ServiceLocator;
+
 import com.example.lotteryapp.services.storage.EventStorage;
-import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.TimeZone;
 import java.lang.reflect.Method;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * ManageFragment displays a list of organizer-managed events and supports
@@ -464,11 +452,6 @@ public class ManageFragment extends Fragment {
                 localEventDateMs[0] = null;
                 localStartDateMs[0] = null;
                 localEndDateMs[0] = null;
-
-                EditText organizers = view.findViewById(R.id.et_organizers);
-                if (organizers != null) {
-                    organizers.setText("");
-                }
             });
         }
 
