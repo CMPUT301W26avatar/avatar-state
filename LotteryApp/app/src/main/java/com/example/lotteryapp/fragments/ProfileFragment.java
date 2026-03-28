@@ -16,6 +16,7 @@ import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.AdminActivity;
 import com.example.lotteryapp.activities.LoginActivity;
 import com.example.lotteryapp.activities.NotificationSettingsActivity;
+import com.example.lotteryapp.activities.UserAvailabilityActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
 import com.example.lotteryapp.activities.UserPrivacyActivity;
 import com.example.lotteryapp.services.ServiceLocator;
@@ -44,7 +45,7 @@ public class ProfileFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_profile, container, false);
         setupSettingItem(view.findViewById(R.id.item_saved_events), "Saved Events");
         setupSettingItem(view.findViewById(R.id.item_details), "Details");
-        setupSettingItem(view.findViewById(R.id.item_devices), "Devices");
+        setupSettingItem(view.findViewById(R.id.item_availability), "Availability");
         setupSettingItem(view.findViewById(R.id.item_notifications), "Notifications");
         setupSettingItem(view.findViewById(R.id.item_appearance), "Appearance");
         setupSettingItem(view.findViewById(R.id.item_language), "Language");
@@ -78,10 +79,11 @@ public class ProfileFragment extends Fragment {
             });
         }
 
-        View devicesItem = view.findViewById(R.id.item_devices);
-        if (devicesItem != null) {
-            devicesItem.setOnClickListener(v -> {
-                // TODO: Add devicesItem logic here
+        View availabilityItem = view.findViewById(R.id.item_availability);
+        if (availabilityItem != null) {
+            availabilityItem.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), UserAvailabilityActivity.class);
+                startActivity(intent);
             });
         }
 
