@@ -10,6 +10,8 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.widget.ImageView;
+import com.bumptech.glide.Glide;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.ServiceLocator;
@@ -50,6 +52,17 @@ public class JoinedEventsAdapter extends RecyclerView.Adapter<JoinedEventsAdapte
 
         holder.tvDetails.setText(location + " • " + dateStr);
 
+        // Load poster image
+        if (event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
+            Glide.with(holder.itemView.getContext())
+                    .load(event.getPosterUrl())
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .centerCrop()
+                    .into(holder.ivPoster);
+        } else {
+            holder.ivPoster.setImageResource(R.drawable.ic_image_placeholder);
+        }
+
         holder.btnDownload.setOnClickListener(v -> {
             ServiceLocator.getEventPoolStorage().generateTicketPDF(v.getContext(), event, userId);
         });
@@ -62,12 +75,14 @@ public class JoinedEventsAdapter extends RecyclerView.Adapter<JoinedEventsAdapte
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvTitle, tvDetails;
+        ImageView ivPoster;
         Button btnDownload;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             tvTitle = itemView.findViewById(R.id.tv_event_title);
             tvDetails = itemView.findViewById(R.id.tv_event_details);
+            ivPoster = itemView.findViewById(R.id.iv_event_poster);
             btnDownload = itemView.findViewById(R.id.btn_download_ticket);
         }
     }
