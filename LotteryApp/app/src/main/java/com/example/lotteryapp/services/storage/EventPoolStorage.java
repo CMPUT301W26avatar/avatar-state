@@ -7,18 +7,34 @@ import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
 
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.EventAddress;
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Typeface;
+import android.graphics.pdf.PdfDocument;
+import android.os.Environment;
+import android.widget.Toast;
+
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldPath;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -441,6 +457,133 @@ public class EventPoolStorage {
                     return null;
                 }).addOnSuccessListener(onSuccess)
                 .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Retrieves all events that the user is currently enrolled in.
+     * Uses collectionGroup to find all "enrolled" subcollection documents for the user.
+     */
+    public void getEnrolledEvents(String entrantId, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
+        db.collectionGroup("enrolled")
+                .whereEqualTo("entrantId", entrantId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> eventIds = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String eventId = doc.getString("eventId");
+                        if (eventId != null) {
+                            eventIds.add(eventId);
+                        }
+                    }
+
+                    if (eventIds.isEmpty()) {
+                        onSuccess.onSuccess(new ArrayList<>());
+                        return;
+                    }
+
+                    // Fetch top-level event details
+                    db.collection("events")
+                            .whereIn(FieldPath.documentId(), eventIds)
+                            .get()
+                            .addOnSuccessListener(eventsSnapshot -> {
+                                List<Event> events = new ArrayList<>();
+                                for (QueryDocumentSnapshot doc : eventsSnapshot) {
+                                    Event event = doc.toObject(Event.class);
+                                    event.setEventId(doc.getId());
+                                    events.add(event);
+                                }
+
+                                // Secondary fetch for addresses
+                                AtomicInteger counter = new AtomicInteger(events.size());
+                                if (events.isEmpty()) {
+                                    onSuccess.onSuccess(events);
+                                    return;
+                                }
+
+                                for (Event event : events) {
+                                    db.collection("events")
+                                            .document(event.getEventId())
+                                            .collection("geo")
+                                            .document("address")
+                                            .get()
+                                            .addOnSuccessListener(addressDoc -> {
+                                                if (addressDoc.exists()) {
+                                                    EventAddress address = new EventAddress(event.getEventId());
+                                                    address.setLocation(addressDoc.getString("location"));
+                                                    address.setLatitude(addressDoc.getDouble("latitude"));
+                                                    address.setLongitude(addressDoc.getDouble("longitude"));
+                                                    address.setRadiusKm(addressDoc.getLong("radiusKm") != null ? addressDoc.getLong("radiusKm").intValue() : null);
+                                                    event.setAddress(address);
+                                                }
+                                                if (counter.decrementAndGet() == 0) {
+                                                    onSuccess.onSuccess(events);
+                                                }
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                if (counter.decrementAndGet() == 0) {
+                                                    onSuccess.onSuccess(events);
+                                                }
+                                            });
+                                }
+                            })
+                            .addOnFailureListener(onFailure);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Generates a PDF confirmation ticket for an enrolled event.
+     * Saves the file to the public Downloads directory.
+     */
+    public void generateTicketPDF(Context context, Event event, String entrantId) {
+        PdfDocument document = new PdfDocument();
+        PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(300, 600, 1).create();
+        PdfDocument.Page page = document.startPage(pageInfo);
+        Canvas canvas = page.getCanvas();
+        Paint paint = new Paint();
+
+        // Title
+        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+        paint.setTextSize(18);
+        canvas.drawText("OFFICIAL EVENT TICKET", 40, 50, paint);
+
+        // Content
+        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
+        paint.setTextSize(12);
+
+        int y = 100;
+        canvas.drawText("Event: " + event.getTitle(), 20, y, paint); y += 30;
+        String location = (event.getAddress() != null) ? event.getAddress().getLocation() : "TBD";
+        canvas.drawText("Location: " + location, 20, y, paint); y += 30;
+
+        String dateStr = "TBD";
+        if (event.getEventDateMs() != null) {
+            SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault());
+            dateStr = sdf.format(new Date(event.getEventDateMs()));
+        }
+        canvas.drawText("Date: " + dateStr, 20, y, paint); y += 30;
+        canvas.drawText("Entrant ID: " + entrantId, 20, y, paint); y += 30;
+
+        // Footer Border
+        paint.setStyle(Paint.Style.STROKE);
+        canvas.drawRect(10, 10, 290, 590, paint);
+
+        document.finishPage(page);
+
+        // Save to Downloads
+        String fileName = "Ticket_" + event.getTitle().replaceAll("\\s+", "_") + ".pdf";
+        File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        File file = new File(downloadsDir, fileName);
+
+        try {
+            document.writeTo(new FileOutputStream(file));
+            Toast.makeText(context, "Ticket saved to Downloads: " + fileName, Toast.LENGTH_LONG).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(context, "Error generating ticket: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+
+        document.close();
     }
 
     // BASIC DB QUERIES
