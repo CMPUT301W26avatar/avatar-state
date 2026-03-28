@@ -8,13 +8,28 @@ import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
+import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.pdf.PdfDocument;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.widget.Toast;
+
+import androidx.core.content.FileProvider;
+
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.MultiFormatWriter;
+import com.google.zxing.WriterException;
+import com.google.zxing.common.BitMatrix;
+import com.journeyapps.barcodescanner.BarcodeEncoder;
 
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -27,7 +42,6 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -533,57 +547,133 @@ public class EventPoolStorage {
 
     /**
      * Generates a PDF confirmation ticket for an enrolled event.
-     * Saves the file to the public Downloads directory.
+     * Includes event details and a QR code for verification.
+     * Saves the file to the public Downloads directory using MediaStore for compatibility.
      */
     public void generateTicketPDF(Context context, Event event, String entrantId) {
         PdfDocument document = new PdfDocument();
-        PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(300, 600, 1).create();
+        // Standard A4 size is roughly 595x842, but we'll use a smaller ticket format
+        PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(400, 600, 1).create();
         PdfDocument.Page page = document.startPage(pageInfo);
         Canvas canvas = page.getCanvas();
         Paint paint = new Paint();
 
-        // Title
+        // 1. Draw Header/Background
+        paint.setColor(Color.parseColor("#F5F5F5"));
+        canvas.drawRect(0, 0, 400, 120, paint);
+
+        // 2. Title
+        paint.setColor(Color.BLACK);
         paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-        paint.setTextSize(18);
-        canvas.drawText("OFFICIAL EVENT TICKET", 40, 50, paint);
+        paint.setTextSize(24);
+        canvas.drawText("OFFICIAL TICKET", 40, 60, paint);
 
-        // Content
         paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
-        paint.setTextSize(12);
+        paint.setTextSize(14);
+        canvas.drawText("Verification Required at Entrance", 40, 85, paint);
 
-        int y = 100;
-        canvas.drawText("Event: " + event.getTitle(), 20, y, paint); y += 30;
-        String location = (event.getAddress() != null) ? event.getAddress().getLocation() : "TBD";
-        canvas.drawText("Location: " + location, 20, y, paint); y += 30;
+        // 3. Event Details
+        int y = 160;
+        paint.setTextSize(18);
+        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+        canvas.drawText(event.getTitle(), 40, y, paint);
+        y += 35;
 
-        String dateStr = "TBD";
+        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
+        paint.setTextSize(14);
+        paint.setColor(Color.DKGRAY);
+
+        String location = (event.getAddress() != null) ? event.getAddress().getLocation() : "Venue TBD";
+        canvas.drawText("Location: " + location, 40, y, paint); y += 25;
+
+        String dateStr = "Date TBD";
         if (event.getEventDateMs() != null) {
-            SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault());
+            SimpleDateFormat sdf = new SimpleDateFormat("EEEE, MMM dd, yyyy 'at' HH:mm", Locale.getDefault());
             dateStr = sdf.format(new Date(event.getEventDateMs()));
         }
-        canvas.drawText("Date: " + dateStr, 20, y, paint); y += 30;
-        canvas.drawText("Entrant ID: " + entrantId, 20, y, paint); y += 30;
+        canvas.drawText("Date: " + dateStr, 40, y, paint); y += 40;
 
-        // Footer Border
+        // 4. Entrant Info
+        paint.setColor(Color.BLACK);
+        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+        canvas.drawText("Attendee ID:", 40, y, paint);
+        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
+        canvas.drawText(entrantId, 150, y, paint);
+        y += 50;
+
+        // 5. Generate and Draw QR Code
+        try {
+            // QR content: eventId|entrantId (Standard for verification apps)
+            String qrContent = event.getEventId() + "|" + entrantId;
+            MultiFormatWriter multiFormatWriter = new MultiFormatWriter();
+            BitMatrix bitMatrix = multiFormatWriter.encode(qrContent, BarcodeFormat.QR_CODE, 200, 200);
+            BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
+            Bitmap bitmap = barcodeEncoder.createBitmap(bitMatrix);
+            canvas.drawBitmap(bitmap, 100, y, paint);
+        } catch (WriterException e) {
+            e.printStackTrace();
+        }
+
+        // 6. Footer
+        paint.setTextSize(10);
+        paint.setColor(Color.GRAY);
+        canvas.drawText("Generated by LotteryApp - Present this PDF on arrival", 80, 580, paint);
+
+        // Border
         paint.setStyle(Paint.Style.STROKE);
-        canvas.drawRect(10, 10, 290, 590, paint);
+        paint.setStrokeWidth(2);
+        paint.setColor(Color.BLACK);
+        canvas.drawRect(10, 10, 390, 590, paint);
 
         document.finishPage(page);
 
-        // Save to Downloads
-        String fileName = "Ticket_" + event.getTitle().replaceAll("\\s+", "_") + ".pdf";
-        File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        File file = new File(downloadsDir, fileName);
+        // 7. Save to Downloads (Modern Android approach)
+        String fileName = "Ticket_" + event.getTitle().replaceAll("\\s+", "_") + "_" + System.currentTimeMillis() + ".pdf";
 
-        try {
-            document.writeTo(new FileOutputStream(file));
-            Toast.makeText(context, "Ticket saved to Downloads: " + fileName, Toast.LENGTH_LONG).show();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(context, "Error generating ticket: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentValues contentValues = new ContentValues();
+            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+            contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
+            contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+
+            Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues);
+            if (uri != null) {
+                try (java.io.OutputStream outputStream = context.getContentResolver().openOutputStream(uri)) {
+                    document.writeTo(outputStream);
+                    Toast.makeText(context, "Ticket saved to Downloads", Toast.LENGTH_LONG).show();
+                    openPDF(context, uri);
+                } catch (IOException e) {
+                    Toast.makeText(context, "Error saving ticket: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            }
+        } else {
+            // Legacy approach for older devices
+            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File file = new File(downloadsDir, fileName);
+            try {
+                document.writeTo(new java.io.FileOutputStream(file));
+                Toast.makeText(context, "Ticket saved to Downloads", Toast.LENGTH_LONG).show();
+                
+                Uri uri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", file);
+                openPDF(context, uri);
+            } catch (IOException e) {
+                Toast.makeText(context, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
         }
 
         document.close();
+    }
+
+    private void openPDF(Context context, Uri uri) {
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(uri, "application/pdf");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            context.startActivity(Intent.createChooser(intent, "Open Ticket"));
+        } catch (Exception e) {
+            Toast.makeText(context, "No PDF viewer found. Please install one to view the ticket.", Toast.LENGTH_LONG).show();
+        }
     }
 
     // BASIC DB QUERIES

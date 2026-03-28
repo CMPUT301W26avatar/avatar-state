@@ -24,6 +24,7 @@ import java.util.ArrayList;
 public class JoinedFragment extends Fragment {
 
     private RecyclerView recyclerView;
+    private View emptyView;
     private JoinedEventsAdapter adapter;
 
     @Nullable
@@ -32,6 +33,7 @@ public class JoinedFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_joined, container, false);
 
         recyclerView = view.findViewById(R.id.rv_joined_events);
+        emptyView = view.findViewById(R.id.tv_empty_joined);
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
 
         loadJoinedEvents();
@@ -45,10 +47,14 @@ public class JoinedFragment extends Fragment {
 
         ServiceLocator.getEventPoolStorage().getEnrolledEvents(userId, events -> {
             if (isAdded()) {
-                if (events.isEmpty()) {
-                    Toast.makeText(getContext(), "No joined events found", Toast.LENGTH_SHORT).show();
+                if (events == null || events.isEmpty()) {
+                    emptyView.setVisibility(View.VISIBLE);
+                    recyclerView.setVisibility(View.GONE);
+                } else {
+                    emptyView.setVisibility(View.GONE);
+                    recyclerView.setVisibility(View.VISIBLE);
                 }
-                adapter = new JoinedEventsAdapter(events, userId);
+                adapter = new JoinedEventsAdapter(events != null ? events : new ArrayList<>(), userId);
                 recyclerView.setAdapter(adapter);
             }
         }, e -> {
