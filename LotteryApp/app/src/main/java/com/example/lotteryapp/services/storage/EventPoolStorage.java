@@ -546,9 +546,9 @@ public class EventPoolStorage {
     }
 
     /**
-     * Generates a PDF confirmation ticket for an enrolled event.
-     * Includes event details and a QR code for verification.
-     * Saves the file to the public Downloads directory using MediaStore for compatibility.
+     * Generates the PDF confirmation ticket for an enrolled event.
+     * Includes entrantID, event details and a QR code for verifying at entrance.
+     * Saves the file to the public Downloads directory using MediaStore.
      */
     public void generateTicketPDF(Context context, Event event, String entrantId) {
         PdfDocument document = new PdfDocument();
@@ -570,7 +570,7 @@ public class EventPoolStorage {
 
         paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
         paint.setTextSize(14);
-        canvas.drawText("Verification Required at Entrance", 40, 85, paint);
+        canvas.drawText("Scan QR Code at Entrance", 40, 85, paint);
 
         // 3. Event Details
         int y = 160;
