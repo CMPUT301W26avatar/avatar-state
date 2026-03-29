@@ -55,6 +55,10 @@ public class JoinedFragment extends Fragment {
                     recyclerView.setVisibility(View.VISIBLE);
                 }
                 adapter = new JoinedEventsAdapter(events != null ? events : new ArrayList<>(), userId);
+                adapter.setOnOptOutListener(() -> {
+                    emptyView.setVisibility(View.VISIBLE);
+                    recyclerView.setVisibility(View.GONE);
+                });
                 recyclerView.setAdapter(adapter);
             }
         }, e -> {

@@ -1,6 +1,7 @@
 package com.example.lotteryapp.fragments;
 
 import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,8 +12,11 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.widget.ImageView;
+import android.widget.Toast;
+
 import com.bumptech.glide.Glide;
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.ServiceLocator;
 
@@ -23,12 +27,21 @@ import java.util.Locale;
 
 public class JoinedEventsAdapter extends RecyclerView.Adapter<JoinedEventsAdapter.ViewHolder> {
 
+    public interface OnOptOutListener {
+        void onOptOut();
+    }
+
     private final List<Event> events;
     private final String userId;
+    private OnOptOutListener optOutListener;
 
     public JoinedEventsAdapter(List<Event> events, String userId) {
         this.events = events;
         this.userId = userId;
+    }
+
+    public void setOnOptOutListener(OnOptOutListener listener) {
+        this.optOutListener = listener;
     }
 
     @NonNull
@@ -63,8 +76,35 @@ public class JoinedEventsAdapter extends RecyclerView.Adapter<JoinedEventsAdapte
             holder.ivPoster.setImageResource(R.drawable.ic_image_placeholder);
         }
 
+        holder.itemView.setOnClickListener(v -> {
+            Intent intent = new Intent(v.getContext(), EventDetailsActivity.class);
+            intent.putExtra(EventDetailsActivity.EXTRA_EVENT_ID, event.getEventId());
+            intent.putExtra("HIDE_JOIN_BUTTON", true);
+            v.getContext().startActivity(intent);
+        });
+
         holder.btnDownload.setOnClickListener(v -> {
             ServiceLocator.getEventPoolStorage().generateTicketPDF(v.getContext(), event, userId);
+        });
+
+        holder.btnOptOut.setOnClickListener(v -> {
+            ServiceLocator.getEventPoolStorage().optOutEvent(
+                    event.getEventId(),
+                    userId,
+                    aVoid -> {
+                        Toast.makeText(v.getContext(), "Opted out successfully", Toast.LENGTH_SHORT).show();
+                        int currentPos = holder.getBindingAdapterPosition();
+                        if (currentPos != RecyclerView.NO_POSITION) {
+                            events.remove(currentPos);
+                            notifyItemRemoved(currentPos);
+                            notifyItemRangeChanged(currentPos, events.size());
+                            if (events.isEmpty() && optOutListener != null) {
+                                optOutListener.onOptOut();
+                            }
+                        }
+                    },
+                    e -> Toast.makeText(v.getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+            );
         });
     }
 
@@ -76,7 +116,7 @@ public class JoinedEventsAdapter extends RecyclerView.Adapter<JoinedEventsAdapte
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvTitle, tvDetails;
         ImageView ivPoster;
-        Button btnDownload;
+        Button btnDownload, btnOptOut;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -84,6 +124,7 @@ public class JoinedEventsAdapter extends RecyclerView.Adapter<JoinedEventsAdapte
             tvDetails = itemView.findViewById(R.id.tv_event_details);
             ivPoster = itemView.findViewById(R.id.iv_event_poster);
             btnDownload = itemView.findViewById(R.id.btn_download_ticket);
+            btnOptOut = itemView.findViewById(R.id.btn_opt_out);
         }
     }
 }

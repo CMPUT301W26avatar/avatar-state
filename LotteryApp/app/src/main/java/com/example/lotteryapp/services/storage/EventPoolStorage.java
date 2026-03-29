@@ -664,6 +664,82 @@ public class EventPoolStorage {
         document.close();
     }
 
+    /**
+     * Moves entrant from the invited subcollection to the declined subcollection.
+     *
+     *
+     * @param eventId   ID of the event
+     * @param entrantId ID of the entrant opting out
+     * @param onSuccess Callback for success
+     * @param onFailure Callback for failure
+     */
+    public void optOutEvent(
+            String eventId,
+            String entrantId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        DocumentReference eventRef = db.collection("events").document(eventId);
+        DocumentReference enrolledRef = enrolledDoc(eventId, entrantId);
+        DocumentReference declinedRef = declinedDoc(eventId, entrantId);
+
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+            DocumentSnapshot eventSnap = transaction.get(eventRef);
+            DocumentSnapshot enrolledSnap = transaction.get(enrolledRef);
+
+            if (!eventSnap.exists()) {
+                throw new IllegalStateException("Event does not exist");
+            }
+
+            if (!enrolledSnap.exists()) {
+                throw new IllegalStateException("Entrant is not in the enrolled list.");
+            }
+
+            //Copy data from enrolled document
+            Map<String, Object> data = enrolledSnap.getData();
+            if (data == null) {
+                data = new HashMap<>();
+            } else {
+                data = new HashMap<>(data); // Make it mutable
+            }
+
+            //Add declinedAt timestamp and update status
+            data.put("declinedAt", FieldValue.serverTimestamp());
+            data.put("status", DECLINED.name());
+
+            //set in declined and delete from enrolled
+            transaction.set(declinedRef, data);
+            transaction.delete(enrolledRef);
+
+            // Update event counts and status
+            int enrolledCount = eventSnap.getLong("enrolledCount") != null
+                    ? eventSnap.getLong("enrolledCount").intValue() : 0;
+            int invitationCount = eventSnap.getLong("invitationCount") != null
+                    ? eventSnap.getLong("invitationCount").intValue() : 0;
+            int waitlistCount = eventSnap.getLong("waitlistCount") != null
+                    ? eventSnap.getLong("waitlistCount").intValue() : 0;
+
+            int updatedEnrolled = Math.max(0, enrolledCount - 1);
+
+            Map<String, Object> eventUpdates = new HashMap<>();
+            eventUpdates.put("enrolledCount", updatedEnrolled);
+            eventUpdates.put(
+                    "status",
+                    resolveEventStatusAfterChange(
+                            eventSnap,
+                            waitlistCount,
+                            invitationCount,
+                            updatedEnrolled
+                    )
+            );
+
+            transaction.update(eventRef, eventUpdates);
+
+            return null;
+        }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
     private void openPDF(Context context, Uri uri) {
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setDataAndType(uri, "application/pdf");

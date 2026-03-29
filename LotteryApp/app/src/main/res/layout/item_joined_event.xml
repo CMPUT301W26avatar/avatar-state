@@ -6,6 +6,8 @@
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="16dp"
     android:layout_marginVertical="8dp"
+    android:clickable="true"
+    android:focusable="true"
     app:cardCornerRadius="16dp"
     app:strokeWidth="0dp">
 
@@ -58,6 +60,17 @@
                 android:layout_marginTop="12dp"
                 android:text="Download PDF Ticket"
                 app:icon="@android:drawable/stat_sys_download" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_opt_out"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Opt out"
+                android:textColor="?attr/colorError"
+                app:icon="@android:drawable/ic_menu_close_clear_cancel"
+                app:iconTint="?attr/colorError" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
