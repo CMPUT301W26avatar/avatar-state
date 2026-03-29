@@ -75,6 +75,10 @@
         <activity android:name=".activities.CommentsActivity"
             android:label="Comments"
             android:theme="@style/Theme.LotteryApp" />
+        <activity
+            android:name=".activities.TermsOfServiceActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
