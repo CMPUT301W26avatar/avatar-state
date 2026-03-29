@@ -1,7 +1,5 @@
 package com.example.lotteryapp.activities;
 
-import static androidx.core.content.ContentProviderCompat.requireContext;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
@@ -19,8 +17,10 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
 /**
- * Full-screen Terms of Service activity shown to users
- * until they acknowledge the platform rules.
+ * Full-screen Terms of Service activity shown to users until they acknowledge the app policy
+ *      Accept -> Boolean for has accepted stored in firebase
+ *      Decline -> Sent back to LoginActivity
+ *          accept is only shown when the user scrolls all the way to the bottom of the scroll view.
  */
 public class TermsOfServiceActivity extends AppCompatActivity {
 
@@ -30,7 +30,11 @@ public class TermsOfServiceActivity extends AppCompatActivity {
     private MaterialButton btnDecline;
     private MaterialButton btnAccept;
 
-
+    /**
+     * Intitializes UI components for this activity.
+     *      sets click listeners for accept and decline buttons
+     *      sets scroll position listeners for enabling the accept button
+     */
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -61,9 +65,13 @@ public class TermsOfServiceActivity extends AppCompatActivity {
 
             int diff = content.getBottom() - (scrollView.getHeight() + scrollView.getScrollY());
 
+            // enable the accept button only if the user has reached the bottom of the scroll View
             if (diff <= 0) {
                 // Reached bottom
-                enableAcceptButton();
+                if (!btnAccept.isEnabled()) {
+                    btnAccept.setEnabled(true);
+                    btnAccept.setAlpha(1f);
+                }
             }
         });
 
@@ -80,13 +88,9 @@ public class TermsOfServiceActivity extends AppCompatActivity {
         btnAccept.setOnClickListener(v -> acceptTermsOfService());
     }
 
-    private void enableAcceptButton() {
-        if (!btnAccept.isEnabled()) {
-            btnAccept.setEnabled(true);
-            btnAccept.setAlpha(1f);
-        }
-    }
-
+    /**
+     * Verify valid user, and if so, store the TOS acceptance boolean in firebase for the user
+     */
     private void acceptTermsOfService() {
         String uid = ServiceLocator.uid();
         if (uid == null || uid.trim().isEmpty()) {
@@ -112,6 +116,9 @@ public class TermsOfServiceActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Helper for building the big long terms of service text to show inside of the scroll view
+     */
     private String buildTermsOfServiceText() {
         return "Terms of Service\n\n" +
 
