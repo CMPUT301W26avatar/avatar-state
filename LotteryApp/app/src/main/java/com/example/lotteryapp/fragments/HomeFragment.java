@@ -267,6 +267,40 @@ public class HomeFragment extends Fragment {
             return;
         }
 
+        NotificationLog notification = notifications.get(position);
+        if (notification == null) {
+            return;
+        }
+
+        if (notification.getType() == NotificationLog.NotificationType.EVENT_ANNOUNCEMENT) {
+            if (notification.getId() == null || notification.getId().trim().isEmpty()) {
+                Toast.makeText(requireContext(), "Missing notification", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            notificationLogStorage.updateNotificationStatus(
+                    notification.getId(),
+                    ACCEPTED.name(),
+                    unused -> {
+                        notifications.remove(position);
+                        updateNotificationBannerVisibility();
+
+                        if (!notifications.isEmpty()) {
+                            int nextIndex = Math.min(position, notifications.size() - 1);
+                            notificationsPager.setCurrentItem(nextIndex, false);
+                        }
+
+                        Toast.makeText(requireContext(), "Announcement dismissed", Toast.LENGTH_SHORT).show();
+                    },
+                    e -> Toast.makeText(
+                            requireContext(),
+                            e.getMessage() == null ? "Failed to dismiss announcement" : e.getMessage(),
+                            Toast.LENGTH_SHORT
+                    ).show()
+            );
+            return;
+        }
+
         notifications.remove(position);
         updateNotificationBannerVisibility();
 
@@ -592,7 +626,9 @@ public class HomeFragment extends Fragment {
                 }
             });
 
-            // dismiss button - just removes the notification from the CURRENT page load
+            // dismiss button:
+                // - EVENT_ANNOUNCEMENT notifications are marked ACCEPTED so they do not reappear
+                // - other notifications are only removed from the current in-memory page load
             holder.closeButton.setOnClickListener(v -> {
                 if (dismissClickListener != null) {
                     int adapterPosition = holder.getBindingAdapterPosition();

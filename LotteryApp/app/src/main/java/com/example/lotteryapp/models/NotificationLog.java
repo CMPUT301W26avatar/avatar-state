@@ -25,12 +25,13 @@ public class NotificationLog {
         COMMENT,
         PRIVATE_INVITATION,
         COORGANIZER_INVITATION,
+        EVENT_ANNOUNCEMENT,
     }
 
     // user side
     public enum NotificationStatus {
         PENDING, // user has yet to do anything with the noti.
-        ACCEPTED,
+        ACCEPTED, // READ for non-actionable notifications (announcements)
         DECLINED
     }
     public NotificationLog () {}
@@ -92,6 +93,8 @@ public class NotificationLog {
     public void setMessage(String message) { this.message = message; }
     public NotificationType getType() { return type; }
     public void setType(NotificationType type) { this.type = type; }
+    public NotificationStatus getStatus() { return status; }
+    public void setStatus(NotificationStatus status) { this.status = status; }
     public Timestamp getTimestamp() { return timestamp; }
     public void setTimestamp(Timestamp timestamp) { this.timestamp = timestamp; }
 }

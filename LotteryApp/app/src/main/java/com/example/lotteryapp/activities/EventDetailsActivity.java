@@ -100,6 +100,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private ImageButton btnShareIcon;
     private ImageButton btnQRCodeIcon;
     private ImageButton btnSaveIcon;
+    private ImageButton btnAnnouncementIcon;
 
     // poster
     private ImageView ivEventPoster;
@@ -256,6 +257,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnShareIcon = findViewById(R.id.btn_share_icon);
         btnSaveIcon = findViewById(R.id.btn_save_icon);
         btnQRCodeIcon = findViewById(R.id.btn_qr_code_icon);
+        btnAnnouncementIcon = findViewById(R.id.btn_announcement_icon);
         tvViewComments = findViewById(R.id.tv_view_comments);
 
         ivEventPoster = findViewById(R.id.iv_event_poster);
@@ -283,6 +285,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
         btnCommentIcon.setOnClickListener(openComments);
         tvViewComments.setOnClickListener(openComments);
+        btnAnnouncementIcon.setOnClickListener(v -> openEventAnnouncement());
 
         btnShareIcon.setOnClickListener(v -> {
             // TODO: Implement share functionality
@@ -420,6 +423,20 @@ public class EventDetailsActivity extends AppCompatActivity {
         Intent intent = new Intent(this, SearchUsersToInviteActivity.class);
         intent.putExtra(EXTRA_EVENT_ID, eventId);
         intent.putExtra(SearchUsersToInviteActivity.EXTRA_IS_COORGANIZER_MODE, true);
+        startActivity(intent);
+    }
+
+    /**
+     *  helper for launching the EventAnnouncementActivity via the announcement icon
+     */
+    private void openEventAnnouncement() {
+        if (eventId == null || eventId.trim().isEmpty()) {
+            Toast.makeText(this, "Missing eventId", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Intent intent = new Intent(this, EventAnnouncementActivity.class);
+        intent.putExtra(EXTRA_EVENT_ID, eventId);
         startActivity(intent);
     }
 
@@ -565,6 +582,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnJoin.setEnabled(false);
         btnJoin.setVisibility(GONE);
         btnViewEventMap.setVisibility(GONE);
+        btnAnnouncementIcon.setVisibility(GONE);
         layoutAdminInfo.setVisibility(VISIBLE);
         btnDeleteImage.setVisibility(VISIBLE);
 
@@ -602,6 +620,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnRemoveEvent.setVisibility(View.GONE);
         btnDeleteImage.setVisibility(View.GONE);
         layoutAdminInfo.setVisibility(View.GONE);
+
+        btnAnnouncementIcon.setVisibility(View.VISIBLE);
+        btnAnnouncementIcon.setEnabled(true);
 
         btnViewEventMap.setVisibility(View.VISIBLE);
         btnViewEventMap.setOnClickListener(v -> openEventMap());
@@ -735,6 +756,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private void renderEntrantActions(Event event, Entrant.EntrantStatus status) {
         btnJoin.setVisibility(View.GONE);
         btnLeave.setVisibility(View.GONE);
+        btnAnnouncementIcon.setVisibility(GONE);
         invitations_layout.setVisibility(View.GONE);
         btnBeginLotterySelection.setVisibility(View.GONE);
         btnViewEventMap.setVisibility(View.GONE);

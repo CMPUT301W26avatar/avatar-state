@@ -147,6 +147,16 @@
                     app:tint="?attr/colorOnSurface" />
 
                 <ImageButton
+                    android:id="@+id/btn_announcement_icon"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Send announcement"
+                    android:src="@drawable/ic_announcement"
+                    android:visibility="gone"
+                    app:tint="?attr/colorOnSurface" />
+
+                <ImageButton
                     android:id="@+id/btn_save_icon"
                     android:layout_width="48dp"
                     android:layout_height="48dp"

@@ -5,10 +5,13 @@ import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.P
 import com.example.lotteryapp.models.NotificationLog;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.WriteBatch;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -64,13 +67,56 @@ public class NotificationLogStorage {
         data.put("title", title);
         data.put("message", message);
         data.put("type", type == null ? null : type.name());
-        data.put("status", PENDING);
+        data.put("status", PENDING.name());
         data.put("timestamp", FieldValue.serverTimestamp());
         data.put("updatedAt", FieldValue.serverTimestamp());
 
         db.collection(COLLECTION)
                 .add(data)
                 .addOnSuccessListener(ref -> onSuccess.onSuccess(ref.getId()))
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Sends an announcement to multiple users at once
+     *      Creates one NotificationLog entry per user using a Firestore batch write
+     */
+    public void logAnnouncementToUsers(
+            String eventId,
+            String organizerId,
+            List<String> userIds,
+            String title,
+            String message,
+            NotificationLog.NotificationType type,
+            OnSuccessListener<String> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (userIds == null || userIds.isEmpty()) {
+            onSuccess.onSuccess("0");
+            return;
+        }
+
+        WriteBatch batch = db.batch();
+        CollectionReference notifications = db.collection(COLLECTION);
+
+        for (String userId : userIds) {
+            DocumentReference docRef = notifications.document();
+            Map<String, Object> data = new HashMap<>();
+            data.put("eventId", eventId);
+            data.put("organizerId", organizerId);
+            data.put("userId", userId);
+            data.put("title", title);
+            data.put("message", message);
+            data.put("type", type == null ? null : type.name());
+            data.put("status", PENDING.name());
+            data.put("timestamp", FieldValue.serverTimestamp());
+            data.put("updatedAt", FieldValue.serverTimestamp());
+
+            batch.set(docRef, data);
+        }
+
+        batch.commit()
+                .addOnSuccessListener(unused -> onSuccess.onSuccess(String.valueOf(userIds.size())))
                 .addOnFailureListener(onFailure);
     }
 
@@ -143,7 +189,7 @@ public class NotificationLogStorage {
     ) {
         db.collection(COLLECTION)
                 .whereEqualTo("userId", userId)
-                .whereEqualTo("status", PENDING)
+                .whereEqualTo("status", PENDING.name())
                 .get()
                 .addOnSuccessListener(snapshot -> {
                     List<NotificationLog> logs = new ArrayList<>();
