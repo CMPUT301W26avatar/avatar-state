@@ -59,7 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ManageFragment extends Fragment {
 
-    private static final int UNLIMITED_WAITLIST_SENTINEL = -1;
+    private static final int UNLIMITED_WAITLIST_SENTINEL = 2147483647;
 
     private LinearLayout upcomingEventListContainer;
     private EventStorage eventStorage;
