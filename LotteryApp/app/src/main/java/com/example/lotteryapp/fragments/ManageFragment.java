@@ -1100,6 +1100,7 @@ public class ManageFragment extends Fragment {
                 event.setHasGeoConstraint(!isPrivateEvent && geoConstraint);
                 event.setAddress(updatedAddress);
 
+                // get new event status before upserting event values to firebase
                 long now = System.currentTimeMillis();
                 event.setStatus(resolveStatusForDialog(
                         isPrivateEvent,
@@ -1109,70 +1110,66 @@ public class ManageFragment extends Fragment {
                         localEventDateMs[0]
                 ));
 
-                        event.setHasGeoConstraint(geoConstraint);
-                        event.setAddress(updatedAddress);
+                event.setHasGeoConstraint(geoConstraint);
+                event.setAddress(updatedAddress);
 
-                        // get new event status before upserting event values to firebase
-                        long now = System.currentTimeMillis();
-                        event.setStatus(resolveStatusForDialog(event, now));
-
-                        eventStorage.upsertEvent(
-                                event,
-                                unused -> eventStorage.setEventAddress(
-                                        event.getEventId(),
-                                        event.getAddress(),
-                                        unused2 -> {
-                                            Toast.makeText(requireContext(), "Event updated!", Toast.LENGTH_SHORT).show();
-                                            dialog.dismiss();
-                                            loadUpcomingEvents();
-                                        },
-                                        e -> Toast.makeText(
-                                                requireContext(),
-                                                "Failed to save event address: " + e.getMessage(),
-                                                Toast.LENGTH_LONG
-                                        ).show()
-                                ),
+                eventStorage.upsertEvent(
+                        event,
+                        unused -> eventStorage.setEventAddress(
+                                event.getEventId(),
+                                event.getAddress(),
+                                unused2 -> {
+                                    Toast.makeText(requireContext(), "Event updated!", Toast.LENGTH_SHORT).show();
+                                    dialog.dismiss();
+                                    loadUpcomingEvents();
+                                },
                                 e -> Toast.makeText(
                                         requireContext(),
-                                        "Failed to update event: " + e.getMessage(),
+                                        "Failed to save event address: " + e.getMessage(),
                                         Toast.LENGTH_LONG
                                 ).show()
-                        );
-                    };
+                        ),
+                        e -> Toast.makeText(
+                                requireContext(),
+                                "Failed to update event: " + e.getMessage(),
+                                Toast.LENGTH_LONG
+                        ).show()
+                );
+            };
 
-                    String currentDisplayedLocation = etLocation.getText().toString().trim();
+            String currentDisplayedLocation = etLocation.getText().toString().trim();
 
-                    boolean locationUnchanged =
-                            !currentDisplayedLocation.isEmpty()
-                                    && resolvedLocation[0] != null
-                                    && currentDisplayedLocation.equals(resolvedLocation[0]);
+            boolean locationUnchanged =
+                    !currentDisplayedLocation.isEmpty()
+                            && resolvedLocation[0] != null
+                            && currentDisplayedLocation.equals(resolvedLocation[0]);
 
-                    if (geoConstraint && finalLocationInput.isEmpty()) {
-                        Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
-                    } else if (finalLocationInput.isEmpty()) {
-                        resolvedLat[0] = null;
-                        resolvedLng[0] = null;
-                        resolvedLocation[0] = null;
+            if (geoConstraint && finalLocationInput.isEmpty()) {
+                Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+            } else if (finalLocationInput.isEmpty()) {
+                resolvedLat[0] = null;
+                resolvedLng[0] = null;
+                resolvedLocation[0] = null;
+                saveAction.run();
+            } else if (locationUnchanged && resolvedLat[0] != null && resolvedLng[0] != null) {
+                saveAction.run();
+            } else {
+                resolveLocationAsync(finalLocationInput, new ResolveLocationCallback() {
+                    @Override
+                    public void onResolved(@NonNull String resolvedAddress,
+                                           @Nullable Double latitude,
+                                           @Nullable Double longitude) {
+                        resolvedLocation[0] = resolvedAddress;
+                        resolvedLat[0] = latitude;
+                        resolvedLng[0] = longitude;
                         saveAction.run();
-                    } else if (locationUnchanged && resolvedLat[0] != null && resolvedLng[0] != null) {
-                        saveAction.run();
-                    } else {
-                        resolveLocationAsync(finalLocationInput, new ResolveLocationCallback() {
-                            @Override
-                            public void onResolved(@NonNull String resolvedAddress,
-                                                   @Nullable Double latitude,
-                                                   @Nullable Double longitude) {
-                                resolvedLocation[0] = resolvedAddress;
-                                resolvedLat[0] = latitude;
-                                resolvedLng[0] = longitude;
-                                saveAction.run();
-                            }
+                    }
 
-                            @Override
-                            public void onError(@NonNull String message) {
-                                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
-                            }
-                        });
+                    @Override
+                    public void onError(@NonNull String message) {
+                        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+                    }
+                });
                     }
                 });
 

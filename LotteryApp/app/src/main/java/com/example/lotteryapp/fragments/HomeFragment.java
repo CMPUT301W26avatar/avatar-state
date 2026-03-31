@@ -203,7 +203,6 @@ public class HomeFragment extends Fragment {
      *      call EventStorage.listEventsRegOpen query to fill events list
      *      convert Event to DisplayGridEvent
      *      notify change in the list of grid events
-     *
      *      ** later: Popular Events should return events ordered by descending (waitlistCount/waitlistCapacity)**
      */
     private void loadEventsRegFull() {
@@ -218,9 +217,7 @@ public class HomeFragment extends Fragment {
                     }
                     fullAdapter.notifyDataSetChanged();
                 },
-                e -> {
-                    android.util.Log.e("HomeFragment", "Failed to load full events", e);
-                }
+                e -> android.util.Log.e("HomeFragment", "Failed to load full events", e)
         );
     }
 
