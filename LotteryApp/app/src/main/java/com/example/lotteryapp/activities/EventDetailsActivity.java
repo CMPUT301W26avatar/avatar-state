@@ -41,6 +41,7 @@ import com.example.lotteryapp.models.EventAddress;
 import com.example.lotteryapp.models.EventJoinedMap;
 import com.example.lotteryapp.models.QRCode;
 import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.models.UserEventHistory;
 import com.example.lotteryapp.services.ProfanityFilter;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
@@ -723,6 +724,59 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminPosterUrl.setText("posterUrl: " + (event.getPosterUrl() != null ? "\"" + event.getPosterUrl() + "\"" : "null"));
     }
 
+    private void setupQrCode() {
+        qrCode = new QRCode(eventId);
+        Bitmap qrCodeBitMap = qrCode.getBitmap();
+
+        btnQRCodeIcon.setVisibility(VISIBLE);
+        btnQRCodeIcon.setOnClickListener(v -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(v.getContext());
+            View view = LayoutInflater.from(v.getContext()).inflate(R.layout.dialog_qr_code, null);
+            builder.setView(view);
+
+            AlertDialog dialog = builder.create();
+            dialog.show();
+
+            ImageView imgQrCode = view.findViewById(R.id.img_event_qr_code);
+
+            ImageButton btnCloseQrDialog = view.findViewById(R.id.btn_close_qr_dialog);
+            btnCloseQrDialog.setOnClickListener(v1 -> {
+                dialog.dismiss();
+            });
+
+            Button btnDownloadQrCode = view.findViewById(R.id.btn_download_qr_code);
+            btnDownloadQrCode.setOnClickListener(v1 -> {
+
+                Runnable downloadAction = () -> {
+                    Intent downloadIntent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    // filter to only show openable items.
+                    downloadIntent.addCategory(Intent.CATEGORY_OPENABLE);
+
+                    // Create a file with the requested Mime type
+                    downloadIntent.setType("image/png");
+                    downloadIntent.putExtra(Intent.EXTRA_TITLE, "EVENT-" + eventId + "-QR-CODE.png");
+                    resultLauncher.launch(downloadIntent);
+                };
+
+                // Run download action on separate thread as to not
+                // slow down the current UI thread
+                Thread downloadThread = new Thread(downloadAction);
+                downloadThread.start();
+
+                dialog.dismiss();
+            });
+
+            Glide
+                    .with(v.getContext())
+                    .load(qrCodeBitMap)
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .into(imgQrCode);
+
+            dialog.show();
+        });
+    }
+
     private void openEventMap() {
         if (eventId == null || eventId.trim().isEmpty()) {
             Toast.makeText(this, "Missing event ID", Toast.LENGTH_SHORT).show();
@@ -792,6 +846,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         waitlistCurrentUser();
+
     }
 
     /**
@@ -807,14 +862,17 @@ public class EventDetailsActivity extends AppCompatActivity {
                 unused -> removeJoinedMapForCurrentUser(
                         () -> {
                             Toast.makeText(this, "Left waitlist!", Toast.LENGTH_SHORT).show();
-                            currentStatus = null;
-                            loadEvent();
+                            currentStatus = null;  // entrant status
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.LEFT_WAITLIST); // history status
+
                         },
                         () -> {
                             Toast.makeText(this, "Left waitlist, but failed to remove joined map.", Toast.LENGTH_SHORT).show();
-                            currentStatus = null;
-                            loadEvent();
+                            currentStatus = null;  // entrant status
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.LEFT_WAITLIST); // history status
+
                         }
+
                 ),
                 e -> {
                     Toast.makeText(this, "Failed to leave waitlist.", Toast.LENGTH_SHORT).show();
@@ -839,19 +897,208 @@ public class EventDetailsActivity extends AppCompatActivity {
                 unused -> upsertJoinedMapForCurrentUser(
                         () -> {
                             Toast.makeText(this, "Waitlisted!", Toast.LENGTH_SHORT).show();
-                            currentStatus = WAITLISTED;
-                            loadEvent();
+                            currentStatus = WAITLISTED;  // entrant status
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.WAITLISTED); // history status
                         },
                         () -> {
                             Toast.makeText(this, "Waitlisted, but failed to save joined map.", Toast.LENGTH_SHORT).show();
-                            currentStatus = WAITLISTED;
-                            loadEvent();
+                            currentStatus = WAITLISTED;  // entrant status
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.WAITLISTED); // history status
+
                         }
                 ),
                 e -> {
                     Toast.makeText(this, "Failed to waitlist", Toast.LENGTH_SHORT).show();
                     Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnJoin.setEnabled(true);
+                }
+        );
+    }
+
+
+    /**
+     * Signs a user up for the event, INVITED -> ENROLLED in db and added to "enrolled" collection
+     * EventPoolStorage for db query
+     */
+    private void acceptInvitation() {
+        Entrant entrant = new Entrant(currentUserId, eventId, ENROLLED);
+
+        btnAccept.setEnabled(false);
+
+        eventPoolStorage.enrollInEvent(
+                eventId,
+                entrant,
+                unused -> {
+                    Toast.makeText(this, "Enrolled!", Toast.LENGTH_SHORT).show();
+                    currentStatus = ENROLLED; // entrant status
+                    logHistoryThenRefresh(UserEventHistory.HistoryStatus.ENROLLED); // history status
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to enroll", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnAccept.setEnabled(true);
+                }
+        );
+    }
+
+    /**
+     * Declines the sign-up invitation, INVITED -> DECLINED in db and
+     * added to "declined" collection, removed from "invited" collection
+     * EventPoolStorage for db query
+     */
+    private void declineInvitation() {
+        btnDecline.setEnabled(false);
+
+        eventPoolStorage.removeFromInvited(
+                eventId,
+                currentUserId,
+                unused -> removeJoinedMapForCurrentUser(
+                        () -> {
+                            Toast.makeText(this, "Invitation declined!", Toast.LENGTH_SHORT).show();
+                            currentStatus = DECLINED;
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.DECLINED);
+                        },
+                        () -> {
+                            Toast.makeText(this, "Invitation declined, but failed to remove joined map.", Toast.LENGTH_SHORT).show();
+                            currentStatus = DECLINED;
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.DECLINED);
+                        }
+                ),
+                e -> {
+                    Toast.makeText(this, "Failed to decline invitation", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnDecline.setEnabled(true);
+                }
+        );
+    }
+
+    /**
+     * Removes the current user from the event, ENROLLED -> NONE and removed from "enrolled" colleciton
+     * EventPoolStorage for db query
+     */
+    private void unenroll() {
+        btnJoin.setEnabled(false);
+
+        eventPoolStorage.unenroll(
+                eventId,
+                currentUserId,
+                unused -> {
+                    Toast.makeText(this, "Unenrolled!", Toast.LENGTH_SHORT).show();
+                    currentStatus = null;   // entrant status
+                    logHistoryThenRefresh(UserEventHistory.HistoryStatus.UNENROLLED);
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to unenroll", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
+                    btnJoin.setEnabled(true);
+                }
+        );
+
+    }
+
+    /**
+     * Starts lottery selection for the given event
+     * adds all selected entrants to the "invited" subcollection
+     * status marked INVITED
+     */
+    private void beginLotterySelection(Event event) {
+        if (event == null) {
+            Toast.makeText(this, "Event not loaded", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        boolean firstDraw = !event.hasDrawnLottery();
+
+        int remainingSpots = event.getEventCapacity()
+                - event.getEnrolledCount()
+                - event.getInvitationCount();
+
+        if (remainingSpots <= 0) {
+            Toast.makeText(this, "No spots available for invitations", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (btnBeginLotterySelection != null) {
+            btnBeginLotterySelection.setEnabled(false);
+        }
+
+        if (firstDraw) {
+            event.setHasDrawnLottery(true);
+            currentEvent = event;
+            setupOrganizerActions(event); // immediate UI update
+
+            eventStorage.upsertEvent(
+                    event,
+                    unused -> runLotteryDraw(event, remainingSpots),
+                    e -> {
+                        Toast.makeText(this, "Failed to save lottery state", Toast.LENGTH_SHORT).show();
+                        Log.e(MY_TAG, "Failed to persist hasDrawnLottery: " + e.getMessage(), e);
+                        if (btnBeginLotterySelection != null) {
+                            btnBeginLotterySelection.setEnabled(true);
+                        }
+                    }
+            );
+        } else {
+            runLotteryDraw(event, remainingSpots);
+        }
+    }
+
+    private void runLotteryDraw(Event event, int remainingSpots) {
+        eventPoolStorage.drawWinners(
+                eventId,
+                remainingSpots,
+                invitedCount -> {
+                    Toast.makeText(this, "Lottery complete: sent " + invitedCount + " invite(s)", Toast.LENGTH_SHORT).show();
+
+                    currentEvent = event;
+                    setupOrganizerActions(event);
+
+                    if (btnBeginLotterySelection != null) {
+                        btnBeginLotterySelection.setEnabled(true);
+                    }
+
+                    loadEvent();
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to run lottery", Toast.LENGTH_SHORT).show();
+                    Log.e(MY_TAG, "Lottery selection failed: " + e.getMessage(), e);
+
+                    if (btnBeginLotterySelection != null) {
+                        btnBeginLotterySelection.setEnabled(true);
+                    }
+                }
+        );
+    }
+
+    /**
+     * Writes a user event history entry after a successful entrant status change.
+     * History write failures are logged but do not roll back the primary event action.
+     */
+    private void logCurrentUserEventHistory(UserEventHistory.HistoryStatus status) {
+        userStorage.addUserEventHistoryEntry(
+                currentUserId,
+                eventId,
+                status,
+                System.currentTimeMillis(),
+                unused -> { },
+                e -> Log.e(MY_TAG, "Failed to write user event history", e)
+        );
+    }
+
+    /**
+     * Helper for actions where UI should refresh after writing history.
+     */
+    private void logHistoryThenRefresh(UserEventHistory.HistoryStatus status) {
+
+        userStorage.addUserEventHistoryEntry(
+                currentUserId,
+                eventId,
+                status,
+                System.currentTimeMillis(),
+                unused -> loadEvent(),
+                e -> {
+                    Log.e(MY_TAG, "Failed to write user event history", e);
+                    loadEvent();
                 }
         );
     }
@@ -975,213 +1222,5 @@ public class EventDetailsActivity extends AppCompatActivity {
                     onFailure.run();
                 }
         );
-    }
-
-
-    /**
-     * Signs a user up for the event, INVITED -> ENROLLED in db and added to "enrolled" collection
-     * EventPoolStorage for db query
-     */
-    private void acceptInvitation() {
-        Entrant entrant = new Entrant(currentUserId, eventId, ENROLLED);
-
-        btnAccept.setEnabled(false);
-
-        eventPoolStorage.enrollInEvent(
-                eventId,
-                entrant,
-                unused -> {
-                    Toast.makeText(this, "Enrolled!", Toast.LENGTH_SHORT).show();
-                    currentStatus = ENROLLED;
-                    loadEvent();
-                },
-                e -> {
-                    Toast.makeText(this, "Failed to enroll", Toast.LENGTH_SHORT).show();
-                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
-                    btnAccept.setEnabled(true);
-                }
-        );
-    }
-
-    /**
-     * Declines the sign-up invitation, INVITED -> DECLINED in db and
-     * added to "declined" collection, removed from "invited" collection
-     * EventPoolStorage for db query
-     */
-    private void declineInvitation() {
-        btnDecline.setEnabled(false);
-
-        eventPoolStorage.removeFromWaitlist(
-                eventId,
-                currentUserId,
-                unused -> removeJoinedMapForCurrentUser(
-                        () -> {
-                            Toast.makeText(this, "Invitation declined!", Toast.LENGTH_SHORT).show();
-                            currentStatus = DECLINED;
-                            loadEvent();
-                        },
-                        () -> {
-                            Toast.makeText(this, "Invitation declined, but failed to remove joined map.", Toast.LENGTH_SHORT).show();
-                            currentStatus = DECLINED;
-                            loadEvent();
-                        }
-                ),
-                e -> {
-                    Toast.makeText(this, "Failed to decline invitation", Toast.LENGTH_SHORT).show();
-                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
-                    btnDecline.setEnabled(true);
-                }
-        );
-    }
-
-    /**
-     * Removes the current user from the event, ENROLLED -> NONE and removed from "enrolled" colleciton
-     * EventPoolStorage for db query
-     */
-    private void unenroll() {
-        btnJoin.setEnabled(false);
-
-        eventPoolStorage.unenroll(
-                eventId,
-                currentUserId,
-                unused -> {
-                    Toast.makeText(this, "Unenrolled!", Toast.LENGTH_SHORT).show();
-                    currentStatus = null;
-                    loadEvent();
-                },
-                e -> {
-                    Toast.makeText(this, "Failed to unenroll", Toast.LENGTH_SHORT).show();
-                    Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
-                    btnJoin.setEnabled(true);
-                }
-        );
-
-    }
-
-    /**
-     * Starts lottery selection for the given event
-     * adds all selected entrants to the "invited" subcollection
-     * status marked INVITED
-     */
-    private void beginLotterySelection(Event event) {
-        if (event == null) {
-            Toast.makeText(this, "Event not loaded", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        boolean firstDraw = !event.hasDrawnLottery();
-
-        int remainingSpots = event.getEventCapacity()
-                - event.getEnrolledCount()
-                - event.getInvitationCount();
-
-        if (remainingSpots <= 0) {
-            Toast.makeText(this, "No spots available for invitations", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (btnBeginLotterySelection != null) {
-            btnBeginLotterySelection.setEnabled(false);
-        }
-
-        if (firstDraw) {
-            event.setHasDrawnLottery(true);
-            currentEvent = event;
-            setupOrganizerActions(event); // immediate UI update
-
-            eventStorage.upsertEvent(
-                    event,
-                    unused -> runLotteryDraw(event, remainingSpots),
-                    e -> {
-                        Toast.makeText(this, "Failed to save lottery state", Toast.LENGTH_SHORT).show();
-                        Log.e(MY_TAG, "Failed to persist hasDrawnLottery: " + e.getMessage(), e);
-                        if (btnBeginLotterySelection != null) {
-                            btnBeginLotterySelection.setEnabled(true);
-                        }
-                    }
-            );
-        } else {
-            runLotteryDraw(event, remainingSpots);
-        }
-    }
-
-    private void runLotteryDraw(Event event, int remainingSpots) {
-        eventPoolStorage.drawWinners(
-                eventId,
-                remainingSpots,
-                invitedCount -> {
-                    Toast.makeText(this, "Lottery complete: sent " + invitedCount + " invite(s)", Toast.LENGTH_SHORT).show();
-
-                    currentEvent = event;
-                    setupOrganizerActions(event);
-
-                    if (btnBeginLotterySelection != null) {
-                        btnBeginLotterySelection.setEnabled(true);
-                    }
-
-                    loadEvent();
-                },
-                e -> {
-                    Toast.makeText(this, "Failed to run lottery", Toast.LENGTH_SHORT).show();
-                    Log.e(MY_TAG, "Lottery selection failed: " + e.getMessage(), e);
-
-                    if (btnBeginLotterySelection != null) {
-                        btnBeginLotterySelection.setEnabled(true);
-                    }
-                }
-        );
-    }
-
-    private void setupQrCode() {
-        qrCode = new QRCode(eventId);
-        Bitmap qrCodeBitMap = qrCode.getBitmap();
-
-        btnQRCodeIcon.setVisibility(VISIBLE);
-        btnQRCodeIcon.setOnClickListener(v -> {
-            AlertDialog.Builder builder = new AlertDialog.Builder(v.getContext());
-            View view = LayoutInflater.from(v.getContext()).inflate(R.layout.dialog_qr_code, null);
-            builder.setView(view);
-
-            AlertDialog dialog = builder.create();
-            dialog.show();
-
-            ImageView imgQrCode = view.findViewById(R.id.img_event_qr_code);
-
-            ImageButton btnCloseQrDialog = view.findViewById(R.id.btn_close_qr_dialog);
-            btnCloseQrDialog.setOnClickListener(v1 -> {
-                dialog.dismiss();
-            });
-
-            Button btnDownloadQrCode = view.findViewById(R.id.btn_download_qr_code);
-            btnDownloadQrCode.setOnClickListener(v1 -> {
-
-                Runnable downloadAction = () -> {
-                    Intent downloadIntent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                    // filter to only show openable items.
-                    downloadIntent.addCategory(Intent.CATEGORY_OPENABLE);
-
-                    // Create a file with the requested Mime type
-                    downloadIntent.setType("image/png");
-                    downloadIntent.putExtra(Intent.EXTRA_TITLE, "EVENT-" + eventId + "-QR-CODE.png");
-                    resultLauncher.launch(downloadIntent);
-                };
-
-                // Run download action on separate thread as to not
-                // slow down the current UI thread
-                Thread downloadThread = new Thread(downloadAction);
-                downloadThread.start();
-
-                dialog.dismiss();
-            });
-
-            Glide
-                    .with(v.getContext())
-                    .load(qrCodeBitMap)
-                    .centerCrop()
-                    .placeholder(R.drawable.ic_image_placeholder)
-                    .into(imgQrCode);
-
-            dialog.show();
-        });
     }
 }

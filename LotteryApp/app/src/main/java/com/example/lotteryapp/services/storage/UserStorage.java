@@ -5,6 +5,7 @@ import androidx.annotation.Nullable;
 
 import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.models.UserAddress;
+import com.example.lotteryapp.models.UserEventHistory;
 import com.example.lotteryapp.services.UserNameService;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -13,6 +14,7 @@ import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.Transaction;
@@ -60,6 +62,17 @@ public class UserStorage {
         return userDoc(uuid)
                 .collection("geo")
                 .document("current");
+    }
+
+    /**
+     * user event history subdocument
+     * /users/{uuid}/event_history/{eventId}
+     *      - one entry in the subcollection is for one event
+     */
+    public DocumentReference userEventHistoryDoc(String uuid, String eventId) {
+        return userDoc(uuid)
+                .collection("event_history")
+                .document(eventId);
     }
 
     /** firebase storage
@@ -138,6 +151,34 @@ public class UserStorage {
                 })
                 .addOnFailureListener(fail);
     }
+
+    /** firebase retrieval
+     * Returns the user subcollection document event_history/eventId
+     * Address data is loaded separately from geo/default or geo/current.
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     */
+    public void getUserEventHistory(
+            String uuid,
+            OnSuccessListener<List<UserEventHistory>> ok,
+            OnFailureListener fail
+    ) {
+        userDoc(uuid)
+                .collection("event_history")
+                .orderBy("updatedAtMs", Query.Direction.DESCENDING)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<UserEventHistory> historyList = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        UserEventHistory history = doc.toObject(UserEventHistory.class);
+                        if (history != null) {
+                            historyList.add(history);
+                        }
+                    }
+                    ok.onSuccess(historyList);
+                })
+                .addOnFailureListener(fail);
+    }
+
 
     /** firebase retrieval
      * Returns the user's default address from /users/{uuid}/geo/default
@@ -305,6 +346,31 @@ public class UserStorage {
                 .addOnFailureListener(fail);
     }
 
+    /**
+     * Writes a single user event history entry under:
+     * /users/{uuid}/event_history/{eventId}
+     */
+    public void addUserEventHistoryEntry(
+            String uuid,
+            String eventId,
+            UserEventHistory.HistoryStatus status,
+            Long updatedAtMs,
+            OnSuccessListener<Void> ok,
+            OnFailureListener fail
+    ) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("eventId", eventId);
+        data.put("userId", uuid);
+        data.put("status", status.name());
+        data.put("updatedAtMs", updatedAtMs != null ? updatedAtMs : System.currentTimeMillis());
+
+        userEventHistoryDoc(uuid, eventId)
+                .set(data, SetOptions.merge())
+                .addOnSuccessListener(ok)
+                .addOnFailureListener(fail);
+    }
+
+
     /** firebase modify
      * Sets or deletes the user's default address subdocument
      * Stored at /users/{uuid}/geo/default
@@ -360,6 +426,10 @@ public class UserStorage {
                 .addOnSuccessListener(ok)
                 .addOnFailureListener(fail);
     }
+
+
+
+
 
     /** firebase modify
      * Updates the fields of a user entry in Users firebase collection (image removed!)

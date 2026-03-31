@@ -72,6 +72,7 @@
         <activity android:name=".activities.UserPrivacyActivity" />
         <activity android:name=".activities.NotificationSettingsActivity" />
         <activity android:name=".activities.EventMapActivity" />
+        <activity android:name=".activities.UserEventHistoryActivity" />
         <activity android:name=".activities.CommentsActivity"
             android:label="Comments"
             android:theme="@style/Theme.LotteryApp" />
