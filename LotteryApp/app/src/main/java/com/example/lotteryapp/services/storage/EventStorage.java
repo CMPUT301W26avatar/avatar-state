@@ -1009,7 +1009,7 @@ public class EventStorage {
             OnFailureListener onFailure
     ) {
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_FULL.name()).whereEqualTo("privateEvent", false);
+                .whereEqualTo("status", Event.EventStatus.EVENT_OPEN.name()).whereEqualTo("privateEvent", false);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);

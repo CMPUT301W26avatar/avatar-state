@@ -5,8 +5,12 @@ import static com.example.lotteryapp.models.Entrant.EntrantStatus.ENROLLED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.INVITED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
 
+import android.widget.Toast;
+
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.NotificationLog;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentReference;
@@ -15,6 +19,7 @@ import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
+import com.example.lotteryapp.services.storage.NotificationLogStorage;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,6 +39,8 @@ public class EventPoolStorage {
     public EventPoolStorage(FirebaseFirestore db) {
         this.db = db;
     }
+
+    private NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
 
     /** firebase retrieval helper
      * - returns a document of the waitlisted subcollection for a certain unique entrantId
@@ -769,6 +776,13 @@ public class EventPoolStorage {
 
                                 com.google.firebase.firestore.WriteBatch batch = db.batch();
 
+                                String eventTitle = eventSnap.getString("title") != null
+                                        ? eventSnap.getString("title"): "No Title";
+                                String invitedTitle = String.format("Invitation to %s", eventTitle);
+                                String messageInvited = String.format("Congratulations! You have been invited to sign up for %s. Please accept or decline the invitation promptly.", eventTitle);
+                                String notInvitedTitle = String.format("Not Invited to %s", eventTitle);
+                                String notInvitedMessage = String.format("Unfortunately, you have not been selected to sign up for %s. Feel free to check out other events!", eventTitle);
+
                                 for (int i = 0; i < eligibleEntrants.size(); i++) {
                                     QueryDocumentSnapshot doc = eligibleEntrants.get(i);
                                     String entrantId = doc.getString("entrantId");
@@ -786,9 +800,18 @@ public class EventPoolStorage {
                                                 Entrant.EntrantStatus.INVITED.name()
                                         );
                                         data.put("joinedAt", doc.get("joinedAt"));
-
                                         batch.set(invitedRef, data);
                                         batch.delete(doc.getReference());
+                                        notificationLogStorage.logNotification(
+                                                eventId,
+                                                eventSnap.getString("organizerId"),
+                                                entrantId,
+                                                invitedTitle,
+                                                messageInvited,
+                                                NotificationLog.NotificationType.LOTTERY_RESULT,
+                                                sentCount -> {},
+                                                e -> {}
+                                        );
                                     } else {
                                         batch.update(
                                                 doc.getReference(),
@@ -799,6 +822,16 @@ public class EventPoolStorage {
                                                 doc.getReference(),
                                                 "updatedAt",
                                                 FieldValue.serverTimestamp()
+                                        );
+                                        notificationLogStorage.logNotification(
+                                                eventId,
+                                                eventSnap.getString("organizerId"),
+                                                entrantId,
+                                                notInvitedTitle,
+                                                notInvitedMessage,
+                                                NotificationLog.NotificationType.LOTTERY_RESULT,
+                                                sentCount -> {},
+                                                e -> {}
                                         );
                                     }
                                 }
