@@ -1134,17 +1134,11 @@ public class ManageFragment extends Fragment {
                                 ),
                                 e -> Toast.makeText(
                                         requireContext(),
-                                        "Failed to save event address: " + e.getMessage(),
+                                        "Failed to update event: " + e.getMessage(),
                                         Toast.LENGTH_LONG
                                 ).show()
-                        ),
-                        e -> Toast.makeText(
-                                requireContext(),
-                                "Failed to update event: " + e.getMessage(),
-                                Toast.LENGTH_LONG
-                        ).show()
-                );
-            };
+                        );
+                    };
 
                     String currentDisplayedLocation = etLocation.getText().toString().trim();
 
