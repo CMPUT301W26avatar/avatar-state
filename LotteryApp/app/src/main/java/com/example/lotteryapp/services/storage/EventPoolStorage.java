@@ -860,8 +860,6 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-
-
     // DATABASE DELETE ENTRY (status unknown)
     /** firebase delete single
      * Deletes a singular Entrant from one of the event subcollections

@@ -17,7 +17,10 @@ import static org.robolectric.Shadows.shadowOf;
 import android.os.Looper;
 
 import com.example.lotteryapp.models.Entrant;
+import com.example.lotteryapp.models.NotificationLog;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
+import com.example.lotteryapp.services.storage.NotificationLogStorage;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
@@ -65,7 +68,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DrawWinnersUnitTest {
 
     private FirebaseFirestore db;
-    private EventPoolStorage storage;
+    private EventPoolStorage epstore;
+
+    private NotificationLogStorage nlstore;
 
     private CollectionReference eventsCollection;
     private DocumentReference eventDoc;
@@ -91,9 +96,20 @@ public class DrawWinnersUnitTest {
      * without relying on a real database.
      */
     private void initializeFixture() {
-        // mock Firestore database and storage layer
+        // reset shared test singletons first
+        ServiceLocator.reset();
+
+        // mock dependencies
         db = mock(FirebaseFirestore.class);
-        storage = new EventPoolStorage(db);
+        nlstore = mock(NotificationLogStorage.class);
+
+        // IMPORTANT:
+        // EventPoolStorage grabs NotificationLogStorage from ServiceLocator
+        // during construction, so register the mock BEFORE creating epstore.
+        ServiceLocator.setNotificationLogStorageForTests(nlstore);
+
+        // real class under test, mocked dependencies
+        epstore = new EventPoolStorage(db);
 
         // mock Firestore collections and references
         eventsCollection = mock(CollectionReference.class);
@@ -105,17 +121,14 @@ public class DrawWinnersUnitTest {
         batch = mock(WriteBatch.class);
         eventSnapshot = mock(DocumentSnapshot.class);
 
-        // maps invited document refs back to entrant IDs for verification later
         invitedRefToEntrantId = new HashMap<>();
 
-        // setup Firestore structure: events -> eventDoc -> subcollections
         when(db.collection("events")).thenReturn(eventsCollection);
         when(eventsCollection.document(anyString())).thenReturn(eventDoc);
 
         when(eventDoc.collection("waitlisted")).thenReturn(waitlistedCollection);
         when(eventDoc.collection("invited")).thenReturn(invitedCollection);
 
-        // support redraw query that uses WAITLISTED + NOT_INVITED
         when(waitlistedCollection.whereIn(
                 eq("status"),
                 eq(Arrays.asList(
@@ -124,19 +137,19 @@ public class DrawWinnersUnitTest {
                 ))
         )).thenReturn(waitlistedQuery);
 
-        when(waitlistedCollection.whereEqualTo(
-                "status",
-                Entrant.EntrantStatus.WAITLISTED.name()
-        )).thenReturn(waitlistedQuery);
-
-        // stub event document read used by newer drawWinners()
         when(eventDoc.get()).thenReturn(Tasks.forResult(eventSnapshot));
+        when(waitlistedQuery.get()).thenReturn(Tasks.forResult(querySnapshot));
+
         when(eventSnapshot.exists()).thenReturn(true);
         when(eventSnapshot.getLong("invitationCount")).thenReturn(0L);
         when(eventSnapshot.getLong("waitlistCount")).thenReturn(1000L);
         when(eventSnapshot.getLong("enrolledCount")).thenReturn(0L);
+        when(eventSnapshot.getString("title")).thenReturn("Sample Event");
+        when(eventSnapshot.getString("organizerId")).thenReturn("organizer-1");
+        when(eventSnapshot.getBoolean("hasDrawnLottery")).thenReturn(false);
+        when(eventSnapshot.getLong("waitlistCapacity")).thenReturn(1000L);
+        when(eventSnapshot.getLong("eventCapacity")).thenReturn(1000L);
 
-        // mock batch writes and commit success
         when(db.batch()).thenReturn(batch);
         when(batch.commit()).thenReturn(Tasks.forResult(null));
     }
@@ -148,6 +161,13 @@ public class DrawWinnersUnitTest {
         int waitlistSize = 1000;
         int eventCapacity = 2;
 
+        // After drawing 2 winners, waitlistCount becomes 998
+        // With waitlistCapacity also 998 and hasDrawnLottery false,
+        //  resolveEventStatusAfterChange() should produce REG_FULL
+        when(eventSnapshot.getLong("waitlistCount")).thenReturn((long) waitlistSize);
+        when(eventSnapshot.getLong("waitlistCapacity")).thenReturn((long) (waitlistSize - eventCapacity));
+        when(eventSnapshot.getBoolean("hasDrawnLottery")).thenReturn(false);
+
         // create a larger pool than can be selected in a single draw
         List<QueryDocumentSnapshot> docs = buildWaitlistedDocs(waitlistSize);
         stubQueryResult(docs);
@@ -156,7 +176,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw
-        storage.drawWinners(
+        epstore.drawWinners(
                 eventId,
                 eventCapacity,
                 successCount::set,
@@ -197,6 +217,7 @@ public class DrawWinnersUnitTest {
                     && ((Number) waitlistCount).intValue() == (waitlistSize - eventCapacity)
                     && "REG_FULL".equals(status);
         }));
+
         verify(batch, times(1)).commit();
     }
 
@@ -215,7 +236,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw
-        storage.drawWinners(
+        epstore.drawWinners(
                 eventId,
                 eventCapacity,
                 successCount::set,
@@ -264,7 +285,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw against an empty waitlist
-        storage.drawWinners(
+        epstore.drawWinners(
                 eventId,
                 5,
                 successCount::set,
@@ -303,7 +324,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run the draw for this round
-            storage.drawWinners(
+            epstore.drawWinners(
                     "event-random-" + i,
                     eventCapacity,
                     successCount::set,
@@ -349,7 +370,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run draw for this iteration
-            storage.drawWinners(
+            epstore.drawWinners(
                     "event-outside-front-" + i,
                     eventCapacity,
                     successCount::set,
@@ -404,7 +425,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run another randomized draw
-            storage.drawWinners(
+            epstore.drawWinners(
                     "event-regions-" + i,
                     eventCapacity,
                     successCount::set,
@@ -457,7 +478,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run a single draw
-        storage.drawWinners(
+        epstore.drawWinners(
                 "event-not-front-only",
                 eventCapacity,
                 successCount::set,
@@ -503,7 +524,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw
-        storage.drawWinners(
+        epstore.drawWinners(
                 eventId,
                 eventCapacity,
                 successCount::set,
@@ -555,7 +576,7 @@ public class DrawWinnersUnitTest {
 
     // simulate repeated draws where users decline and ensure full exhaustion of waitlist
     @Test
-    public void drawWinners_simulateDeclineRounds_eventuallyExhaustsSmallWaitlist() {
+    public void repeatedResampleExhaustsWaitlist() {
         // remaining entrants that still need to be sampled in later rounds
         List<String> remainingEntrants = buildEntrantIds(6);
 
@@ -576,7 +597,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run draw for this decline/resample round
-            storage.drawWinners(
+            epstore.drawWinners(
                     "event-exhaust-" + round,
                     requestedInvites,
                     successCount::set,
@@ -609,6 +630,86 @@ public class DrawWinnersUnitTest {
         // eventually the full small waitlist should be exhausted
         assertTrue("All entrants should have been sampled and removed", remainingEntrants.isEmpty());
         assertEquals(6, allInvitedAcrossRounds.size());
+    }
+
+    /**
+     * Verifies that drawWinners sends lottery-result notifications to both:
+     * 1. Entrants who were selected and moved to invited
+     * 2. Entrants who were not selected and were marked NOT_INVITED
+     */
+    @Test
+    public void notificationsSentToSelectedAndNotSelected() {
+        String eventId = "event-notifications";
+        int waitlistSize = 5;
+        int eventCapacity = 2;
+
+        initializeFixture();
+
+        List<QueryDocumentSnapshot> docs = buildWaitlistedDocs(waitlistSize);
+        stubQueryResult(docs);
+
+        AtomicInteger successCount = new AtomicInteger(-1);
+        AtomicInteger failureCount = new AtomicInteger(0);
+
+        // run draw
+        epstore.drawWinners(
+                eventId,
+                eventCapacity,
+                successCount::set,
+                e -> failureCount.incrementAndGet()
+        );
+
+        flushAsyncCallbacks();
+
+        // ensure draw succeeded
+        assertEquals(0, failureCount.get());
+        assertEquals(eventCapacity, successCount.get());
+
+        // capture notification arguments
+        ArgumentCaptor<String> eventIdCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> organizerIdCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> entrantIdCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> titleCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<NotificationLog.NotificationType> typeCaptor =
+                ArgumentCaptor.forClass(NotificationLog.NotificationType.class);
+
+        verify(nlstore, times(waitlistSize)).logNotification(
+                eventIdCaptor.capture(),
+                organizerIdCaptor.capture(),
+                entrantIdCaptor.capture(),
+                titleCaptor.capture(),
+                messageCaptor.capture(),
+                typeCaptor.capture(),
+                any(),
+                any()
+        );
+
+        int invitedNotificationCount = 0;
+        int notInvitedNotificationCount = 0;
+
+        for (int i = 0; i < titleCaptor.getAllValues().size(); i++) {
+            assertEquals(eventId, eventIdCaptor.getAllValues().get(i));
+            assertEquals("organizer-1", organizerIdCaptor.getAllValues().get(i));
+            assertEquals(
+                    NotificationLog.NotificationType.LOTTERY_RESULT,
+                    typeCaptor.getAllValues().get(i)
+            );
+
+            String title = titleCaptor.getAllValues().get(i);
+            String message = messageCaptor.getAllValues().get(i);
+
+            if (title.startsWith("Invitation to ")) {
+                invitedNotificationCount++;
+                assertTrue(message.contains("Congratulations!"));
+            } else if (title.startsWith("Not Invited to ")) {
+                notInvitedNotificationCount++;
+                assertTrue(message.contains("Unfortunately"));
+            }
+        }
+
+        assertEquals(eventCapacity, invitedNotificationCount);
+        assertEquals(waitlistSize - eventCapacity, notInvitedNotificationCount);
     }
 
     // Builds entrant IDs for repeated-draw simulations.
