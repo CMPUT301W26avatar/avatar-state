@@ -50,7 +50,7 @@ import java.lang.reflect.Method;
  */
 public class ManageFragment extends Fragment {
 
-    private static final int UNLIMITED_WAITLIST_SENTINEL = -1;
+    private static final int UNLIMITED_WAITLIST_SENTINEL = 2147483647;
 
     private LinearLayout upcomingEventListContainer;
     private EventStorage eventStorage;
@@ -278,6 +278,53 @@ public class ManageFragment extends Fragment {
         if (now < eventDateMs) {
             return isPrivateEvent ? Event.EventStatus.EVENT_OPEN : Event.EventStatus.REG_CLOSED;
         }
+        return Event.EventStatus.EVENT_CLOSED;
+    }
+
+    /**
+     * Resolves the event status from the event's current fields
+     *      This must be called after any create/update dialog changes are applied
+     *      and before any call to save in firebase
+     *          - so the saved status reflects the latest capacity/date state.
+     */
+    private Event.EventStatus resolveStatusForDialog(@NonNull Event event, long now) {
+        Long regStartMs = event.getRegStartMs();
+        Long regEndMs = event.getRegEndMs();
+        Long eventDateMs = event.getEventDateMs();
+
+        if (regStartMs == null || regEndMs == null || eventDateMs == null) {
+            return Event.EventStatus.REG_UPCOMING;
+        }
+
+        if (now < regStartMs) {
+            return Event.EventStatus.REG_UPCOMING;
+        }
+
+        if (now <= regEndMs) {
+            Integer waitlistCapacity = event.getWaitlistCapacity();
+            int waitlistCount = event.getWaitlistCount();
+
+            boolean hasWaitlistLimit =
+                    waitlistCapacity != null
+                            && waitlistCapacity != UNLIMITED_WAITLIST_SENTINEL;
+
+            boolean waitlistFull =
+                    hasWaitlistLimit && waitlistCount >= waitlistCapacity;
+
+            return waitlistFull ? Event.EventStatus.REG_FULL : Event.EventStatus.REG_OPEN;
+        }
+
+        if (now < eventDateMs) {
+            if (!event.hasDrawnLottery()) {
+                return Event.EventStatus.REG_CLOSED;
+            }
+
+            int occupiedSpots = event.getEnrolledCount() + event.getInvitationCount();
+            boolean eventFull = occupiedSpots >= event.getEventCapacity();
+
+            return eventFull ? Event.EventStatus.EVENT_FULL : Event.EventStatus.EVENT_OPEN;
+        }
+
         return Event.EventStatus.EVENT_CLOSED;
     }
 
@@ -607,14 +654,9 @@ public class ManageFragment extends Fragment {
                 }
                 newEvent.setAddress(eventAddress);
 
+                // get new event status before upserting event values to firebase
                 long now = System.currentTimeMillis();
-                newEvent.setStatus(resolveStatusForDialog(
-                        isPrivateEvent,
-                        now,
-                        localStartDateMs[0],
-                        localEndDateMs[0],
-                        localEventDateMs[0]
-                ));
+                newEvent.setStatus(resolveStatusForDialog(newEvent, now));
 
                 // eventStorage.upsertEvent got refactored to require onSuccess and onFailure listeners
                 eventStorage.upsertEvent(
@@ -1067,16 +1109,29 @@ public class ManageFragment extends Fragment {
                         localEventDateMs[0]
                 ));
 
-                eventStorage.upsertEvent(
-                        event,
-                        unused -> eventStorage.setEventAddress(
-                                event.getEventId(),
-                                event.getAddress(),
-                                unused2 -> {
-                                    Toast.makeText(requireContext(), "Event updated!", Toast.LENGTH_SHORT).show();
-                                    dialog.dismiss();
-                                    loadUpcomingEvents();
-                                },
+                        event.setHasGeoConstraint(geoConstraint);
+                        event.setAddress(updatedAddress);
+
+                        // get new event status before upserting event values to firebase
+                        long now = System.currentTimeMillis();
+                        event.setStatus(resolveStatusForDialog(event, now));
+
+                        eventStorage.upsertEvent(
+                                event,
+                                unused -> eventStorage.setEventAddress(
+                                        event.getEventId(),
+                                        event.getAddress(),
+                                        unused2 -> {
+                                            Toast.makeText(requireContext(), "Event updated!", Toast.LENGTH_SHORT).show();
+                                            dialog.dismiss();
+                                            loadUpcomingEvents();
+                                        },
+                                        e -> Toast.makeText(
+                                                requireContext(),
+                                                "Failed to save event address: " + e.getMessage(),
+                                                Toast.LENGTH_LONG
+                                        ).show()
+                                ),
                                 e -> Toast.makeText(
                                         requireContext(),
                                         "Failed to save event address: " + e.getMessage(),
