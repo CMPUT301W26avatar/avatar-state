@@ -2,6 +2,7 @@ package com.example.lotteryapp.fragments;
 
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.ACCEPTED;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.DECLINED;
+import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.READ;
 
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -272,7 +273,7 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        if (notification.getType() == NotificationLog.NotificationType.EVENT_ANNOUNCEMENT) {
+        if ((notification.getType() != NotificationLog.NotificationType.PRIVATE_INVITATION) || (notification.getType() != NotificationLog.NotificationType.COORGANIZER_INVITATION)) {
             if (notification.getId() == null || notification.getId().trim().isEmpty()) {
                 Toast.makeText(requireContext(), "Missing notification", Toast.LENGTH_SHORT).show();
                 return;
@@ -280,7 +281,7 @@ public class HomeFragment extends Fragment {
 
             notificationLogStorage.updateNotificationStatus(
                     notification.getId(),
-                    ACCEPTED.name(),
+                    READ.name(),
                     unused -> {
                         notifications.remove(position);
                         updateNotificationBannerVisibility();
@@ -290,11 +291,11 @@ public class HomeFragment extends Fragment {
                             notificationsPager.setCurrentItem(nextIndex, false);
                         }
 
-                        Toast.makeText(requireContext(), "Announcement dismissed", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(requireContext(), "Notification dismissed", Toast.LENGTH_SHORT).show();
                     },
                     e -> Toast.makeText(
                             requireContext(),
-                            e.getMessage() == null ? "Failed to dismiss announcement" : e.getMessage(),
+                            e.getMessage() == null ? "Failed to dismiss notification" : e.getMessage(),
                             Toast.LENGTH_SHORT
                     ).show()
             );

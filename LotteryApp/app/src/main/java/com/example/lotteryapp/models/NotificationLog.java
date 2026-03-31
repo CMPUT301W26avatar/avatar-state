@@ -31,8 +31,9 @@ public class NotificationLog {
     // user side
     public enum NotificationStatus {
         PENDING, // user has yet to do anything with the noti.
-        ACCEPTED, // READ for non-actionable notifications (announcements)
-        DECLINED
+        ACCEPTED, // accepted invitation
+        DECLINED, //declined invitation
+        READ //read status for non-actionable notifications
     }
     public NotificationLog () {}
 

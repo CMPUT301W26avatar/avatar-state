@@ -40,6 +40,7 @@ import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
 import com.example.lotteryapp.models.EventJoinedMap;
+import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.models.QRCode;
 import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ProfanityFilter;
@@ -49,10 +50,13 @@ import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
+import com.example.lotteryapp.services.storage.NotificationLogStorage;
+import com.example.lotteryapp.models.NotificationLog;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -119,6 +123,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
+    private NotificationLogStorage notificationLogStorage;
     private Entrant.EntrantStatus currentStatus = null;
     private QRCode qrCode = null;
 
@@ -207,6 +212,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         userStorage = ServiceLocator.getUserStorage();
         eventStorage = ServiceLocator.getEventStorage();
         eventPoolStorage = ServiceLocator.getEventPoolStorage();
+        notificationLogStorage = ServiceLocator.getNotificationLogStorage();
 
         // prefill any passed UI extras while backend data loads
         populateFromIntentExtras();
@@ -1370,7 +1376,107 @@ public class EventDetailsActivity extends AppCompatActivity {
                     }
                 }
         );
+
+        sendNotificationsToInvited();
+        sendNotificationsToNotInvited();
     }
+
+    private void sendNotificationsToInvited() {
+        eventPoolStorage.getInvitedEntrants(
+                eventId,
+                entrants -> {
+                    List<String> userIds = new ArrayList<>();
+
+                    // Extract only valid entrant user ids from the invited results
+                    for (Entrant entrant : entrants) {
+                        if (entrant != null && entrant.getEntrantId() != null
+                                && !entrant.getEntrantId().trim().isEmpty()) {
+                            userIds.add(entrant.getEntrantId());
+                        }
+                    }
+
+                    // If nobody is currently invited, there is nobody to notify
+                    if (userIds.isEmpty()) {
+                        Toast.makeText(this, "No invited users to notify", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    String eventTitle = currentEvent.getTitle();
+                    String title = String.format("Invitation to %s", eventTitle);
+                    String message = String.format("Congratulations! You have been invited to sign up for %s. Please accept or decline the invitation promptly.", eventTitle);
+                    // Write one notification log entry per invited user
+                    notificationLogStorage.logAnnouncementToUsers(
+                            eventId,
+                            currentUserId,
+                            userIds,
+                            title,
+                            message,
+                            NotificationLog.NotificationType.LOTTERY_RESULT,
+                            sentCount -> {
+                                Toast.makeText(
+                                        this,
+                                        "Notification sent to " + userIds.size() + " invited users",
+                                        Toast.LENGTH_SHORT
+                                ).show();
+                                finish();
+                            },
+                            e -> {
+                                Toast.makeText(this, "Failed to send notification", Toast.LENGTH_SHORT).show();
+                            }
+                    );
+                },
+                e -> {
+                    Toast.makeText(this, "Failed to load invited users", Toast.LENGTH_SHORT).show();
+                }
+        );
+    };
+    private void sendNotificationsToNotInvited() {
+        eventPoolStorage.getWaitlistedEntrants(
+            eventId,
+            entrants -> {
+                List<String> userIds = new ArrayList<>();
+
+                // Extract only valid entrant user ids from the Wailisted results
+                for (Entrant entrant : entrants) {
+                    if (entrant != null && entrant.getEntrantId() != null
+                            && !entrant.getEntrantId().trim().isEmpty()) {
+                        userIds.add(entrant.getEntrantId());
+                    }
+                }
+
+                // If nobody is currently waitlisted, there is nobody to notify
+                if (userIds.isEmpty()) {
+                    Toast.makeText(this, "No waitlisted users to notify", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String eventTitle = currentEvent.getTitle();
+                String title = String.format("Not Invited to %s", eventTitle);
+                String message = String.format("Unfortunately, you have not been selected to sign up for %s. Feel free to check out other events!", eventTitle);
+                // Write one notification log entry per invited user
+                notificationLogStorage.logAnnouncementToUsers(
+                        eventId,
+                        currentUserId,
+                        userIds,
+                        title,
+                        message,
+                        NotificationLog.NotificationType.LOTTERY_RESULT,
+                        sentCount -> {
+                            Toast.makeText(
+                                    this,
+                                    "Notification sent to " + userIds.size() + " waitlisted users",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            finish();
+                        },
+                        e -> {
+                            Toast.makeText(this, "Failed to send notification", Toast.LENGTH_SHORT).show();
+                        }
+                );
+            },
+            e -> {
+                Toast.makeText(this, "Failed to load waitlisted users", Toast.LENGTH_SHORT).show();
+            }
+    );
+    };
 
     private void setupQrCode() {
         qrCode = new QRCode(eventId);
