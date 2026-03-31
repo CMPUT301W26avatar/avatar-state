@@ -544,6 +544,75 @@ public class EventPoolStorage {
     }
 
     /**
+     * Returns all events the given user is currently enrolled in.
+     * Uses a collection group query over all /enrolled subcollections.
+     * Asynchronous: requires OnSuccess and OnFailure listeners.
+     */
+    public void getEnrolledEventIdsForUser(
+            String entrantId,
+            OnSuccessListener<List<String>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collectionGroup("enrolled")
+                .whereEqualTo("entrantId", entrantId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> eventIds = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String eventId = doc.getString("eventId");
+                        if (eventId != null && !eventId.trim().isEmpty()) {
+                            eventIds.add(eventId);
+                        }
+                    }
+                    onSuccess.onSuccess(eventIds);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    public void getInvitedEventIdsForUser(
+            String entrantId,
+            OnSuccessListener<List<String>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collectionGroup("invited")
+                .whereEqualTo("entrantId", entrantId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> eventIds = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String eventId = doc.getString("eventId");
+                        if (eventId != null && !eventId.trim().isEmpty() && !eventIds.contains(eventId)) {
+                            eventIds.add(eventId);
+                        }
+                    }
+                    onSuccess.onSuccess(eventIds);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    public void getWaitlistedEventIdsForUser(
+            String entrantId,
+            OnSuccessListener<List<String>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collectionGroup("waitlisted")
+                .whereEqualTo("entrantId", entrantId)
+                .whereEqualTo("status", "WAITLISTED")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> eventIds = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String eventId = doc.getString("eventId");
+                        if (eventId != null && !eventId.trim().isEmpty() && !eventIds.contains(eventId)) {
+                            eventIds.add(eventId);
+                        }
+                    }
+                    onSuccess.onSuccess(eventIds);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
      * Perform the lottery draw to select winners.
      * Picks up to capacity random entrants from WAITLISTED pool and mark them as INVITED.
      * the rest = NOT_INVITED.
