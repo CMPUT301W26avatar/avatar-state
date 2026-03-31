@@ -5,6 +5,7 @@ import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.D
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.READ;
 
 import android.graphics.drawable.GradientDrawable;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -14,6 +15,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
@@ -25,13 +28,13 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.NotificationLog;
-import com.example.lotteryapp.services.ServiceLocator;
-import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
-import com.example.lotteryapp.models.Event;
-import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.NotificationLogStorage;
+import com.example.lotteryapp.activities.TermsOfServiceActivity;
+import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.services.ServiceLocator;
+import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
@@ -53,12 +56,26 @@ public class HomeFragment extends Fragment {
 
     private EventStorage estore = ServiceLocator.getEventStorage();
     private EventPoolStorage eventPoolStorage = ServiceLocator.getEventPoolStorage();
+    private UserStorage ustore = ServiceLocator.getUserStorage();
     private GridEventAdapter openAdapter;
     private GridEventAdapter upcomingAdapter;
     private GridEventAdapter fullAdapter;
     private List<HomeFragment.DisplayGridEvent> displayOpenGridEvents;
     private List<HomeFragment.DisplayGridEvent> displayUpcomingGridEvents;
     private List<HomeFragment.DisplayGridEvent> displayFullGridEvents;
+    private boolean isCheckingTOS = false;
+    private boolean isTOSActivityOpen = false;
+
+    private final ActivityResultLauncher<Intent> tosLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        isTOSActivityOpen = false;
+                        checkAndLaunchTOSIfNeeded();
+                    }
+            );
+
+
 
     private ViewPager2 notificationsPager;
     private NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
@@ -109,6 +126,7 @@ public class HomeFragment extends Fragment {
         recyclerViewUpcoming.setAdapter(upcomingAdapter);
         recyclerViewFull.setAdapter(fullAdapter);
 
+        checkAndLaunchTOSIfNeeded();
         loadEventsRegOpen();
         loadEventsRegUpcoming();
         loadEventsRegFull();
@@ -123,6 +141,7 @@ public class HomeFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        checkAndLaunchTOSIfNeeded();
         loadEventsRegOpen();
         loadEventsRegUpcoming();
         loadEventsRegFull();
@@ -185,7 +204,6 @@ public class HomeFragment extends Fragment {
      *      call EventStorage.listEventsRegOpen query to fill events list
      *      convert Event to DisplayGridEvent
      *      notify change in the list of grid events
-     *
      *      ** later: Popular Events should return events ordered by descending (waitlistCount/waitlistCapacity)**
      */
     private void loadEventsRegFull() {
@@ -200,9 +218,7 @@ public class HomeFragment extends Fragment {
                     }
                     fullAdapter.notifyDataSetChanged();
                 },
-                e -> {
-                    android.util.Log.e("HomeFragment", "Failed to load full events", e);
-                }
+                e -> android.util.Log.e("HomeFragment", "Failed to load full events", e)
         );
     }
 
@@ -729,6 +745,38 @@ public class HomeFragment extends Fragment {
         }
     }
 
+    /*
+     * Checks the current user's TOS acceptance state in Firestore.
+     * If the user has not accepted, launch the full TermsOfServiceActivity.
+     */
+    private void checkAndLaunchTOSIfNeeded() {
+        if (!isAdded() || getActivity() == null) return;
+        if (isCheckingTOS || isTOSActivityOpen) return;
+
+        String uid = ServiceLocator.uid();
+        if (uid == null || uid.trim().isEmpty()) return;
+
+        isCheckingTOS = true;
+
+        ustore.getHasAcceptedTOS(
+                uid,
+                hasAccepted -> {
+                    isCheckingTOS = false;
+
+                    if (!isAdded() || getActivity() == null) return;
+
+                    if (!hasAccepted && !isTOSActivityOpen) {
+                        isTOSActivityOpen = true;
+                        Intent intent = new Intent(requireContext(), TermsOfServiceActivity.class);
+                        tosLauncher.launch(intent);
+                    }
+                },
+                e -> {
+                    isCheckingTOS = false;
+                    android.util.Log.e("HomeFragment", "Failed to check Terms of Service acceptance", e);
+                }
+        );
+    }
 
     /**
      * Simple event model for the UI
