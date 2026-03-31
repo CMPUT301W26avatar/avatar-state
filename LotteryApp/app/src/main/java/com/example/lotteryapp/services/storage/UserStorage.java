@@ -140,6 +140,49 @@ public class UserStorage {
     }
 
     /** firebase retrieval
+     * Reads whether the user has accepted the Terms of Service.
+     * Missing field/doc defaults to false.
+     */
+    public void getHasAcceptedTOS(
+            String uuid,
+            OnSuccessListener<Boolean> ok,
+            OnFailureListener fail
+    ) {
+        userDoc(uuid)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    if (!snapshot.exists()) {
+                        ok.onSuccess(false);
+                        return;
+                    }
+
+                    Boolean accepted = snapshot.getBoolean("hasAcceptedTOS");
+                    ok.onSuccess(accepted != null && accepted);
+                })
+                .addOnFailureListener(fail);
+    }
+
+    /** firebase modify
+     * Persists the user's Terms of Service acceptance flag.
+     */
+    public void setHasAcceptedTOS(
+            String uuid,
+            boolean hasAcceptedTOS,
+            OnSuccessListener<Void> ok,
+            OnFailureListener fail
+    ) {
+        Map<String, Object> update = new HashMap<>();
+        update.put("hasAcceptedTOS", hasAcceptedTOS);
+        update.put("updatedAt", FieldValue.serverTimestamp());
+        update.put("deviceID", uuid);
+
+        userDoc(uuid)
+                .set(update, SetOptions.merge())
+                .addOnSuccessListener(ok)
+                .addOnFailureListener(fail);
+    }
+
+    /** firebase retrieval
      * Returns the user's default address from /users/{uuid}/geo/default
      * Asynchronous: requires OnSuccess and OnFailure listeners
      */

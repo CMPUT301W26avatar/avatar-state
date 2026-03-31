@@ -1,10 +1,13 @@
 package com.example.lotteryapp.fragments;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -12,9 +15,11 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.activities.TermsOfServiceActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
@@ -37,12 +42,26 @@ public class HomeFragment extends Fragment {
     private MaterialCardView invitationCard;
     private MaterialButton closeInvitation;
     private EventStorage estore = ServiceLocator.getEventStorage();
+    private UserStorage ustore = ServiceLocator.getUserStorage();
     private GridEventAdapter openAdapter;
     private GridEventAdapter upcomingAdapter;
     private GridEventAdapter fullAdapter;
     private List<HomeFragment.DisplayGridEvent> displayOpenGridEvents;
     private List<HomeFragment.DisplayGridEvent> displayUpcomingGridEvents;
     private List<HomeFragment.DisplayGridEvent> displayFullGridEvents;
+    private boolean isCheckingTOS = false;
+    private boolean isTOSActivityOpen = false;
+
+    private final ActivityResultLauncher<Intent> tosLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        isTOSActivityOpen = false;
+                        checkAndLaunchTOSIfNeeded();
+                    }
+            );
+
+
 
     /**
      * Inflates the HomeFragment layout and initializes UI components.
@@ -76,6 +95,7 @@ public class HomeFragment extends Fragment {
         recyclerViewUpcoming.setAdapter(upcomingAdapter);
         recyclerViewFull.setAdapter(fullAdapter);
 
+        checkAndLaunchTOSIfNeeded();
         loadEventsRegOpen();
         loadEventsRegUpcoming();
         loadEventsRegFull();
@@ -89,9 +109,11 @@ public class HomeFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        checkAndLaunchTOSIfNeeded();
         loadEventsRegOpen();
         loadEventsRegUpcoming();
         loadEventsRegFull();
+
     }
 
     /**
@@ -167,6 +189,39 @@ public class HomeFragment extends Fragment {
                 },
                 e -> {
                     android.util.Log.e("HomeFragment", "Failed to load full events", e);
+                }
+        );
+    }
+
+    /**
+     * Checks the current user's TOS acceptance state in Firestore.
+     * If the user has not accepted, launch the full TermsOfServiceActivity.
+     */
+    private void checkAndLaunchTOSIfNeeded() {
+        if (!isAdded() || getActivity() == null) return;
+        if (isCheckingTOS || isTOSActivityOpen) return;
+
+        String uid = ServiceLocator.uid();
+        if (uid == null || uid.trim().isEmpty()) return;
+
+        isCheckingTOS = true;
+
+        ustore.getHasAcceptedTOS(
+                uid,
+                hasAccepted -> {
+                    isCheckingTOS = false;
+
+                    if (!isAdded() || getActivity() == null) return;
+
+                    if (!hasAccepted && !isTOSActivityOpen) {
+                        isTOSActivityOpen = true;
+                        Intent intent = new Intent(requireContext(), TermsOfServiceActivity.class);
+                        tosLauncher.launch(intent);
+                    }
+                },
+                e -> {
+                    isCheckingTOS = false;
+                    android.util.Log.e("HomeFragment", "Failed to check Terms of Service acceptance", e);
                 }
         );
     }
