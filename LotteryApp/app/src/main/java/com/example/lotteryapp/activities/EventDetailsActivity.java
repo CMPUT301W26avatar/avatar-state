@@ -349,32 +349,26 @@ public class EventDetailsActivity extends AppCompatActivity {
                     setupEntrantActions(currentEvent);
                 }
 
-                LinearLayout listOfX = findViewById(R.id.list_of_x_container);
-                TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
+                //LinearLayout listOfX = findViewById(R.id.list_of_x_container);
+                //TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
                 if (canManageEvent(event)) {
-                    listOfX.setVisibility(VISIBLE);
+                    //listOfX.setVisibility(VISIBLE);
+
                     Event.EventStatus status = event.getStatus();
-                    tvEventVisibilityTag.setBackgroundTintList(
-                            ColorStateList.valueOf(getResources().getColor(R.color.tag_public))
-                    );
                     if (isPrivateEvent(event)) {
-                        tvEntrants.setText("Invited / Enrolled");
-                        tvEventVisibilityTag.setText("PRIVATE");
-                        tvEventVisibilityTag.setBackgroundTintList(
-                                ColorStateList.valueOf(getResources().getColor(R.color.tag_private))
-                        );
+                        //tvEntrants.setText("Invited / Enrolled");
                         listEntrants(eventId);
                     } else if (status == REG_OPEN || status == REG_FULL || status == REG_CLOSED) {
                         listWaitlisted(eventId);
                     } else if (status == EVENT_OPEN || status == EVENT_FULL) {
                         listEntrants(eventId);
                     } else if (status == EVENT_CLOSED) {
-                        tvEntrants.setText("Final Entrants");
+                        //tvEntrants.setText("Final Entrants");
                         listEntrants(eventId);
                     }
 
                 } else {
-                    listOfX.setVisibility(GONE);
+                    //listOfX.setVisibility(GONE);
                 }
             },
             e -> {
@@ -672,14 +666,15 @@ public class EventDetailsActivity extends AppCompatActivity {
         boolean hasSentInvites = event.hasDrawnLottery();
 
         if (isPrivate) {
-            // Before the lottery has been run, organizer can keep searching for users
-            // while registration is still open.
-            if (!hasSentInvites && status == REG_OPEN) {
+            boolean eventClosed = status == EVENT_CLOSED;
+
+            // For private events, organizers should be able to search/invite users
+            // until the lottery has actually started or the event is closed.
+            if (!hasSentInvites && !eventClosed) {
                 btnSearchForUsers.setVisibility(View.VISIBLE);
                 btnSearchForUsers.setEnabled(true);
                 btnSearchForUsers.setText("Search for users to Invite");
                 btnSearchForUsers.setOnClickListener(v -> openInviteUserSearch());
-                return;
             }
 
             // Once private waitlist is full / registration closes, organizer should start lottery.
@@ -693,11 +688,13 @@ public class EventDetailsActivity extends AppCompatActivity {
                 btnShowInvitesDashboard.setEnabled(true);
                 btnShowInvitesDashboard.setText("Lottery Selection Dashboard");
                 btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
-                return;
             }
 
             // After the lottery has been run, organizer manages invites and can redraw until the event is closed.
             if (hasSentInvites) {
+                btnSearchForUsers.setVisibility(View.GONE);
+                btnSearchForUsers.setEnabled(false);
+
                 btnShowInvitesDashboard.setVisibility(View.VISIBLE);
                 btnShowInvitesDashboard.setEnabled(true);
                 btnShowInvitesDashboard.setText("Lottery Selection Dashboard");
@@ -709,7 +706,6 @@ public class EventDetailsActivity extends AppCompatActivity {
                     btnBeginLotterySelection.setText("Re-draw applicants");
                     btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
                 }
-                return;
             }
 
             return;
@@ -913,6 +909,18 @@ public class EventDetailsActivity extends AppCompatActivity {
             tvLocation.setText(address.getLocation());
         } else {
             tvLocation.setText("Location unavailable");
+        }
+
+        if (isPrivateEvent(event)) {
+            tvEventVisibilityTag.setText("PRIVATE");
+            tvEventVisibilityTag.setBackgroundTintList(
+                    ColorStateList.valueOf(getResources().getColor(R.color.tag_private))
+            );
+        } else {
+            tvEventVisibilityTag.setText("PUBLIC");
+            tvEventVisibilityTag.setBackgroundTintList(
+                    ColorStateList.valueOf(getResources().getColor(R.color.tag_public))
+            );
         }
 
         if (event.getDescription() != null && !event.getDescription().trim().isEmpty()) {

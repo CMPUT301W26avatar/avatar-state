@@ -75,7 +75,7 @@
                 android:maxLines="3"
                 android:text="Description."
                 android:textAppearance="?attr/textAppearanceBodyMedium" />
-
+            <!--
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_view"
                 style="@style/Widget.Material3.Button.OutlinedButton"
@@ -84,6 +84,7 @@
                 android:layout_marginTop="12dp"
                 android:text="View"
                 android:textAllCaps="false" />
+                -->
 
         </LinearLayout>
     </LinearLayout>

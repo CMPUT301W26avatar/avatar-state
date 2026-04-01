@@ -28,8 +28,10 @@ import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.activities.UserEventHistoryActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.ServiceLocator;
+import com.example.lotteryapp.services.TicketService;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.NotificationLogStorage;
 import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
@@ -47,6 +49,8 @@ public class JoinedFragment extends Fragment {
 
     private EventStorage eventStorage;
     private EventPoolStorage eventPoolStorage;
+    private NotificationLogStorage notificationLogStorage;
+    private TicketService ticketService;
 
     private ViewPager2 joinedEventsPager;
     private LinearLayout joinedEventDots;
@@ -82,6 +86,8 @@ public class JoinedFragment extends Fragment {
 
         eventStorage = ServiceLocator.getEventStorage();
         eventPoolStorage = ServiceLocator.getEventPoolStorage();
+        notificationLogStorage = ServiceLocator.getNotificationLogStorage();
+        ticketService = ServiceLocator.getTicketService();
 
         View historyButton = view.findViewById(R.id.btn_history);
         historyButton.setOnClickListener(v -> {
@@ -166,12 +172,21 @@ public class JoinedFragment extends Fragment {
             return;
         }
 
-        if (eventPoolStorage == null) {
+        if (ticketService == null) {
             Toast.makeText(requireContext(), "Ticket service unavailable", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        eventPoolStorage.generateTicketPDF(requireContext(), event, uid);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Confirmation Ticket")
+                .setItems(new CharSequence[]{"View Ticket", "Download Ticket"}, (dialog, which) -> {
+                    if (which == 0) {
+                        ticketService.previewTicketPDF(requireContext(), event, uid);
+                    } else if (which == 1) {
+                        ticketService.downloadTicketPDF(requireContext(), event, uid);
+                    }
+                })
+                .show();
     }
 
     private void showMoreEventsMenu(View anchor) {
@@ -190,7 +205,7 @@ public class JoinedFragment extends Fragment {
                 return true;
             }
             if (item.getItemId() == 3) {
-                Toast.makeText(requireContext(), "Private Invite not implemented yet", Toast.LENGTH_SHORT).show();
+                loadExtraEvents(ExtraEventFilter.PRIVATE_INVITE);
                 return true;
             }
             return false;
@@ -303,7 +318,18 @@ public class JoinedFragment extends Fragment {
 
         if (filter == ExtraEventFilter.PRIVATE_INVITE) {
             tvExtraSectionTitle.setText("Private Invite Events");
-            showExtraEmptyState("Private Invite not implemented yet.");
+            notificationLogStorage.getPrivateInviteEventIdsForUser(
+                    uid,
+                    this::resolveExtraEvents,
+                    e -> {
+                        Toast.makeText(requireContext(),
+                                "Failed to load private invite events: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                        showExtraEmptyState("Failed to load private invite events");
+                        Log.e("JoinedFragment", "Failed to load private invite events: " + e.getMessage());
+                    }
+            );
+            return;
         }
     }
 

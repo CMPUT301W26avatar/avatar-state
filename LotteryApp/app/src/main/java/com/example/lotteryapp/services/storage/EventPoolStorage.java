@@ -555,285 +555,6 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    /**
-     * Retrieves all events that the user is currently enrolled in.
-     * Uses collectionGroup to find all "enrolled" subcollection documents for the user.
-     */
-    public void getEnrolledEvents(String entrantId, OnSuccessListener<List<Event>> onSuccess, OnFailureListener onFailure) {
-        db.collectionGroup("enrolled")
-                .whereEqualTo("entrantId", entrantId)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    List<String> eventIds = new ArrayList<>();
-                    for (QueryDocumentSnapshot doc : querySnapshot) {
-                        String eventId = doc.getString("eventId");
-                        if (eventId != null) {
-                            eventIds.add(eventId);
-                        }
-                    }
-
-                    if (eventIds.isEmpty()) {
-                        onSuccess.onSuccess(new ArrayList<>());
-                        return;
-                    }
-
-                    // Fetch top-level event details
-                    db.collection("events")
-                            .whereIn(FieldPath.documentId(), eventIds)
-                            .get()
-                            .addOnSuccessListener(eventsSnapshot -> {
-                                List<Event> events = new ArrayList<>();
-                                for (QueryDocumentSnapshot doc : eventsSnapshot) {
-                                    Event event = doc.toObject(Event.class);
-                                    event.setEventId(doc.getId());
-                                    events.add(event);
-                                }
-
-                                // Secondary fetch for addresses
-                                AtomicInteger counter = new AtomicInteger(events.size());
-                                if (events.isEmpty()) {
-                                    onSuccess.onSuccess(events);
-                                    return;
-                                }
-
-                                for (Event event : events) {
-                                    db.collection("events")
-                                            .document(event.getEventId())
-                                            .collection("geo")
-                                            .document("address")
-                                            .get()
-                                            .addOnSuccessListener(addressDoc -> {
-                                                if (addressDoc.exists()) {
-                                                    EventAddress address = new EventAddress(event.getEventId());
-                                                    address.setLocation(addressDoc.getString("location"));
-                                                    address.setLatitude(addressDoc.getDouble("latitude"));
-                                                    address.setLongitude(addressDoc.getDouble("longitude"));
-                                                    address.setRadiusKm(addressDoc.getLong("radiusKm") != null ? addressDoc.getLong("radiusKm").intValue() : null);
-                                                    event.setAddress(address);
-                                                }
-                                                if (counter.decrementAndGet() == 0) {
-                                                    onSuccess.onSuccess(events);
-                                                }
-                                            })
-                                            .addOnFailureListener(e -> {
-                                                if (counter.decrementAndGet() == 0) {
-                                                    onSuccess.onSuccess(events);
-                                                }
-                                            });
-                                }
-                            })
-                            .addOnFailureListener(onFailure);
-                })
-                .addOnFailureListener(onFailure);
-    }
-
-    /**
-     * Generates the PDF confirmation ticket for an enrolled event.
-     * Includes entrantID, event details and a QR code for verifying at entrance.
-     * Saves the file to the public Downloads directory using MediaStore.
-     */
-    public void generateTicketPDF(Context context, Event event, String entrantId) {
-        PdfDocument document = new PdfDocument();
-        // Standard A4 size is roughly 595x842, but we'll use a smaller ticket format
-        PdfDocument.PageInfo pageInfo = new PdfDocument.PageInfo.Builder(400, 600, 1).create();
-        PdfDocument.Page page = document.startPage(pageInfo);
-        Canvas canvas = page.getCanvas();
-        Paint paint = new Paint();
-
-        // 1. Draw Header/Background
-        paint.setColor(Color.parseColor("#F5F5F5"));
-        canvas.drawRect(0, 0, 400, 120, paint);
-
-        // 2. Title
-        paint.setColor(Color.BLACK);
-        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-        paint.setTextSize(24);
-        canvas.drawText("OFFICIAL TICKET", 40, 60, paint);
-
-        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
-        paint.setTextSize(14);
-        canvas.drawText("Scan QR Code at Entrance", 40, 85, paint);
-
-        // 3. Event Details
-        int y = 160;
-        paint.setTextSize(18);
-        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-        canvas.drawText(event.getTitle(), 40, y, paint);
-        y += 35;
-
-        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
-        paint.setTextSize(14);
-        paint.setColor(Color.DKGRAY);
-
-        String location = (event.getAddress() != null) ? event.getAddress().getLocation() : "Venue TBD";
-        canvas.drawText("Location: " + location, 40, y, paint); y += 25;
-
-        String dateStr = "Date TBD";
-        if (event.getEventDateMs() != null) {
-            SimpleDateFormat sdf = new SimpleDateFormat("EEEE, MMM dd, yyyy 'at' HH:mm", Locale.getDefault());
-            dateStr = sdf.format(new Date(event.getEventDateMs()));
-        }
-        canvas.drawText("Date: " + dateStr, 40, y, paint); y += 40;
-
-        // 4. Entrant Info
-        paint.setColor(Color.BLACK);
-        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-        canvas.drawText("Attendee ID:", 40, y, paint);
-        paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
-        canvas.drawText(entrantId, 150, y, paint);
-        y += 50;
-
-        // 5. Generate and Draw QR Code
-        try {
-            // QR content: eventId|entrantId (Standard for verification apps)
-            String qrContent = event.getEventId() + "|" + entrantId;
-            MultiFormatWriter multiFormatWriter = new MultiFormatWriter();
-            BitMatrix bitMatrix = multiFormatWriter.encode(qrContent, BarcodeFormat.QR_CODE, 200, 200);
-            BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
-            Bitmap bitmap = barcodeEncoder.createBitmap(bitMatrix);
-            canvas.drawBitmap(bitmap, 100, y, paint);
-        } catch (WriterException e) {
-            e.printStackTrace();
-        }
-
-        // 6. Footer
-        paint.setTextSize(10);
-        paint.setColor(Color.GRAY);
-        canvas.drawText("Generated by LotteryApp - Present this PDF on arrival", 80, 580, paint);
-
-        // Border
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(2);
-        paint.setColor(Color.BLACK);
-        canvas.drawRect(10, 10, 390, 590, paint);
-
-        document.finishPage(page);
-
-        // 7. Save to Downloads (Modern Android approach)
-        String fileName = "Ticket_" + event.getTitle().replaceAll("\\s+", "_") + "_" + System.currentTimeMillis() + ".pdf";
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ContentValues contentValues = new ContentValues();
-            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
-            contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
-            contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
-
-            Uri uri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues);
-            if (uri != null) {
-                try (java.io.OutputStream outputStream = context.getContentResolver().openOutputStream(uri)) {
-                    document.writeTo(outputStream);
-                    Toast.makeText(context, "Ticket saved to Downloads", Toast.LENGTH_LONG).show();
-                    openPDF(context, uri);
-                } catch (IOException e) {
-                    Toast.makeText(context, "Error saving ticket: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                }
-            }
-        } else {
-            // Legacy approach for older devices
-            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            File file = new File(downloadsDir, fileName);
-            try {
-                document.writeTo(new java.io.FileOutputStream(file));
-                Toast.makeText(context, "Ticket saved to Downloads", Toast.LENGTH_LONG).show();
-                
-                Uri uri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", file);
-                openPDF(context, uri);
-            } catch (IOException e) {
-                Toast.makeText(context, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        }
-
-        document.close();
-    }
-
-    /**
-     * Moves entrant from the invited subcollection to the declined subcollection.
-     *
-     *
-     * @param eventId   ID of the event
-     * @param entrantId ID of the entrant opting out
-     * @param onSuccess Callback for success
-     * @param onFailure Callback for failure
-     */
-    public void optOutEvent(
-            String eventId,
-            String entrantId,
-            OnSuccessListener<Void> onSuccess,
-            OnFailureListener onFailure
-    ) {
-        DocumentReference eventRef = db.collection("events").document(eventId);
-        DocumentReference enrolledRef = enrolledDoc(eventId, entrantId);
-        DocumentReference declinedRef = declinedDoc(eventId, entrantId);
-
-        db.runTransaction((Transaction.Function<Void>) transaction -> {
-            DocumentSnapshot eventSnap = transaction.get(eventRef);
-            DocumentSnapshot enrolledSnap = transaction.get(enrolledRef);
-
-            if (!eventSnap.exists()) {
-                throw new IllegalStateException("Event does not exist");
-            }
-
-            if (!enrolledSnap.exists()) {
-                throw new IllegalStateException("Entrant is not in the enrolled list.");
-            }
-
-            //Copy data from enrolled document
-            Map<String, Object> data = enrolledSnap.getData();
-            if (data == null) {
-                data = new HashMap<>();
-            } else {
-                data = new HashMap<>(data); // Make it mutable
-            }
-
-            //Add declinedAt timestamp and update status
-            data.put("declinedAt", FieldValue.serverTimestamp());
-            data.put("status", DECLINED.name());
-
-            //set in declined and delete from enrolled
-            transaction.set(declinedRef, data);
-            transaction.delete(enrolledRef);
-
-            // Update event counts and status
-            int enrolledCount = eventSnap.getLong("enrolledCount") != null
-                    ? eventSnap.getLong("enrolledCount").intValue() : 0;
-            int invitationCount = eventSnap.getLong("invitationCount") != null
-                    ? eventSnap.getLong("invitationCount").intValue() : 0;
-            int waitlistCount = eventSnap.getLong("waitlistCount") != null
-                    ? eventSnap.getLong("waitlistCount").intValue() : 0;
-
-            int updatedEnrolled = Math.max(0, enrolledCount - 1);
-
-            Map<String, Object> eventUpdates = new HashMap<>();
-            eventUpdates.put("enrolledCount", updatedEnrolled);
-            eventUpdates.put(
-                    "status",
-                    resolveEventStatusAfterChange(
-                            eventSnap,
-                            waitlistCount,
-                            invitationCount,
-                            updatedEnrolled
-                    )
-            );
-
-            transaction.update(eventRef, eventUpdates);
-
-            return null;
-        }).addOnSuccessListener(onSuccess)
-                .addOnFailureListener(onFailure);
-    }
-
-    private void openPDF(Context context, Uri uri) {
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(uri, "application/pdf");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        try {
-            context.startActivity(Intent.createChooser(intent, "Open Ticket"));
-        } catch (Exception e) {
-            Toast.makeText(context, "No PDF viewer found. Please install one to view the ticket.", Toast.LENGTH_LONG).show();
-        }
-    }
-
     // BASIC DB QUERIES
 
     /** firebase retrieval
@@ -1103,16 +824,29 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    /**
-     * Perform the lottery draw to select winners.
-     * Picks up to capacity random entrants from WAITLISTED pool and mark them as INVITED.
-     * the rest = NOT_INVITED.
-     */
-    /**
-     * Perform the lottery draw to select winners.
-     * Picks up to capacity random entrants from WAITLISTED pool and mark them as INVITED.
-     * the rest = NOT_INVITED.
-     */
+    public void getPrivateJoinedEventIdsForUser(
+            String entrantId,
+            OnSuccessListener<List<String>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collectionGroup("private_invites")   // replace with actual merged subcollection name
+                .whereEqualTo("entrantId", entrantId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> eventIds = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String eventId = doc.getString("eventId");
+                        if (eventId != null
+                                && !eventId.trim().isEmpty()
+                                && !eventIds.contains(eventId)) {
+                            eventIds.add(eventId);
+                        }
+                    }
+                    onSuccess.onSuccess(eventIds);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
     /**
      * Perform the lottery draw to select winners.
      * Picks up to capacity random entrants from WAITLISTED pool and marks them as INVITED.
