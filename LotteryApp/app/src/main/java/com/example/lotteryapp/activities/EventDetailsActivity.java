@@ -1017,17 +1017,6 @@ public class EventDetailsActivity extends AppCompatActivity {
         });
     }
 
-    private void openEventMap() {
-        if (eventId == null || eventId.trim().isEmpty()) {
-            Toast.makeText(this, "Missing event ID", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Intent intent = new Intent(this, EventMapActivity.class);
-        intent.putExtra(EXTRA_EVENT_ID, eventId);
-        startActivity(intent);
-    }
-
     /**
      * Disables the join button and displays the parameter text as the reason for it being disabled
      * to the user.

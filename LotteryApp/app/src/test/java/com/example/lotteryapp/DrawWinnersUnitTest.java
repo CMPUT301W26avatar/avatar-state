@@ -74,9 +74,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DrawWinnersUnitTest {
 
     private FirebaseFirestore db;
-    private EventPoolStorage epstore;
+    private EventPoolStorage mockEventPoolStorage;
+    private UserStorage mockUserStorage;
 
-    private NotificationLogStorage nlstore;
+    private NotificationLogStorage mockNotificationLogStorage;
 
     private CollectionReference eventsCollection;
     private DocumentReference eventDoc;
@@ -102,14 +103,17 @@ public class DrawWinnersUnitTest {
      * without relying on a real database.
      */
     private void initializeFixture() {
-        // mock Firestore database and storage layer
         ServiceLocator.reset();
 
         db = mock(FirebaseFirestore.class);
-        mockEventPoolStorage = new EventPoolStorage(db);
+
+        mockNotificationLogStorage = mock(NotificationLogStorage.class);
+        ServiceLocator.setNotificationLogStorageForTests(mockNotificationLogStorage);
 
         mockUserStorage = mock(UserStorage.class);
         ServiceLocator.setUserStorageForTests(mockUserStorage);
+
+        mockEventPoolStorage = new EventPoolStorage(db);
 
         doAnswer(invocation -> {
             OnSuccessListener<Void> success = invocation.getArgument(4);
@@ -141,6 +145,11 @@ public class DrawWinnersUnitTest {
 
         when(eventDoc.collection("waitlisted")).thenReturn(waitlistedCollection);
         when(eventDoc.collection("invited")).thenReturn(invitedCollection);
+
+        when(waitlistedCollection.whereEqualTo(
+                eq("status"),
+                eq(Entrant.EntrantStatus.WAITLISTED.name())
+        )).thenReturn(waitlistedQuery);
 
         when(waitlistedCollection.whereIn(
                 eq("status"),
@@ -194,7 +203,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw
-        epstore.drawWinners(
+        mockEventPoolStorage.drawWinners(
                 eventId,
                 eventCapacity,
                 successCount::set,
@@ -254,7 +263,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw
-        epstore.drawWinners(
+        mockEventPoolStorage.drawWinners(
                 eventId,
                 eventCapacity,
                 successCount::set,
@@ -303,7 +312,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw against an empty waitlist
-        epstore.drawWinners(
+        mockEventPoolStorage.drawWinners(
                 eventId,
                 5,
                 successCount::set,
@@ -342,7 +351,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run the draw for this round
-            epstore.drawWinners(
+            mockEventPoolStorage.drawWinners(
                     "event-random-" + i,
                     eventCapacity,
                     successCount::set,
@@ -388,7 +397,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run draw for this iteration
-            epstore.drawWinners(
+            mockEventPoolStorage.drawWinners(
                     "event-outside-front-" + i,
                     eventCapacity,
                     successCount::set,
@@ -443,7 +452,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run another randomized draw
-            epstore.drawWinners(
+            mockEventPoolStorage.drawWinners(
                     "event-regions-" + i,
                     eventCapacity,
                     successCount::set,
@@ -496,7 +505,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run a single draw
-        epstore.drawWinners(
+        mockEventPoolStorage.drawWinners(
                 "event-not-front-only",
                 eventCapacity,
                 successCount::set,
@@ -542,7 +551,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw
-        epstore.drawWinners(
+        mockEventPoolStorage.drawWinners(
                 eventId,
                 eventCapacity,
                 successCount::set,
@@ -615,7 +624,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run draw for this decline/resample round
-            epstore.drawWinners(
+            mockEventPoolStorage.drawWinners(
                     "event-exhaust-" + round,
                     requestedInvites,
                     successCount::set,
@@ -714,6 +723,85 @@ public class DrawWinnersUnitTest {
                     any()
             );
         }
+    }
+
+    /**
+     * Verifies that drawWinners sends lottery-result notifications to both:
+     * 1. Entrants who were selected and moved to invited
+     * 2. Entrants who were not selected and were marked NOT_INVITED
+     */
+    @Test
+    public void notificationsSentToSelectedAndNotSelected() {
+        String eventId = "event-notifications";
+        int waitlistSize = 5;
+        int eventCapacity = 2;
+
+        // build a synthetic waitlist
+        List<QueryDocumentSnapshot> docs = buildWaitlistedDocs(waitlistSize);
+        stubQueryResult(docs);
+
+        AtomicInteger successCount = new AtomicInteger(-1);
+        AtomicInteger failureCount = new AtomicInteger(0);
+
+        // run draw
+        mockEventPoolStorage.drawWinners(
+                eventId,
+                eventCapacity,
+                successCount::set,
+                e -> failureCount.incrementAndGet()
+        );
+
+        flushAsyncCallbacks();
+
+        // ensure draw succeeded
+        assertEquals(0, failureCount.get());
+        assertEquals(eventCapacity, successCount.get());
+
+        // capture notification arguments
+        ArgumentCaptor<String> eventIdCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> organizerIdCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> entrantIdCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> titleCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<NotificationLog.NotificationType> typeCaptor =
+                ArgumentCaptor.forClass(NotificationLog.NotificationType.class);
+
+        verify(mockNotificationLogStorage, times(waitlistSize)).logNotification(
+                eventIdCaptor.capture(),
+                organizerIdCaptor.capture(),
+                entrantIdCaptor.capture(),
+                titleCaptor.capture(),
+                messageCaptor.capture(),
+                typeCaptor.capture(),
+                any(),
+                any()
+        );
+
+        int invitedNotificationCount = 0;
+        int notInvitedNotificationCount = 0;
+
+        for (int i = 0; i < titleCaptor.getAllValues().size(); i++) {
+            assertEquals(eventId, eventIdCaptor.getAllValues().get(i));
+            assertEquals("organizer-1", organizerIdCaptor.getAllValues().get(i));
+            assertEquals(
+                    NotificationLog.NotificationType.LOTTERY_RESULT,
+                    typeCaptor.getAllValues().get(i)
+            );
+
+            String title = titleCaptor.getAllValues().get(i);
+            String message = messageCaptor.getAllValues().get(i);
+
+            if (title.startsWith("Invitation to ")) {
+                invitedNotificationCount++;
+                assertTrue(message.contains("Congratulations!"));
+            } else if (title.startsWith("Not Invited to ")) {
+                notInvitedNotificationCount++;
+                assertTrue(message.contains("Unfortunately"));
+            }
+        }
+
+        assertEquals(eventCapacity, invitedNotificationCount);
+        assertEquals(waitlistSize - eventCapacity, notInvitedNotificationCount);
     }
 
     // Builds entrant IDs for repeated-draw simulations.

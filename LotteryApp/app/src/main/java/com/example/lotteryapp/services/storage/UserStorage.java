@@ -175,6 +175,10 @@ public class UserStorage {
                         }
                     }
                     ok.onSuccess(historyList);
+                })
+                .addOnFailureListener(fail);
+    }
+    /**
      * Reads whether the user has accepted the Terms of Service.
      * Missing field/doc defaults to false.
      */

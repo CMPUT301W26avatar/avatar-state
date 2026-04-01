@@ -32,6 +32,7 @@ import android.widget.Toast;
 
 import androidx.core.content.FileProvider;
 
+import com.google.firebase.firestore.WriteBatch;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.WriterException;
@@ -55,6 +56,7 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -1111,6 +1113,11 @@ public class EventPoolStorage {
      * Picks up to capacity random entrants from WAITLISTED pool and mark them as INVITED.
      * the rest = NOT_INVITED.
      */
+    /**
+     * Perform the lottery draw to select winners.
+     * Picks up to capacity random entrants from WAITLISTED pool and marks them as INVITED.
+     * The rest are marked as NOT_INVITED.
+     */
     public void drawWinners(
             String eventId,
             int capacity,
@@ -1133,130 +1140,53 @@ public class EventPoolStorage {
                         return;
                     }
 
-                    java.util.Collections.shuffle(eligibleEntrants);
+                    Collections.shuffle(eligibleEntrants);
 
-                    com.google.firebase.firestore.WriteBatch batch = db.batch();
-                    List<String> invitedEntrantIds = new ArrayList<>();
-                    List<String> notSelectedEntrantIds = new ArrayList<>();
-
-                    for (int i = 0; i < waitlisted.size(); i++) {
-                        QueryDocumentSnapshot doc = waitlisted.get(i);
-                        String entrantId = doc.getString("entrantId");
-
-                        if (entrantId == null || entrantId.trim().isEmpty()) {
-                            continue;
-                        }
-
-                        if (i < winnersCount) {
-                            // Move winner to invited collection
-                            DocumentReference invitedRef = invitedDoc(eventId, entrantId);
-                            Map<String, Object> data = mapEntrantData(
-                                    eventId,
-                                    entrantId,
-                                    Entrant.EntrantStatus.INVITED.name()
-                            );
-                            data.put("joinedAt", doc.get("joinedAt")); // Preserve original join time
-
-                            batch.set(invitedRef, data);
-                            batch.delete(doc.getReference());
-
-                            invitedEntrantIds.add(entrantId);
-                        } else {
-                            // Non-selected users remain in waitlisted collection as NOT_INVITED
-                            batch.update(
-                                    doc.getReference(),
-                                    "status",
-                                    Entrant.EntrantStatus.NOT_INVITED.name()
-                            );
-                            batch.update(
-                                    doc.getReference(),
-                                    "updatedAt",
-                                    FieldValue.serverTimestamp()
-                            );
-
-                            notSelectedEntrantIds.add(entrantId);
-                        }
-                    }
-
-                    // Update event invitation count
-                    DocumentReference eventRef = db.collection("events").document(eventId);
-                    batch.update(eventRef, "invitationCount", FieldValue.increment(winnersCount));
-
-                    batch.commit()
-                            .addOnSuccessListener(unused -> {
-                                UserStorage ustore = ServiceLocator.getUserStorage();
-
-                                int totalHistoryWrites =
-                                        invitedEntrantIds.size() + notSelectedEntrantIds.size();
-
-                                if (totalHistoryWrites == 0) {
-                                    onSuccess.onSuccess(winnersCount);
-                                    return;
-                                }
-
-                                AtomicInteger remaining = new AtomicInteger(totalHistoryWrites);
-
-                                OnSuccessListener<Void> historyWriteSuccess = unused2 -> {
-                                    if (remaining.decrementAndGet() == 0) {
-                                        onSuccess.onSuccess(winnersCount);
-                                    }
-                                };
-
-                                OnFailureListener historyWriteFailure = e -> {
-                                    // Do not fail the draw after the batch has already committed.
-                                    if (remaining.decrementAndGet() == 0) {
-                                        onSuccess.onSuccess(winnersCount);
-                                    }
-                                };
-
-                                for (String invitedEntrantId : invitedEntrantIds) {
-                                    ustore.addUserEventHistoryEntry(
-                                            invitedEntrantId,
-                                            eventId,
-                                            UserEventHistory.HistoryStatus.INVITED,
-                                            System.currentTimeMillis(),
-                                            historyWriteSuccess,
-                                            historyWriteFailure
-                                    );
-                                }
-
-                                for (String notSelectedEntrantId : notSelectedEntrantIds) {
-                                    ustore.addUserEventHistoryEntry(
-                                            notSelectedEntrantId,
-                                            eventId,
-                                            UserEventHistory.HistoryStatus.NOT_SELECTED,
-                                            System.currentTimeMillis(),
-                                            historyWriteSuccess,
-                                            historyWriteFailure
-                                    );
-                                }
                     int winnersCount = Math.min(capacity, eligibleEntrants.size());
+                    DocumentReference eventRef = db.collection("events").document(eventId);
 
                     eventRef.get()
                             .addOnSuccessListener(eventSnap -> {
                                 if (!eventSnap.exists()) {
-                                    onFailure.onFailure(new IllegalStateException("Event does not exist"));
+                                    onFailure.onFailure(
+                                            new IllegalStateException("Event does not exist")
+                                    );
                                     return;
                                 }
 
                                 int invitationCount = eventSnap.getLong("invitationCount") != null
-                                        ? eventSnap.getLong("invitationCount").intValue() : 0;
+                                        ? eventSnap.getLong("invitationCount").intValue()
+                                        : 0;
                                 int waitlistCount = eventSnap.getLong("waitlistCount") != null
-                                        ? eventSnap.getLong("waitlistCount").intValue() : 0;
+                                        ? eventSnap.getLong("waitlistCount").intValue()
+                                        : 0;
                                 int enrolledCount = eventSnap.getLong("enrolledCount") != null
-                                        ? eventSnap.getLong("enrolledCount").intValue() : 0;
+                                        ? eventSnap.getLong("enrolledCount").intValue()
+                                        : 0;
 
                                 int updatedInvitationCount = invitationCount + winnersCount;
                                 int updatedWaitlistCount = Math.max(0, waitlistCount - winnersCount);
 
-                                com.google.firebase.firestore.WriteBatch batch = db.batch();
+                                WriteBatch batch = db.batch();
+                                List<String> invitedEntrantIds = new ArrayList<>();
+                                List<String> notSelectedEntrantIds = new ArrayList<>();
 
                                 String eventTitle = eventSnap.getString("title") != null
-                                        ? eventSnap.getString("title"): "No Title";
+                                        ? eventSnap.getString("title")
+                                        : "No Title";
+                                String organizerId = eventSnap.getString("organizerId");
+
                                 String invitedTitle = String.format("Invitation to %s", eventTitle);
-                                String messageInvited = String.format("Congratulations! You have been invited to sign up for %s. Please accept or decline the invitation promptly.", eventTitle);
+                                String invitedMessage = String.format(
+                                        "Congratulations! You have been invited to sign up for %s. Please accept or decline the invitation promptly.",
+                                        eventTitle
+                                );
+
                                 String notInvitedTitle = String.format("Not Invited to %s", eventTitle);
-                                String notInvitedMessage = String.format("Unfortunately, you have not been selected to sign up for %s. Feel free to check out other events!", eventTitle);
+                                String notInvitedMessage = String.format(
+                                        "Unfortunately, you have not been selected to sign up for %s. Feel free to check out other events or wait around for another chance to be selected!",
+                                        eventTitle
+                                );
 
                                 for (int i = 0; i < eligibleEntrants.size(); i++) {
                                     QueryDocumentSnapshot doc = eligibleEntrants.get(i);
@@ -1275,17 +1205,21 @@ public class EventPoolStorage {
                                                 Entrant.EntrantStatus.INVITED.name()
                                         );
                                         data.put("joinedAt", doc.get("joinedAt"));
+
                                         batch.set(invitedRef, data);
                                         batch.delete(doc.getReference());
+
+                                        invitedEntrantIds.add(entrantId);
+
                                         notificationLogStorage.logNotification(
                                                 eventId,
-                                                eventSnap.getString("organizerId"),
+                                                organizerId,
                                                 entrantId,
                                                 invitedTitle,
-                                                messageInvited,
+                                                invitedMessage,
                                                 NotificationLog.NotificationType.LOTTERY_RESULT,
-                                                sentCount -> {},
-                                                e -> {}
+                                                sentCount -> { },
+                                                e -> { }
                                         );
                                     } else {
                                         batch.update(
@@ -1298,15 +1232,18 @@ public class EventPoolStorage {
                                                 "updatedAt",
                                                 FieldValue.serverTimestamp()
                                         );
+
+                                        notSelectedEntrantIds.add(entrantId);
+
                                         notificationLogStorage.logNotification(
                                                 eventId,
-                                                eventSnap.getString("organizerId"),
+                                                organizerId,
                                                 entrantId,
                                                 notInvitedTitle,
                                                 notInvitedMessage,
                                                 NotificationLog.NotificationType.LOTTERY_RESULT,
-                                                sentCount -> {},
-                                                e -> {}
+                                                sentCount -> { },
+                                                e -> { }
                                         );
                                     }
                                 }
@@ -1327,7 +1264,54 @@ public class EventPoolStorage {
                                 batch.update(eventRef, eventUpdates);
 
                                 batch.commit()
-                                        .addOnSuccessListener(unused -> onSuccess.onSuccess(winnersCount))
+                                        .addOnSuccessListener(unused -> {
+                                            UserStorage ustore = ServiceLocator.getUserStorage();
+
+                                            int totalHistoryWrites =
+                                                    invitedEntrantIds.size() + notSelectedEntrantIds.size();
+
+                                            if (totalHistoryWrites == 0) {
+                                                onSuccess.onSuccess(winnersCount);
+                                                return;
+                                            }
+
+                                            AtomicInteger remaining = new AtomicInteger(totalHistoryWrites);
+
+                                            OnSuccessListener<Void> historyWriteSuccess = unused2 -> {
+                                                if (remaining.decrementAndGet() == 0) {
+                                                    onSuccess.onSuccess(winnersCount);
+                                                }
+                                            };
+
+                                            OnFailureListener historyWriteFailure = e -> {
+                                                // Do not fail the draw after the batch has already committed.
+                                                if (remaining.decrementAndGet() == 0) {
+                                                    onSuccess.onSuccess(winnersCount);
+                                                }
+                                            };
+
+                                            for (String invitedEntrantId : invitedEntrantIds) {
+                                                ustore.addUserEventHistoryEntry(
+                                                        invitedEntrantId,
+                                                        eventId,
+                                                        UserEventHistory.HistoryStatus.INVITED,
+                                                        System.currentTimeMillis(),
+                                                        historyWriteSuccess,
+                                                        historyWriteFailure
+                                                );
+                                            }
+
+                                            for (String notSelectedEntrantId : notSelectedEntrantIds) {
+                                                ustore.addUserEventHistoryEntry(
+                                                        notSelectedEntrantId,
+                                                        eventId,
+                                                        UserEventHistory.HistoryStatus.NOT_SELECTED,
+                                                        System.currentTimeMillis(),
+                                                        historyWriteSuccess,
+                                                        historyWriteFailure
+                                                );
+                                            }
+                                        })
                                         .addOnFailureListener(onFailure);
                             })
                             .addOnFailureListener(onFailure);
