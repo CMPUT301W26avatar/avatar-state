@@ -18,59 +18,102 @@ public class InvitesDashboardActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
 
+    private String eventId;
+    private TabLayout tabLayout;
+    private ViewPager2 viewPager;
+    private TabLayoutMediator tabMediator;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_event_invites_dashboard);
 
-        String eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
+        eventId = getIntent().getStringExtra(EXTRA_EVENT_ID);
         if (eventId == null || eventId.trim().isEmpty()) {
             finish();
             return;
         }
 
         ImageButton btnClose = findViewById(R.id.btn_close_invites_dashboard);
-        TabLayout tabLayout = findViewById(R.id.tab_layout_invites);
-        ViewPager2 viewPager = findViewById(R.id.view_pager_invites);
+        tabLayout = findViewById(R.id.tab_layout_invites);
+        viewPager = findViewById(R.id.view_pager_invites);
 
         btnClose.setOnClickListener(v -> finish());
 
+        setupPager();
+    }
+
+    public void refreshDashboard() {
+        if (viewPager == null || tabLayout == null || eventId == null || eventId.trim().isEmpty()) {
+            return;
+        }
+
+        int currentItem = viewPager.getCurrentItem();
+
+        if (tabMediator != null) {
+            tabMediator.detach();
+            tabMediator = null;
+        }
+
+        setupPager();
+
+        int pageCount = 4;
+        if (currentItem >= 0 && currentItem < pageCount) {
+            viewPager.setCurrentItem(currentItem, false);
+        }
+    }
+
+    private void setupPager() {
         viewPager.setAdapter(new FragmentStateAdapter(this) {
             @NonNull
             @Override
             public Fragment createFragment(int position) {
-                if (position == 0) {
-                    return InviteListFragment.newInstance(
-                            eventId,
-                            InviteListFragment.TYPE_INVITED
-                    );
-                } else if (position == 1) {
-                    return InviteListFragment.newInstance(
-                            eventId,
-                            InviteListFragment.TYPE_DECLINED
-                    );
-                } else {
-                    return InviteListFragment.newInstance(
-                            eventId,
-                            InviteListFragment.TYPE_ACCEPTED
-                    );
+                switch (position) {
+                    case 0:
+                        return InviteListFragment.newInstance(
+                                eventId,
+                                InviteListFragment.TYPE_INVITED
+                        );
+                    case 1:
+                        return InviteListFragment.newInstance(
+                                eventId,
+                                InviteListFragment.TYPE_CANCELLED
+                        );
+                    case 2:
+                        return InviteListFragment.newInstance(
+                                eventId,
+                                InviteListFragment.TYPE_DECLINED
+                        );
+                    default:
+                        return InviteListFragment.newInstance(
+                                eventId,
+                                InviteListFragment.TYPE_ACCEPTED
+                        );
                 }
             }
 
             @Override
             public int getItemCount() {
-                return 3;
+                return 4;
             }
         });
 
-        new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
-            if (position == 0) {
-                tab.setText("Invited");
-            } else if (position == 1) {
-                tab.setText("Declined");
-            } else {
-                tab.setText("Accepted");
+        tabMediator = new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
+            switch (position) {
+                case 0:
+                    tab.setText("Pending");
+                    break;
+                case 1:
+                    tab.setText("Cancelled");
+                    break;
+                case 2:
+                    tab.setText("Declined");
+                    break;
+                default:
+                    tab.setText("Accepted");
+                    break;
             }
-        }).attach();
+        });
+        tabMediator.attach();
     }
 }
