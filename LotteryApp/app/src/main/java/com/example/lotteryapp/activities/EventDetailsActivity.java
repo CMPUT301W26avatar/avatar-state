@@ -697,6 +697,17 @@ public class EventDetailsActivity extends AppCompatActivity {
             tvCriteriaGuidelines.setText("Criteria/Guidelines: " + event.getCriteriaGuidelines());
         }
 
+        if (event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
+            Glide.with(this)
+                    .load(event.getPosterUrl())
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .error(R.drawable.ic_image_placeholder)
+                    .into(ivEventPoster);
+        }
+        else {
+            ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
+        }
+
         if (isAdminMode && event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
             btnDeleteImage.setVisibility(View.VISIBLE);
         } else {

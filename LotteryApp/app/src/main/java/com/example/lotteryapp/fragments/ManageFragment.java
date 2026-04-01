@@ -270,6 +270,11 @@ public class ManageFragment extends Fragment {
         View layoutLocationRadius = view.findViewById(R.id.layout_location_radius);
         MaterialSwitch switchGeo = view.findViewById(R.id.switch_geolocation);
 
+        // TODO: Add Image Picker and Upload logic here
+        // 1. Set up an ActivityResultLauncher for picking images
+        // 2. Upload image to Firebase Storage in saveAction
+        // 3. Get download URL and set it to newEvent.setPosterUrl()
+
         // use dialog-local holders to keep a fresh state
         //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
         final Long[] localEventDateMs = {null};
@@ -522,6 +527,8 @@ public class ManageFragment extends Fragment {
                 newEvent.setCriteriaGuidelines(criteriaGuidelines);
                 setOptionalString(newEvent, "setDescription", description);
 
+                // TODO: Upload poster image and set URL
+
                 // only create a geo/address doc when geolocation restriction is enabled
                 EventAddress eventAddress = null;
                 // save an address doc whenever the user entered a location OR enabled geo
@@ -628,6 +635,11 @@ public class ManageFragment extends Fragment {
 
         View layoutLocationRadius = view.findViewById(R.id.layout_location_radius);
         MaterialSwitch switchGeo = view.findViewById(R.id.switch_geolocation);
+
+        // TODO: Add Image Picker and Update logic here
+        // 1. Set up an ActivityResultLauncher for picking images
+        // 2. Upload image to Firebase Storage in saveAction
+        // 3. Get download URL and update event.setPosterUrl()
 
         // use dialog-local holders to keep a fresh state
         //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
@@ -920,6 +932,16 @@ public class ManageFragment extends Fragment {
                         event.setWaitlistCapacity(finalWaitlistCapacity);
 
                         setOptionalString(event, "setDescription", description);
+
+                        // TODO: Upload or Update poster image and update URL
+                        // if (newImageSelected) {
+                        //    uploadImage(newImageUri, url -> {
+                        //        event.setPosterUrl(url);
+                        //        saveEventToFirestore(event);
+                        //    });
+                        // } else {
+                        //    saveEventToFirestore(event);
+                        // }
 
                         // store geo settings only in the geo/address subdocument
                         EventAddress updatedAddress = event.getAddress();

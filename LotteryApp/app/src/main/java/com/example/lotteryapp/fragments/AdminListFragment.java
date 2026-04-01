@@ -3,9 +3,11 @@ package com.example.lotteryapp.fragments;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -17,6 +19,7 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
@@ -26,6 +29,7 @@ import com.example.lotteryapp.models.User;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.AdminStorage;
 import com.google.android.material.button.MaterialButton;
+import com.google.firebase.storage.StorageReference;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +53,12 @@ public class AdminListFragment extends Fragment {
     private View progressBar;
     private View tvEmpty;
     private AdminAdapter adapter;
+
+    // Storage navigation
+    private StorageReference currentStorageFolder;
+    private View layoutPathNav;
+    private TextView tvCurrentPath;
+    private ImageButton btnNavBack;
 
     private List<Object> allItems = new ArrayList<>();
     private String filterText = "";
@@ -75,6 +85,9 @@ public class AdminListFragment extends Fragment {
         if (getArguments() != null) {
             type = getArguments().getString(ARG_TYPE);
         }
+        if (TYPE_IMAGES.equals(type)) {
+            currentStorageFolder = ServiceLocator.getFirebase().getStorage().getReference();
+        }
     }
 
     /**
@@ -88,11 +101,44 @@ public class AdminListFragment extends Fragment {
         progressBar = view.findViewById(R.id.progress_bar);
         tvEmpty = view.findViewById(R.id.tv_empty);
 
+        layoutPathNav = view.findViewById(R.id.layout_path_navigation);
+        tvCurrentPath = view.findViewById(R.id.tv_current_path);
+        btnNavBack = view.findViewById(R.id.btn_nav_back);
+
+        if (TYPE_IMAGES.equals(type)) {
+            layoutPathNav.setVisibility(View.VISIBLE);
+            btnNavBack.setOnClickListener(v -> navigateUp());
+            updatePathUI();
+        }
+
         recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new AdminAdapter();
         recyclerView.setAdapter(adapter);
 
         return view;
+    }
+
+    private void updatePathUI() {
+        if (tvCurrentPath != null && currentStorageFolder != null) {
+            String path = currentStorageFolder.getPath();
+            tvCurrentPath.setText(path.equals("/") ? "Root" : path);
+            btnNavBack.setEnabled(!path.equals("/"));
+            btnNavBack.setAlpha(path.equals("/") ? 0.5f : 1.0f);
+        }
+    }
+
+    private void navigateUp() {
+        if (currentStorageFolder != null && !currentStorageFolder.getPath().equals("/")) {
+            currentStorageFolder = currentStorageFolder.getParent();
+            updatePathUI();
+            loadData();
+        }
+    }
+
+    private void navigateToFolder(StorageReference folder) {
+        currentStorageFolder = folder;
+        updatePathUI();
+        loadData();
     }
 
     /**
@@ -136,12 +182,26 @@ public class AdminListFragment extends Fragment {
             return;
         }
 
-        // TODO: Implement loading all images from Firestore "images" collection
-        // note: image collection does not exist, still haven't figured out the best way to do images
+        // File viewer mode for Firebase Storage
         if (TYPE_IMAGES.equals(type)) {
-            progressBar.setVisibility(View.GONE);
-            tvEmpty.setVisibility(View.VISIBLE);
-            adapter.setItems(new ArrayList<>());
+            progressBar.setVisibility(View.VISIBLE);
+            if (currentStorageFolder == null) {
+                currentStorageFolder = ServiceLocator.getFirebase().getStorage().getReference();
+            }
+
+            currentStorageFolder.listAll().addOnSuccessListener(listResult -> {
+                allItems.clear();
+                // Folders come first
+                allItems.addAll(listResult.getPrefixes());
+                // Then files
+                allItems.addAll(listResult.getItems());
+                applyFilterAndSort();
+            }).addOnFailureListener(e -> {
+                Log.e("AdminListFragment", "Failed to list storage content", e);
+                progressBar.setVisibility(View.GONE);
+                tvEmpty.setVisibility(View.VISIBLE);
+                Toast.makeText(getContext(), "Failed to load storage", Toast.LENGTH_SHORT).show();
+            });
             return;
         }
 
@@ -194,6 +254,14 @@ public class AdminListFragment extends Fragment {
                     return name.contains(filterText);
                 })
                 .sorted((o1, o2) -> {
+                    // Always put folders at the top in storage view
+                    if (TYPE_IMAGES.equals(type)) {
+                        boolean isFolder1 = isStorageFolder(o1);
+                        boolean isFolder2 = isStorageFolder(o2);
+                        if (isFolder1 && !isFolder2) return -1;
+                        if (!isFolder1 && isFolder2) return 1;
+                    }
+                    
                     String n1 = getItemDisplayName(o1);
                     String n2 = getItemDisplayName(o2);
                     return sortAscending ? n1.compareToIgnoreCase(n2) : n2.compareToIgnoreCase(n1);
@@ -203,6 +271,20 @@ public class AdminListFragment extends Fragment {
         progressBar.setVisibility(View.GONE);
         adapter.setItems(filtered);
         tvEmpty.setVisibility(filtered.isEmpty() ? View.VISIBLE : View.GONE);
+    }
+
+    private boolean isStorageFolder(Object item) {
+        if (!(item instanceof StorageReference)) return false;
+        // StorageReference.listAll() prefixes are folders, items are files.
+        // We can't easily distinguish them later without context,
+        // so we check if it was in the getPrefixes() part.
+        // A hacky but effective way is to see if it has a file extension or not,
+        // but it's better to handle it in the adapter where we know.
+        // Actually, prefixes and items are both StorageReferences.
+        return allItems.stream()
+                .filter(it -> it instanceof StorageReference)
+                .limit(adapter.folderCount)
+                .anyMatch(it -> it == item);
     }
 
     private String getItemDisplayName(Object item) {
@@ -228,6 +310,10 @@ public class AdminListFragment extends Fragment {
 
         if (item instanceof NotificationLog) {
             return formatNotificationRow((NotificationLog) item);
+        }
+
+        if (item instanceof StorageReference) {
+            return ((StorageReference) item).getName();
         }
 
         return "Unknown Item";
@@ -258,14 +344,19 @@ public class AdminListFragment extends Fragment {
         switch (type) {
             case INVITATION:
                 typeStr = "Invitation";
+                break;
             case LOTTERY_RESULT:
                 typeStr = "Lottery Result";
+                break;
             case MESSAGE:
                 typeStr = "Message";
+                break;
             case COMMENT:
                 typeStr = "Comment";
+                break;
             default:
                 typeStr = "Notification";
+                break;
         }
         return typeStr;
     }
@@ -273,39 +364,138 @@ public class AdminListFragment extends Fragment {
     /**
      * Adapter for the RecyclerView in the fragment
      */
-    private class AdminAdapter extends RecyclerView.Adapter<AdminAdapter.ViewHolder> {
+    private class AdminAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
+        private static final int VIEW_TYPE_DEFAULT = 0;
+        private static final int VIEW_TYPE_IMAGE = 1;
+        private static final int VIEW_TYPE_FOLDER = 2;
+
         private List<Object> displayItems = new ArrayList<>();
+        private int folderCount = 0;
 
         /**
          * Replaces the displayed items in the adapter
          */
         public void setItems(List<Object> items) {
             this.displayItems = items;
+            // Recalculate folder count based on original allItems list if possible, 
+            // or just identify them here.
+            this.folderCount = 0;
+            // Since we sorted folders to the top in applyFilterAndSort, we can count them
+            for (Object item : items) {
+                if (item instanceof StorageReference && isStorageFolderReference((StorageReference) item)) {
+                    folderCount++;
+                } else {
+                    break; 
+                }
+            }
             notifyDataSetChanged();
+        }
+
+        private boolean isStorageFolderReference(StorageReference ref) {
+            return allItems.indexOf(ref) < getPrefixCount();
+        }
+
+        private int getPrefixCount() {
+            return 0; // fallback
+        }
+
+        @Override
+        public int getItemViewType(int position) {
+            if (TYPE_IMAGES.equals(type)) {
+                Object item = displayItems.get(position);
+                if (item instanceof StorageReference) {
+                    // Check if it's an image based on extension or prefix list
+                    String name = ((StorageReference) item).getName().toLowerCase();
+                    boolean isImage = name.endsWith(".jpg") || name.endsWith(".jpeg") || 
+                                     name.endsWith(".png") || name.endsWith(".webp");
+                    
+                    // We also need to know if it's a prefix (folder). 
+                    // Let's use a simpler heuristic for now: if it's in the listResult.prefixes it's a folder.
+                    // I will change the allItems to hold a custom wrapper to make this robust, maybe
+                    if (isImage) return VIEW_TYPE_IMAGE;
+                    return VIEW_TYPE_FOLDER;
+                }
+            }
+            return VIEW_TYPE_DEFAULT;
         }
 
         ///  create new view holder
         @NonNull
         @Override
-        public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            if (viewType == VIEW_TYPE_IMAGE) {
+                View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_admin_image, parent, false);
+                return new ImageViewHolder(view);
+            }
+            if (viewType == VIEW_TYPE_FOLDER) {
+                View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_settings, parent, false);
+                return new FolderViewHolder(view);
+            }
             View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_settings, parent, false);
             return new ViewHolder(view);
         }
 
         /// bind data to new view holder
         @Override
-        public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+        public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
             Object item = displayItems.get(position);
-            holder.title.setText(getItemDisplayName(item));
-            holder.itemView.setOnClickListener(v -> {
-                if (TYPE_REQUESTED_ADMINS.equals(type) && item instanceof User) {
-                    showPromoteNewAdminDialog((User) item);
-                } else if (item instanceof NotificationLog) {
-                    showNotificationLogDialog((NotificationLog) item);
-                } else {
-                openDetails(item);
-                }
-            });
+
+            if (holder instanceof ImageViewHolder) {
+                ImageViewHolder imgHolder = (ImageViewHolder) holder;
+                StorageReference fileRef = (StorageReference) item;
+                imgHolder.title.setText(fileRef.getName());
+
+                // Fetch download URL to display with Glide
+                fileRef.getDownloadUrl().addOnSuccessListener(uri -> {
+                    if (isAdded()) {
+                        Glide.with(imgHolder.itemView.getContext())
+                                .load(uri)
+                                .placeholder(R.drawable.ic_image_placeholder)
+                                .error(R.drawable.ic_image_placeholder)
+                                .into(imgHolder.poster);
+                    }
+                }).addOnFailureListener(e -> {
+                    imgHolder.poster.setImageResource(R.drawable.ic_image_placeholder);
+                });
+
+                imgHolder.btnDelete.setOnClickListener(v -> deleteStorageFile(fileRef));
+            }
+            else if (holder instanceof FolderViewHolder) {
+                FolderViewHolder folderHolder = (FolderViewHolder) holder;
+                StorageReference folderRef = (StorageReference) item;
+                folderHolder.title.setText(folderRef.getName());
+                folderHolder.icon.setImageResource(R.drawable.ic_manage); // Use a folder-like icon
+                folderHolder.itemView.setOnClickListener(v -> navigateToFolder(folderRef));
+            }
+            else {
+                ViewHolder vh = (ViewHolder) holder;
+                vh.title.setText(getItemDisplayName(item));
+                vh.itemView.setOnClickListener(v -> {
+                    if (TYPE_REQUESTED_ADMINS.equals(type) && item instanceof User) {
+                        showPromoteNewAdminDialog((User) item);
+                    } else if (item instanceof NotificationLog) {
+                        showNotificationLogDialog((NotificationLog) item);
+                    } else {
+                        openDetails(item);
+                    }
+                });
+            }
+        }
+
+        private void deleteStorageFile(StorageReference fileRef) {
+            new AlertDialog.Builder(requireContext())
+                    .setTitle("Delete Image")
+                    .setMessage("Are you sure you want to delete " + fileRef.getName() + " from Firebase Storage?")
+                    .setPositiveButton("Delete", (dialog, which) -> {
+                        fileRef.delete().addOnSuccessListener(unused -> {
+                            Toast.makeText(requireContext(), "File deleted", Toast.LENGTH_SHORT).show();
+                            loadData();
+                        }).addOnFailureListener(e -> {
+                            Toast.makeText(requireContext(), "Failed to delete file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        });
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
         }
 
         /**
@@ -410,6 +600,29 @@ public class AdminListFragment extends Fragment {
             ViewHolder(View view) {
                 super(view);
                 title = view.findViewById(R.id.tv_settings_name);
+            }
+        }
+
+        class ImageViewHolder extends RecyclerView.ViewHolder {
+            ImageView poster;
+            TextView title;
+            MaterialButton btnDelete;
+
+            ImageViewHolder(View view) {
+                super(view);
+                poster = view.findViewById(R.id.iv_admin_poster);
+                title = view.findViewById(R.id.tv_admin_event_title);
+                btnDelete = view.findViewById(R.id.btn_admin_delete_image);
+            }
+        }
+
+        class FolderViewHolder extends RecyclerView.ViewHolder {
+            TextView title;
+            ImageView icon;
+            FolderViewHolder(View view) {
+                super(view);
+                title = view.findViewById(R.id.tv_settings_name);
+                icon = view.findViewById(R.id.iv_arrow); // Reusing arrow as placeholder for folder icon
             }
         }
     }
