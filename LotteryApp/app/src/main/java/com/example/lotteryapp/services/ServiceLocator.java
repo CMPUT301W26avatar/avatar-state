@@ -32,6 +32,8 @@ public final class ServiceLocator {
     private static @Nullable UserIdProvider overrideUserIdProvider = null;
 
     private static @Nullable NotificationLogStorage overrideNotificationLogStorage = null;
+    private static @Nullable TicketService overrideTicketService = null;
+
 
     private ServiceLocator() {}
 
@@ -88,6 +90,11 @@ public final class ServiceLocator {
         return new NotificationLogStorage(getFirebase().getDb());
     }
 
+    public static TicketService getTicketService() {
+        if (overrideTicketService != null) return overrideTicketService;
+        return new TicketService();
+    }
+
     // ---- Test-only overrides ----
 
     public static void setFirebaseServiceForTests(@Nullable FirebaseService svc) {
@@ -123,6 +130,10 @@ public final class ServiceLocator {
         overrideNotificationLogStorage = s;
     }
 
+    public static void setTicketServiceForTests(@Nullable TicketService s) {
+        overrideTicketService = s;
+    }
+
     // Call in @After to avoid leaks across tests
     public static void reset() {
         overrideFirebaseService = null;
@@ -134,5 +145,6 @@ public final class ServiceLocator {
         overrideAuthService = null;
         overrideUserNameService = null;
         overrideNotificationLogStorage = null;
+        overrideTicketService = null;
     }
 }

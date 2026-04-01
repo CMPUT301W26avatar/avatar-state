@@ -236,4 +236,32 @@ public class NotificationLogStorage {
                 })
                 .addOnFailureListener(onFailure);
     }
+
+    public void getPrivateInviteEventIdsForUser(
+            String entrantId,
+            OnSuccessListener<List<String>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collection("notifications")   // adjust if your collection name differs
+                .whereEqualTo("userId", entrantId)
+                .whereEqualTo("type", "PRIVATE_INVITATION")
+                .whereEqualTo("status", "PENDING")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> eventIds = new ArrayList<>();
+
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String eventId = doc.getString("eventId");
+
+                        if (eventId != null
+                                && !eventId.trim().isEmpty()
+                                && !eventIds.contains(eventId)) {
+                            eventIds.add(eventId);
+                        }
+                    }
+
+                    onSuccess.onSuccess(eventIds);
+                })
+                .addOnFailureListener(onFailure);
+    }
 }

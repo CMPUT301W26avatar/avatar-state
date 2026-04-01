@@ -46,6 +46,7 @@ import com.example.lotteryapp.models.EventJoinedMap;
 import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.models.QRCode;
 import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.models.UserEventHistory;
 import com.example.lotteryapp.services.ProfanityFilter;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
@@ -348,32 +349,26 @@ public class EventDetailsActivity extends AppCompatActivity {
                     setupEntrantActions(currentEvent);
                 }
 
-                LinearLayout listOfX = findViewById(R.id.list_of_x_container);
-                TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
+                //LinearLayout listOfX = findViewById(R.id.list_of_x_container);
+                //TextView tvEntrants = findViewById(R.id.tv_list_of_entrants);
                 if (canManageEvent(event)) {
-                    listOfX.setVisibility(VISIBLE);
+                    //listOfX.setVisibility(VISIBLE);
+
                     Event.EventStatus status = event.getStatus();
-                    tvEventVisibilityTag.setBackgroundTintList(
-                            ColorStateList.valueOf(getResources().getColor(R.color.tag_public))
-                    );
                     if (isPrivateEvent(event)) {
-                        tvEntrants.setText("Invited / Enrolled");
-                        tvEventVisibilityTag.setText("PRIVATE");
-                        tvEventVisibilityTag.setBackgroundTintList(
-                                ColorStateList.valueOf(getResources().getColor(R.color.tag_private))
-                        );
+                        //tvEntrants.setText("Invited / Enrolled");
                         listEntrants(eventId);
                     } else if (status == REG_OPEN || status == REG_FULL || status == REG_CLOSED) {
                         listWaitlisted(eventId);
                     } else if (status == EVENT_OPEN || status == EVENT_FULL) {
                         listEntrants(eventId);
                     } else if (status == EVENT_CLOSED) {
-                        tvEntrants.setText("Final Entrants");
+                        //tvEntrants.setText("Final Entrants");
                         listEntrants(eventId);
                     }
 
                 } else {
-                    listOfX.setVisibility(GONE);
+                    //listOfX.setVisibility(GONE);
                 }
             },
             e -> {
@@ -671,14 +666,15 @@ public class EventDetailsActivity extends AppCompatActivity {
         boolean hasSentInvites = event.hasDrawnLottery();
 
         if (isPrivate) {
-            // Before the lottery has been run, organizer can keep searching for users
-            // while registration is still open.
-            if (!hasSentInvites && status == REG_OPEN) {
+            boolean eventClosed = status == EVENT_CLOSED;
+
+            // For private events, organizers should be able to search/invite users
+            // until the lottery has actually started or the event is closed.
+            if (!hasSentInvites && !eventClosed) {
                 btnSearchForUsers.setVisibility(View.VISIBLE);
                 btnSearchForUsers.setEnabled(true);
                 btnSearchForUsers.setText("Search for users to Invite");
                 btnSearchForUsers.setOnClickListener(v -> openInviteUserSearch());
-                return;
             }
 
             // Once private waitlist is full / registration closes, organizer should start lottery.
@@ -692,11 +688,13 @@ public class EventDetailsActivity extends AppCompatActivity {
                 btnShowInvitesDashboard.setEnabled(true);
                 btnShowInvitesDashboard.setText("Lottery Selection Dashboard");
                 btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
-                return;
             }
 
             // After the lottery has been run, organizer manages invites and can redraw until the event is closed.
             if (hasSentInvites) {
+                btnSearchForUsers.setVisibility(View.GONE);
+                btnSearchForUsers.setEnabled(false);
+
                 btnShowInvitesDashboard.setVisibility(View.VISIBLE);
                 btnShowInvitesDashboard.setEnabled(true);
                 btnShowInvitesDashboard.setText("Lottery Selection Dashboard");
@@ -708,7 +706,6 @@ public class EventDetailsActivity extends AppCompatActivity {
                     btnBeginLotterySelection.setText("Re-draw applicants");
                     btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
                 }
-                return;
             }
 
             return;
@@ -914,6 +911,18 @@ public class EventDetailsActivity extends AppCompatActivity {
             tvLocation.setText("Location unavailable");
         }
 
+        if (isPrivateEvent(event)) {
+            tvEventVisibilityTag.setText("PRIVATE");
+            tvEventVisibilityTag.setBackgroundTintList(
+                    ColorStateList.valueOf(getResources().getColor(R.color.tag_private))
+            );
+        } else {
+            tvEventVisibilityTag.setText("PUBLIC");
+            tvEventVisibilityTag.setBackgroundTintList(
+                    ColorStateList.valueOf(getResources().getColor(R.color.tag_public))
+            );
+        }
+
         if (event.getDescription() != null && !event.getDescription().trim().isEmpty()) {
             tvDescription.setText(event.getDescription());
         } else {
@@ -961,6 +970,59 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminWaitlistCount.setText("waitlistCount: " + event.getWaitlistCount());
         tvAdminRegStart.setText("regStartMs: " + event.getRegStartMs());
         tvAdminPosterUrl.setText("posterUrl: " + (event.getPosterUrl() != null ? "\"" + event.getPosterUrl() + "\"" : "null"));
+    }
+
+    private void setupQrCode() {
+        qrCode = new QRCode(eventId);
+        Bitmap qrCodeBitMap = qrCode.getBitmap();
+
+        btnQRCodeIcon.setVisibility(VISIBLE);
+        btnQRCodeIcon.setOnClickListener(v -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(v.getContext());
+            View view = LayoutInflater.from(v.getContext()).inflate(R.layout.dialog_qr_code, null);
+            builder.setView(view);
+
+            AlertDialog dialog = builder.create();
+            dialog.show();
+
+            ImageView imgQrCode = view.findViewById(R.id.img_event_qr_code);
+
+            ImageButton btnCloseQrDialog = view.findViewById(R.id.btn_close_qr_dialog);
+            btnCloseQrDialog.setOnClickListener(v1 -> {
+                dialog.dismiss();
+            });
+
+            Button btnDownloadQrCode = view.findViewById(R.id.btn_download_qr_code);
+            btnDownloadQrCode.setOnClickListener(v1 -> {
+
+                Runnable downloadAction = () -> {
+                    Intent downloadIntent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    // filter to only show openable items.
+                    downloadIntent.addCategory(Intent.CATEGORY_OPENABLE);
+
+                    // Create a file with the requested Mime type
+                    downloadIntent.setType("image/png");
+                    downloadIntent.putExtra(Intent.EXTRA_TITLE, "EVENT-" + eventId + "-QR-CODE.png");
+                    resultLauncher.launch(downloadIntent);
+                };
+
+                // Run download action on separate thread as to not
+                // slow down the current UI thread
+                Thread downloadThread = new Thread(downloadAction);
+                downloadThread.start();
+
+                dialog.dismiss();
+            });
+
+            Glide
+                    .with(v.getContext())
+                    .load(qrCodeBitMap)
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .into(imgQrCode);
+
+            dialog.show();
+        });
     }
 
     /**
@@ -1021,6 +1083,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         waitlistCurrentUser();
+
     }
 
     /**
@@ -1036,14 +1099,17 @@ public class EventDetailsActivity extends AppCompatActivity {
                 unused -> removeJoinedMapForCurrentUser(
                         () -> {
                             Toast.makeText(this, "Left waitlist!", Toast.LENGTH_SHORT).show();
-                            currentStatus = null;
-                            loadEvent();
+                            currentStatus = null;  // entrant status
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.LEFT_WAITLIST); // history status
+
                         },
                         () -> {
                             Toast.makeText(this, "Left waitlist, but failed to remove joined map.", Toast.LENGTH_SHORT).show();
-                            currentStatus = null;
-                            loadEvent();
+                            currentStatus = null;  // entrant status
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.LEFT_WAITLIST); // history status
+
                         }
+
                 ),
                 e -> {
                     Toast.makeText(this, "Failed to leave waitlist.", Toast.LENGTH_SHORT).show();
@@ -1068,150 +1134,20 @@ public class EventDetailsActivity extends AppCompatActivity {
                 unused -> upsertJoinedMapForCurrentUser(
                         () -> {
                             Toast.makeText(this, "Waitlisted!", Toast.LENGTH_SHORT).show();
-                            currentStatus = WAITLISTED;
-                            loadEvent();
+                            currentStatus = WAITLISTED;  // entrant status
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.WAITLISTED); // history status
                         },
                         () -> {
                             Toast.makeText(this, "Waitlisted, but failed to save joined map.", Toast.LENGTH_SHORT).show();
-                            currentStatus = WAITLISTED;
-                            loadEvent();
+                            currentStatus = WAITLISTED;  // entrant status
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.WAITLISTED); // history status
+
                         }
                 ),
                 e -> {
                     Toast.makeText(this, "Failed to waitlist", Toast.LENGTH_SHORT).show();
                     Log.e(MY_TAG, "Operation failed: " + e.getMessage(), e);
                     btnJoin.setEnabled(true);
-                }
-        );
-    }
-
-    /**
-     * Resolves the user's best available address for geo checks and joined_map snapshots.
-     * The selected address mode is tried first, then the opposite mode is used as a fallback.
-     */
-    private void resolveBestAddressForCurrentUser(
-            com.google.android.gms.tasks.OnSuccessListener<com.example.lotteryapp.models.UserAddress> onSuccess,
-            com.google.android.gms.tasks.OnFailureListener onFailure
-    ) {
-        userStorage.getUserProfile(
-                currentUserId,
-                user -> {
-                    User.UserAddressMode preferredMode = user.getAddressMode() != null
-                            ? user.getAddressMode()
-                            : User.UserAddressMode.DEFAULT;
-
-                    User.UserAddressMode fallbackMode =
-                            preferredMode == User.UserAddressMode.CURRENT
-                                    ? User.UserAddressMode.DEFAULT
-                                    : User.UserAddressMode.CURRENT;
-
-                    loadAddressForJoinedMap(preferredMode, address -> {
-                        if (isUsableJoinedMapAddress(address)) {
-                            onSuccess.onSuccess(address);
-                            return;
-                        }
-
-                        loadAddressForJoinedMap(fallbackMode, fallbackAddress -> {
-                            if (isUsableJoinedMapAddress(fallbackAddress)) {
-                                onSuccess.onSuccess(fallbackAddress);
-                            } else {
-                                onFailure.onFailure(new IllegalStateException("No usable address found for geo check"));
-                            }
-                        }, onFailure);
-                    }, e -> loadAddressForJoinedMap(fallbackMode, fallbackAddress -> {
-                        if (isUsableJoinedMapAddress(fallbackAddress)) {
-                            onSuccess.onSuccess(fallbackAddress);
-                        } else {
-                            onFailure.onFailure(new IllegalStateException("No usable address found for geo check"));
-                        }
-                    }, onFailure));
-                },
-                onFailure
-        );
-    }
-
-    /**
-     * After the user successfully joins the waitlist, upsert their joined_map document.
-     * This stores a snapshot of the user's address for this event
-     */
-    private void upsertJoinedMapForCurrentUser(
-            Runnable onSuccess,
-            Runnable onFailure
-    ) {
-        resolveBestAddressForCurrentUser(
-                address -> writeJoinedMap(address, onSuccess, onFailure),
-                e -> {
-                    Log.e(MY_TAG, "Failed to resolve a usable address for joined_map upsert", e);
-                    onFailure.run();
-                }
-        );
-    }
-
-    /**
-     * Remove the current user's joined_map document for this event.
-     */
-    private void removeJoinedMapForCurrentUser(
-            Runnable onSuccess,
-            Runnable onFailure
-    ) {
-        eventStorage.removeEventJoinedMap(
-                eventId,
-                currentUserId,
-                unused -> onSuccess.run(),
-                e -> {
-                    Log.e(MY_TAG, "Failed to remove joined_map document", e);
-                    onFailure.run();
-                }
-        );
-    }
-
-    /**
-     * Gets the current users selected (current or default) location from firebase
-     */
-    private void loadAddressForJoinedMap(
-            User.UserAddressMode addressMode,
-            com.google.android.gms.tasks.OnSuccessListener<com.example.lotteryapp.models.UserAddress> onSuccess,
-            com.google.android.gms.tasks.OnFailureListener onFailure
-    ) {
-        userStorage.getPreferredUserAddress(
-                currentUserId,
-                addressMode,
-                onSuccess,
-                onFailure
-        );
-    }
-
-    /**
-     * Check if the address for an event or user is valid
-     */
-    private boolean isUsableJoinedMapAddress(com.example.lotteryapp.models.UserAddress address) {
-        return address != null
-                && address.getLatitude() != null
-                && address.getLongitude() != null;
-    }
-
-    /**
-     * Write the users selected address into the joined map document for an event
-     *      represents a snaphot of the users location when they joined the event
-     */
-    private void writeJoinedMap(
-            com.example.lotteryapp.models.UserAddress address,
-            Runnable onSuccess,
-            Runnable onFailure
-    ) {
-        EventJoinedMap joinedMap = new EventJoinedMap(
-                eventId,
-                address,
-                System.currentTimeMillis()
-        );
-
-        eventStorage.setEventJoinedMap(
-                eventId,
-                joinedMap,
-                unused -> onSuccess.run(),
-                e -> {
-                    Log.e(MY_TAG, "Failed to upsert joined_map document", e);
-                    onFailure.run();
                 }
         );
     }
@@ -1231,8 +1167,8 @@ public class EventDetailsActivity extends AppCompatActivity {
                 entrant,
                 unused -> {
                     Toast.makeText(this, "Enrolled!", Toast.LENGTH_SHORT).show();
-                    currentStatus = ENROLLED;
-                    loadEvent();
+                    currentStatus = ENROLLED; // entrant status
+                    logHistoryThenRefresh(UserEventHistory.HistoryStatus.ENROLLED); // history status
                 },
                 e -> {
                     Toast.makeText(this, "Failed to enroll", Toast.LENGTH_SHORT).show();
@@ -1250,19 +1186,19 @@ public class EventDetailsActivity extends AppCompatActivity {
     private void declineInvitation() {
         btnDecline.setEnabled(false);
 
-        eventPoolStorage.removeFromWaitlist(
+        eventPoolStorage.removeFromInvited(
                 eventId,
                 currentUserId,
                 unused -> removeJoinedMapForCurrentUser(
                         () -> {
                             Toast.makeText(this, "Invitation declined!", Toast.LENGTH_SHORT).show();
                             currentStatus = DECLINED;
-                            loadEvent();
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.DECLINED);
                         },
                         () -> {
                             Toast.makeText(this, "Invitation declined, but failed to remove joined map.", Toast.LENGTH_SHORT).show();
                             currentStatus = DECLINED;
-                            loadEvent();
+                            logHistoryThenRefresh(UserEventHistory.HistoryStatus.DECLINED);
                         }
                 ),
                 e -> {
@@ -1285,8 +1221,8 @@ public class EventDetailsActivity extends AppCompatActivity {
                 currentUserId,
                 unused -> {
                     Toast.makeText(this, "Unenrolled!", Toast.LENGTH_SHORT).show();
-                    currentStatus = null;
-                    loadEvent();
+                    currentStatus = null;   // entrant status
+                    logHistoryThenRefresh(UserEventHistory.HistoryStatus.UNENROLLED);
                 },
                 e -> {
                     Toast.makeText(this, "Failed to unenroll", Toast.LENGTH_SHORT).show();
@@ -1422,57 +1358,158 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
-    private void setupQrCode() {
-        qrCode = new QRCode(eventId);
-        Bitmap qrCodeBitMap = qrCode.getBitmap();
+    /**
+     * Writes a user event history entry after a successful entrant status change.
+     * History write failures are logged but do not roll back the primary event action.
+     */
+    private void logCurrentUserEventHistory(UserEventHistory.HistoryStatus status) {
+        userStorage.addUserEventHistoryEntry(
+                currentUserId,
+                eventId,
+                status,
+                System.currentTimeMillis(),
+                unused -> { },
+                e -> Log.e(MY_TAG, "Failed to write user event history", e)
+        );
+    }
 
-        btnQRCodeIcon.setVisibility(VISIBLE);
-        btnQRCodeIcon.setOnClickListener(v -> {
-            AlertDialog.Builder builder = new AlertDialog.Builder(v.getContext());
-            View view = LayoutInflater.from(v.getContext()).inflate(R.layout.dialog_qr_code, null);
-            builder.setView(view);
+    /**
+     * Helper for actions where UI should refresh after writing history.
+     */
+    private void logHistoryThenRefresh(UserEventHistory.HistoryStatus status) {
 
-            AlertDialog dialog = builder.create();
-            dialog.show();
+        userStorage.addUserEventHistoryEntry(
+                currentUserId,
+                eventId,
+                status,
+                System.currentTimeMillis(),
+                unused -> loadEvent(),
+                e -> {
+                    Log.e(MY_TAG, "Failed to write user event history", e);
+                    loadEvent();
+                }
+        );
+    }
 
-            ImageView imgQrCode = view.findViewById(R.id.img_event_qr_code);
+    /**
+     * Resolves the user's best available address for geo checks and joined_map snapshots.
+     * The selected address mode is tried first, then the opposite mode is used as a fallback.
+     */
+    private void resolveBestAddressForCurrentUser(
+            com.google.android.gms.tasks.OnSuccessListener<com.example.lotteryapp.models.UserAddress> onSuccess,
+            com.google.android.gms.tasks.OnFailureListener onFailure
+    ) {
+        userStorage.getUserProfile(
+                currentUserId,
+                user -> {
+                    User.UserAddressMode preferredMode = user.getAddressMode() != null
+                            ? user.getAddressMode()
+                            : User.UserAddressMode.DEFAULT;
 
-            ImageButton btnCloseQrDialog = view.findViewById(R.id.btn_close_qr_dialog);
-            btnCloseQrDialog.setOnClickListener(v1 -> {
-                dialog.dismiss();
-            });
+                    User.UserAddressMode fallbackMode =
+                            preferredMode == User.UserAddressMode.CURRENT
+                                    ? User.UserAddressMode.DEFAULT
+                                    : User.UserAddressMode.CURRENT;
 
-            Button btnDownloadQrCode = view.findViewById(R.id.btn_download_qr_code);
-            btnDownloadQrCode.setOnClickListener(v1 -> {
+                    loadAddressForJoinedMap(preferredMode, address -> {
+                        if (isUsableJoinedMapAddress(address)) {
+                            onSuccess.onSuccess(address);
+                            return;
+                        }
 
-                Runnable downloadAction = () -> {
-                    Intent downloadIntent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                    // filter to only show openable items.
-                    downloadIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                        loadAddressForJoinedMap(fallbackMode, fallbackAddress -> {
+                            if (isUsableJoinedMapAddress(fallbackAddress)) {
+                                onSuccess.onSuccess(fallbackAddress);
+                            } else {
+                                onFailure.onFailure(new IllegalStateException("No usable address found for geo check"));
+                            }
+                        }, onFailure);
+                    }, e -> loadAddressForJoinedMap(fallbackMode, fallbackAddress -> {
+                        if (isUsableJoinedMapAddress(fallbackAddress)) {
+                            onSuccess.onSuccess(fallbackAddress);
+                        } else {
+                            onFailure.onFailure(new IllegalStateException("No usable address found for geo check"));
+                        }
+                    }, onFailure));
+                },
+                onFailure
+        );
+    }
 
-                    // Create a file with the requested Mime type
-                    downloadIntent.setType("image/png");
-                    downloadIntent.putExtra(Intent.EXTRA_TITLE, "EVENT-" + eventId + "-QR-CODE.png");
-                    resultLauncher.launch(downloadIntent);
-                };
+    /**
+     * After the user successfully joins the waitlist, upsert their joined_map document.
+     * This stores a snapshot of the user's address for this event
+     */
+    private void upsertJoinedMapForCurrentUser(
+            Runnable onSuccess,
+            Runnable onFailure
+    ) {
+        resolveBestAddressForCurrentUser(
+                address -> writeJoinedMap(address, onSuccess, onFailure),
+                e -> {
+                    Log.e(MY_TAG, "Failed to resolve a usable address for joined_map upsert", e);
+                    onFailure.run();
+                }
+        );
+    }
 
-                // Run download action on separate thread as to not
-                // slow down the current UI thread
-                Thread downloadThread = new Thread(downloadAction);
-                downloadThread.start();
+    /**
+     * Remove the current user's joined_map document for this event.
+     */
+    private void removeJoinedMapForCurrentUser(
+            Runnable onSuccess,
+            Runnable onFailure
+    ) {
+        eventStorage.removeEventJoinedMap(
+                eventId,
+                currentUserId,
+                unused -> onSuccess.run(),
+                e -> {
+                    Log.e(MY_TAG, "Failed to remove joined_map document", e);
+                    onFailure.run();
+                }
+        );
+    }
 
-                dialog.dismiss();
-            });
+    private void loadAddressForJoinedMap(
+            User.UserAddressMode addressMode,
+            com.google.android.gms.tasks.OnSuccessListener<com.example.lotteryapp.models.UserAddress> onSuccess,
+            com.google.android.gms.tasks.OnFailureListener onFailure
+    ) {
+        userStorage.getPreferredUserAddress(
+                currentUserId,
+                addressMode,
+                onSuccess,
+                onFailure
+        );
+    }
 
-            Glide
-                    .with(v.getContext())
-                    .load(qrCodeBitMap)
-                    .centerCrop()
-                    .placeholder(R.drawable.ic_image_placeholder)
-                    .into(imgQrCode);
+    private boolean isUsableJoinedMapAddress(com.example.lotteryapp.models.UserAddress address) {
+        return address != null
+                && address.getLatitude() != null
+                && address.getLongitude() != null;
+    }
 
-            dialog.show();
-        });
+    private void writeJoinedMap(
+            com.example.lotteryapp.models.UserAddress address,
+            Runnable onSuccess,
+            Runnable onFailure
+    ) {
+        EventJoinedMap joinedMap = new EventJoinedMap(
+                eventId,
+                address,
+                System.currentTimeMillis()
+        );
+
+        eventStorage.setEventJoinedMap(
+                eventId,
+                joinedMap,
+                unused -> onSuccess.run(),
+                e -> {
+                    Log.e(MY_TAG, "Failed to upsert joined_map document", e);
+                    onFailure.run();
+                }
+        );
     }
 
     private void handleScanResult(String contents) {

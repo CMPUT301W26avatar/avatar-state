@@ -289,7 +289,8 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        if ((notification.getType() != NotificationLog.NotificationType.PRIVATE_INVITATION) || (notification.getType() != NotificationLog.NotificationType.COORGANIZER_INVITATION)) {
+        if (notification.getType() != NotificationLog.NotificationType.PRIVATE_INVITATION
+                && notification.getType() != NotificationLog.NotificationType.COORGANIZER_INVITATION) {
             if (notification.getId() == null || notification.getId().trim().isEmpty()) {
                 Toast.makeText(requireContext(), "Missing notification", Toast.LENGTH_SHORT).show();
                 return;
@@ -448,21 +449,11 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        eventPoolStorage.deleteEntryByStatus(
-                notification.getEventId(),
-                uid,
-                Entrant.EntrantStatus.INVITED,
-                unused -> resolveNotification(
-                        position,
-                        notification,
-                        DECLINED.name(),
-                        "Private invite declined"
-                ),
-                e -> Toast.makeText(
-                        requireContext(),
-                        e.getMessage() == null ? "Failed to decline private invite" : e.getMessage(),
-                        Toast.LENGTH_SHORT
-                ).show()
+        resolveNotification(
+                position,
+                notification,
+                DECLINED.name(),
+                "Private invite declined"
         );
     }
 
