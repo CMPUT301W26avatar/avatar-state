@@ -4,5 +4,8 @@
     <color name="white">#FFFFFFFF</color>
     <color name="hazard_button_unpressed">#408B0000</color>
     <color name="event_pin">#FFF01E2C</color>
+    <color name="tag_public">#3300FF00</color>
+    <color name="tag_private">#33FF0000</color>
+
 
 </resources>

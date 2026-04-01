@@ -75,6 +75,28 @@ public class EventStorage {
     }
 
     /**
+     * returns a User document by the composite key eventId+userId from the coorganizer_invites subcollection
+     * Stored under /events/{eventId}/coorganizer_invites/{uid}
+     * Synchronous
+     */
+    private DocumentReference eventCoorganizerInviteDoc(
+            @NonNull String eventId,
+            @NonNull String uid
+    ) {
+        return eventDoc(eventId)
+                .collection("coorganizer_invites")
+                .document(uid);
+    }
+
+    /**
+     * returns a User document in a subcollection from the uuid value
+     * Synchronous
+     */
+    private DocumentReference userDoc(@NonNull String uid) {
+        return db.collection("users").document(uid);
+    }
+
+    /**
      * Returns the comments subcollection for an event.
      * Stored under /events/{eventId}/comments
      */
@@ -229,10 +251,12 @@ public class EventStorage {
         Map<String, Object> data = new HashMap<>();
         data.put("eventId", event.getEventId());
         data.put("organizerId", event.getOrganizerId());
+        data.put("coOrganizerIds", event.getCoOrganizerIds());
         data.put("title", event.getTitle());
         data.put("status", event.getStatus().name());
         data.put("hasDrawnLottery", event.hasDrawnLottery());
         data.put("hasGeoConstraint", event.hasGeoConstraint());
+        data.put("privateEvent", event.isPrivateEvent());
         data.put("eventCapacity", event.getEventCapacity());
         data.put("waitlistCapacity", event.getWaitlistCapacity());
         data.put("enrolledCount", event.getEnrolledCount());
@@ -360,6 +384,9 @@ public class EventStorage {
         event.setEventCapacity(eventCap);
         event.setWaitlistCapacity(waitlistCap);
 
+        List<String> coOrganizerIds = (List<String>) doc.get("coOrganizerIds");
+        event.setCoOrganizerIds(coOrganizerIds);
+
         String rawStatus = doc.getString("status");
         if (rawStatus != null) {
             try {
@@ -378,6 +405,9 @@ public class EventStorage {
 
         Boolean hasGeoConstraint = doc.getBoolean("hasGeoConstraint");
         event.setHasGeoConstraint(hasGeoConstraint != null && hasGeoConstraint);
+
+        Boolean privateEvent = doc.getBoolean("privateEvent");
+        event.setPrivateEvent(privateEvent != null && privateEvent);
 
         event.setTitle(doc.getString("title"));
         event.setPosterUrl(doc.getString("posterUrl"));
@@ -517,6 +547,159 @@ public class EventStorage {
         eventDoc(eventId).delete();
     }
 
+
+    public void inviteCoorganizer(
+            @NonNull String eventId,
+            @NonNull String organizerId,
+            @NonNull String invitedUserId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (eventId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("eventId required"));
+            return;
+        }
+
+        if (organizerId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("organizerId required"));
+            return;
+        }
+
+        if (invitedUserId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("invitedUserId required"));
+            return;
+        }
+
+        if (organizerId.equals(invitedUserId)) {
+            onFailure.onFailure(new IllegalArgumentException("Organizer cannot invite themselves"));
+            return;
+        }
+
+        final DocumentReference eventRef = eventDoc(eventId);
+        final DocumentReference inviteRef = eventCoorganizerInviteDoc(eventId, invitedUserId);
+        final DocumentReference invitedUserRef = userDoc(invitedUserId);
+
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+                    DocumentSnapshot eventSnapshot = transaction.get(eventRef);
+                    if (!eventSnapshot.exists()) {
+                        throw new FirebaseFirestoreException(
+                                "Event not found",
+                                FirebaseFirestoreException.Code.NOT_FOUND
+                        );
+                    }
+
+                    String actualOrganizerId = eventSnapshot.getString("organizerId");
+                    if (actualOrganizerId == null || !actualOrganizerId.equals(organizerId)) {
+                        throw new FirebaseFirestoreException(
+                                "Only the organizer can invite co-organizers",
+                                FirebaseFirestoreException.Code.PERMISSION_DENIED
+                        );
+                    }
+
+                    DocumentSnapshot invitedUserSnapshot = transaction.get(invitedUserRef);
+                    if (!invitedUserSnapshot.exists()) {
+                        throw new FirebaseFirestoreException(
+                                "Invited user not found",
+                                FirebaseFirestoreException.Code.NOT_FOUND
+                        );
+                    }
+
+                    DocumentSnapshot inviteSnapshot = transaction.get(inviteRef);
+                    if (inviteSnapshot.exists()) {
+                        throw new FirebaseFirestoreException(
+                                "Co-organizer invite already sent",
+                                FirebaseFirestoreException.Code.ALREADY_EXISTS
+                        );
+                    }
+
+                    Map<String, Object> inviteData = new HashMap<>();
+                    inviteData.put("eventId", eventId);
+                    inviteData.put("invitedUserId", invitedUserId);
+                    inviteData.put("organizerId", organizerId);
+                    inviteData.put("status", "PENDING");
+                    inviteData.put("createdAt", FieldValue.serverTimestamp());
+                    inviteData.put("updatedAt", FieldValue.serverTimestamp());
+
+                    transaction.set(inviteRef, inviteData);
+
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    public void acceptInviteToBeCoorganizer(
+            @NonNull String eventId,
+            @NonNull String invitedUserId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (eventId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("eventId required"));
+            return;
+        }
+
+        if (invitedUserId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("invitedUserId required"));
+            return;
+        }
+
+        final DocumentReference eventRef = eventDoc(eventId);
+        final DocumentReference inviteRef = eventCoorganizerInviteDoc(eventId, invitedUserId);
+        final DocumentReference invitedUserRef = userDoc(invitedUserId);
+
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+                    DocumentSnapshot eventSnapshot = transaction.get(eventRef);
+                    if (!eventSnapshot.exists()) {
+                        throw new FirebaseFirestoreException(
+                                "Event not found",
+                                FirebaseFirestoreException.Code.NOT_FOUND
+                        );
+                    }
+
+                    DocumentSnapshot invitedUserSnapshot = transaction.get(invitedUserRef);
+                    if (!invitedUserSnapshot.exists()) {
+                        throw new FirebaseFirestoreException(
+                                "Invited user not found",
+                                FirebaseFirestoreException.Code.NOT_FOUND
+                        );
+                    }
+
+                    DocumentSnapshot inviteSnapshot = transaction.get(inviteRef);
+                    if (!inviteSnapshot.exists()) {
+                        throw new FirebaseFirestoreException(
+                                "Co-organizer invite not found",
+                                FirebaseFirestoreException.Code.NOT_FOUND
+                        );
+                    }
+
+                    String storedInvitedUserId = inviteSnapshot.getString("invitedUserId");
+                    if (storedInvitedUserId != null && !invitedUserId.equals(storedInvitedUserId)) {
+                        throw new FirebaseFirestoreException(
+                                "Invite does not belong to this user",
+                                FirebaseFirestoreException.Code.PERMISSION_DENIED
+                        );
+                    }
+
+                    String organizerId = eventSnapshot.getString("organizerId");
+                    if (organizerId != null && organizerId.equals(invitedUserId)) {
+                        throw new FirebaseFirestoreException(
+                                "Organizer cannot accept a co-organizer invite",
+                                FirebaseFirestoreException.Code.INVALID_ARGUMENT
+                        );
+                    }
+
+                    transaction.update(eventRef,
+                            "coOrganizerIds", FieldValue.arrayUnion(invitedUserId),
+                            "updatedAt", FieldValue.serverTimestamp()
+                    );
+
+                    transaction.delete(inviteRef);
+
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
     /**
      * Adds a single comment to an event's comments subcollection.
      */
@@ -654,6 +837,27 @@ public class EventStorage {
                 })
                 .addOnFailureListener(onFailure);
     }
+    public void declineInviteToBeCoorganizer(
+            @NonNull String eventId,
+            @NonNull String invitedUserId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (eventId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("eventId required"));
+            return;
+        }
+
+        if (invitedUserId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("invitedUserId required"));
+            return;
+        }
+
+        eventCoorganizerInviteDoc(eventId, invitedUserId)
+                .delete()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
 
     /** firebase boolean retrieval
      * Returns true or false for if the current user is the organizer for any event
@@ -676,13 +880,42 @@ public class EventStorage {
      * Returns all events by the organizerId given to the method as a parameter
      * Asynchronous: requires OnSuccess and OnFailure listeners
      */
-    public void getEventsByOrganizer(
-            String organizerId,
+    public void getManagedEventsForUser(
+            String userId,
             OnSuccessListener<List<Event>> onSuccess,
             OnFailureListener onFailure
     ) {
-        Query query = db.collection("events").whereEqualTo("organizerId", organizerId);
-        queryEventsWithAddresses(query, onSuccess, onFailure);
+        db.collection("events")
+                .whereEqualTo("organizerId", userId)
+                .get()
+                .addOnSuccessListener(organizerSnapshot -> {
+                    db.collection("events")
+                            .whereArrayContains("coOrganizerIds", userId)
+                            .get()
+                            .addOnSuccessListener(coOrganizerSnapshot -> {
+                                Map<String, Event> merged = new HashMap<>();
+
+                                for (QueryDocumentSnapshot doc : organizerSnapshot) {
+                                    Event e = documentToEvent(doc);
+                                    merged.put(e.getEventId(), e);
+                                }
+
+                                for (QueryDocumentSnapshot doc : coOrganizerSnapshot) {
+                                    Event e = documentToEvent(doc);
+                                    merged.put(e.getEventId(), e);
+                                }
+
+                                List<Event> events = new ArrayList<>(merged.values());
+                                if (events.isEmpty()) {
+                                    onSuccess.onSuccess(events);
+                                    return;
+                                }
+
+                                populateEventAddressesSafely(events, 0, onSuccess);
+                            })
+                            .addOnFailureListener(onFailure);
+                })
+                .addOnFailureListener(onFailure);
     }
 
     /** firebase retrieval
@@ -693,7 +926,7 @@ public class EventStorage {
             OnSuccessListener<List<Event>> onSuccess,
             OnFailureListener onFailure
     ) {
-        Query query = db.collection("events");
+        Query query = db.collection("events").whereEqualTo("privateEvent", false);
         queryEventsWithAddresses(query, onSuccess, onFailure);
     }
 
@@ -736,7 +969,7 @@ public class EventStorage {
             OnFailureListener onFailure
     ) {
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_OPEN.name());
+                .whereEqualTo("status", Event.EventStatus.REG_OPEN.name()).whereEqualTo("privateEvent", false);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);
@@ -756,7 +989,7 @@ public class EventStorage {
             OnFailureListener onFailure
     ) {
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_CLOSED.name());
+                .whereEqualTo("status", Event.EventStatus.REG_CLOSED.name()).whereEqualTo("privateEvent", false);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);
@@ -776,7 +1009,7 @@ public class EventStorage {
             OnFailureListener onFailure
     ) {
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_FULL.name());
+                .whereEqualTo("status", Event.EventStatus.EVENT_OPEN.name()).whereEqualTo("privateEvent", false);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);
@@ -796,7 +1029,7 @@ public class EventStorage {
             OnFailureListener onFailure
     ) {
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_UPCOMING.name());
+                .whereEqualTo("status", Event.EventStatus.REG_UPCOMING.name()).whereEqualTo("privateEvent", false);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);
