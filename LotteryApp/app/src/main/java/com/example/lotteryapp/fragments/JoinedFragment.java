@@ -218,7 +218,11 @@ public class JoinedFragment extends Fragment {
         if (pagerAdapter != null) {
             pagerAdapter.notifyDataSetChanged();
         }
-        updatePagerVisibility();
+
+        // Hide everything while loading (no empty flicker)
+        if (tvJoinedEmpty != null) tvJoinedEmpty.setVisibility(View.GONE);
+        if (joinedEventsPager != null) joinedEventsPager.setVisibility(View.GONE);
+        if (joinedEventDots != null) joinedEventDots.setVisibility(View.GONE);
 
         eventPoolStorage.getEnrolledEventIdsForUser(
                 uid,
@@ -244,10 +248,26 @@ public class JoinedFragment extends Fragment {
             return;
         }
 
-        extraEventCard.setVisibility(View.VISIBLE);
+        // Hide whole section while loading so the title does not persist
+        if (extraEventCard != null) {
+            extraEventCard.setVisibility(View.GONE);
+        }
+
         extraEvents.clear();
-        extraPagerAdapter.notifyDataSetChanged();
-        updateExtraPagerVisibility();
+
+        if (extraPagerAdapter != null) {
+            extraPagerAdapter.notifyDataSetChanged();
+        }
+
+        if (tvExtraEmpty != null) {
+            tvExtraEmpty.setVisibility(View.GONE);
+        }
+        if (extraEventsPager != null) {
+            extraEventsPager.setVisibility(View.GONE);
+        }
+        if (extraEventDots != null) {
+            extraEventDots.setVisibility(View.GONE);
+        }
 
         if (filter == ExtraEventFilter.SELECTED) {
             tvExtraSectionTitle.setText("Selected Events");
@@ -275,7 +295,7 @@ public class JoinedFragment extends Fragment {
                                 "Failed to load waitlisted events: " + e.getMessage(),
                                 Toast.LENGTH_SHORT).show();
                         showExtraEmptyState("Failed to load waitlisted events");
-                        Log.e("JoinedFragment", "Failed to load selected events: " + e.getMessage());
+                        Log.e("JoinedFragment", "Failed to load waitlisted events: " + e.getMessage());
                     }
             );
             return;
@@ -445,6 +465,10 @@ public class JoinedFragment extends Fragment {
     }
 
     private void updateExtraPagerVisibility() {
+        if (extraEventCard != null) {
+            extraEventCard.setVisibility(View.VISIBLE);
+        }
+
         if (extraEvents.isEmpty()) {
             tvExtraEmpty.setVisibility(View.VISIBLE);
             extraEventsPager.setVisibility(View.GONE);
@@ -488,6 +512,10 @@ public class JoinedFragment extends Fragment {
 
         if (extraPagerAdapter != null) {
             extraPagerAdapter.notifyDataSetChanged();
+        }
+
+        if (extraEventCard != null) {
+            extraEventCard.setVisibility(View.VISIBLE);
         }
 
         if (tvExtraEmpty != null) {
