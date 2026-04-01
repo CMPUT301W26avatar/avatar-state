@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /** Database storage and retrieval layer with respect to Users
  * Users have their own firebase collection "users"
@@ -70,12 +71,14 @@ public class UserStorage {
      */
     public DocumentReference userAvailabilityDoc(String uuid) {
         return userDoc(uuid).collection("availability").document("dates");
+    }
     
     /**  
      * user event history subdocument
      * /users/{uuid}/event_history/{eventId}
      *      - one entry in the subcollection is for one event
      */
+
     public DocumentReference userEventHistoryDoc(String uuid, String eventId) {
         return userDoc(uuid)
                 .collection("event_history")
