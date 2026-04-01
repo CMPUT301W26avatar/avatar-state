@@ -1,5 +1,6 @@
 package com.example.lotteryapp.models;
 
+import java.util.List;
 import java.util.UUID;
 
 /** Model class for an Event
@@ -12,10 +13,13 @@ import java.util.UUID;
  */
 public class Event {
     public String eventId;
-    public final String organizerId;
+    public String organizerId;
+
+    private List<String> coOrganizerIds;
     public EventStatus status;
     public boolean hasDrawnLottery;
     private boolean hasGeoConstraint;
+    private boolean privateEvent;
 
     public int eventCapacity;
 
@@ -49,6 +53,10 @@ public class Event {
         EVENT_FULL, // event open, but exceeding event capacity
     }
 
+    public Event() {
+        // Required for Firebase toObject()
+    }
+
     public Event(String organizerId, int eventCapacity, int waitlistCapacity) {
         this.eventId = UUID.randomUUID().toString();
         this.organizerId = organizerId;
@@ -57,6 +65,7 @@ public class Event {
         this.address = null;
         this.hasDrawnLottery = false;
         this.hasGeoConstraint = false;
+        this.privateEvent = false;
     }
 
     // pk
@@ -72,6 +81,14 @@ public class Event {
     // fk
     public String getOrganizerId() {
         return organizerId;
+    }
+
+    public List<String> getCoOrganizerIds() {
+        return coOrganizerIds;
+    }
+
+    public void setCoOrganizerIds(List<String> coOrganizerIds) {
+        this.coOrganizerIds = coOrganizerIds;
     }
 
     public boolean isRegistrationOpen() {
@@ -214,6 +231,10 @@ public class Event {
     public void setAddress(EventAddress address) {
         this.address = address;
     }
+
+    public boolean isPrivateEvent() { return privateEvent; }
+
+    public void setPrivateEvent(boolean privateEvent) { this.privateEvent = privateEvent; }
 
     public String getPosterUrl() { return posterUrl; }
 

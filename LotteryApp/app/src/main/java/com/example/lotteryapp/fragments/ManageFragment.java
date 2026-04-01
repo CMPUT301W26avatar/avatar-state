@@ -22,35 +22,26 @@ import androidx.core.util.Pair;
 import androidx.fragment.app.Fragment;
 
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.models.Entrant;
-import com.example.lotteryapp.models.User;
-import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.activities.EventDetailsActivity;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.activities.EnrolledListActivity;
 import com.example.lotteryapp.activities.InvitedListActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
-import com.example.lotteryapp.services.storage.EventPoolStorage;
-import com.example.lotteryapp.services.ServiceLocator;
+
 import com.example.lotteryapp.services.storage.EventStorage;
-import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.TimeZone;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.lang.reflect.Method;
 
 /**
  * ManageFragment displays a list of organizer-managed events and supports
@@ -59,7 +50,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ManageFragment extends Fragment {
 
-    private static final int UNLIMITED_WAITLIST_SENTINEL = -1;
+    private static final int UNLIMITED_WAITLIST_SENTINEL = 2147483647;
 
     private LinearLayout upcomingEventListContainer;
     private EventStorage eventStorage;
@@ -104,7 +95,6 @@ public class ManageFragment extends Fragment {
      *          call EventStorage.listEventsRegOpen query to fill events list
      *          add Event to list
      *          notify change in the list of grid events
-     *
      * *right now* just calls a simple events by organizer query despite the naming convention and UI elements
      */
     private void loadUpcomingEvents() {
@@ -116,7 +106,7 @@ public class ManageFragment extends Fragment {
 
         upcomingEventListContainer.removeAllViews();
 
-        eventStorage.getEventsByOrganizer(
+        eventStorage.getManagedEventsForUser(
                 organizerId,
                 this::renderUpcomingEvents,
                 e -> Toast.makeText(requireContext(), "Failed to load organizer events", Toast.LENGTH_SHORT).show()
@@ -130,6 +120,7 @@ public class ManageFragment extends Fragment {
      *      notify change in the list of grid events
      */
     private void renderUpcomingEvents(List<Event> events) {
+        if (!isAdded()) return;
         upcomingEventListContainer.removeAllViews();
 
         if (events == null || events.isEmpty()) {
@@ -195,6 +186,149 @@ public class ManageFragment extends Fragment {
         startActivity(intent);
     }
 
+
+    private MaterialSwitch findOptionalSwitch(View root, String idName) {
+        int id = requireContext().getResources().getIdentifier(idName, "id", requireContext().getPackageName());
+        if (id == 0) {
+            return null;
+        }
+        View found = root.findViewById(id);
+        return found instanceof MaterialSwitch ? (MaterialSwitch) found : null;
+    }
+
+    private View findOptionalView(View root, String idName) {
+        int id = requireContext().getResources().getIdentifier(idName, "id", requireContext().getPackageName());
+        return id == 0 ? null : root.findViewById(id);
+    }
+
+    private boolean isPrivateEvent(Event event) {
+        if (event == null) {
+            return false;
+        }
+        try {
+            Method method = event.getClass().getMethod("isPrivateEvent");
+            Object result = method.invoke(event);
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private void setPrivateEventFlag(Event event, boolean isPrivate) {
+        if (event == null) {
+            return;
+        }
+        try {
+            Method method = event.getClass().getMethod("setPrivateEvent", boolean.class);
+            method.invoke(event, isPrivate);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void syncPrivateEventUi(
+            boolean isPrivate,
+            MaterialSwitch switchWaitlist,
+            MaterialSwitch switchGeo,
+            EditText etWaitlistCapacity,
+            EditText etLocationRadiusKm,
+            View layoutWaitlistCapacity,
+            View layoutLocationRadius,
+            @Nullable View privateInviteLayout
+    ) {
+        if (privateInviteLayout != null) {
+            privateInviteLayout.setVisibility(isPrivate ? View.VISIBLE : View.GONE);
+        }
+
+        // Private events should STILL be allowed to configure waitlist capacity
+        if (switchWaitlist != null) {
+            boolean waitlistEnabled = switchWaitlist.isChecked();
+            if (layoutWaitlistCapacity != null) {
+                layoutWaitlistCapacity.setVisibility(waitlistEnabled ? View.VISIBLE : View.GONE);
+            }
+        }
+
+        // Private events should NOT allow geolocation constraints
+        if (switchGeo != null) {
+            switchGeo.setEnabled(!isPrivate);
+            if (isPrivate) {
+                switchGeo.setChecked(false);
+            }
+        }
+
+        if (layoutLocationRadius != null) {
+            boolean geoEnabled = switchGeo != null && switchGeo.isChecked() && !isPrivate;
+            layoutLocationRadius.setVisibility(geoEnabled ? View.VISIBLE : View.GONE);
+        }
+
+        if (isPrivate && etLocationRadiusKm != null) {
+            etLocationRadiusKm.setText("");
+        }
+    }
+
+    private Event.EventStatus resolveStatusForDialog(boolean isPrivateEvent, long now, Long regStartMs, Long regEndMs, Long eventDateMs) {
+        if (regStartMs == null || regEndMs == null || eventDateMs == null) {
+            return Event.EventStatus.REG_UPCOMING;
+        }
+
+        if (now < regStartMs) {
+            return Event.EventStatus.REG_UPCOMING;
+        }
+        if (now <= regEndMs) {
+            return Event.EventStatus.REG_OPEN;
+        }
+        if (now < eventDateMs) {
+            return isPrivateEvent ? Event.EventStatus.EVENT_OPEN : Event.EventStatus.REG_CLOSED;
+        }
+        return Event.EventStatus.EVENT_CLOSED;
+    }
+
+    /**
+     * Resolves the event status from the event's current fields
+     *      This must be called after any create/update dialog changes are applied
+     *      and before any call to save in firebase
+     *          - so the saved status reflects the latest capacity/date state.
+     */
+    private Event.EventStatus resolveStatusForDialog(@NonNull Event event, long now) {
+        Long regStartMs = event.getRegStartMs();
+        Long regEndMs = event.getRegEndMs();
+        Long eventDateMs = event.getEventDateMs();
+
+        if (regStartMs == null || regEndMs == null || eventDateMs == null) {
+            return Event.EventStatus.REG_UPCOMING;
+        }
+
+        if (now < regStartMs) {
+            return Event.EventStatus.REG_UPCOMING;
+        }
+
+        if (now <= regEndMs) {
+            Integer waitlistCapacity = event.getWaitlistCapacity();
+            int waitlistCount = event.getWaitlistCount();
+
+            boolean hasWaitlistLimit =
+                    waitlistCapacity != null
+                            && waitlistCapacity != UNLIMITED_WAITLIST_SENTINEL;
+
+            boolean waitlistFull =
+                    hasWaitlistLimit && waitlistCount >= waitlistCapacity;
+
+            return waitlistFull ? Event.EventStatus.REG_FULL : Event.EventStatus.REG_OPEN;
+        }
+
+        if (now < eventDateMs) {
+            if (!event.hasDrawnLottery()) {
+                return Event.EventStatus.REG_CLOSED;
+            }
+
+            int occupiedSpots = event.getEnrolledCount() + event.getInvitationCount();
+            boolean eventFull = occupiedSpots >= event.getEventCapacity();
+
+            return eventFull ? Event.EventStatus.EVENT_FULL : Event.EventStatus.EVENT_OPEN;
+        }
+
+        return Event.EventStatus.EVENT_CLOSED;
+    }
+
     /**
      * Displays a full-screen dialog for creating a new event
      *      enter event detail fields
@@ -222,6 +356,8 @@ public class ManageFragment extends Fragment {
 
         View layoutLocationRadius = view.findViewById(R.id.layout_location_radius);
         MaterialSwitch switchGeo = view.findViewById(R.id.switch_geolocation);
+        MaterialSwitch switchPrivateEvent = findOptionalSwitch(view, "switch_private_event");
+        View layoutPrivateInvites = findOptionalView(view, "layout_private_invites");
 
         // use dialog-local holders to keep a fresh state
         //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
@@ -299,6 +435,32 @@ public class ManageFragment extends Fragment {
             }
         });
 
+        // private Event toggle disables all other toggles
+        if (switchPrivateEvent != null) {
+            switchPrivateEvent.setOnCheckedChangeListener((buttonView, isChecked) ->
+                    syncPrivateEventUi(
+                            isChecked,
+                            switchWaitlist,
+                            switchGeo,
+                            etWaitlistCapacity,
+                            etLocationRadiusKm,
+                            layoutWaitlistCapacity,
+                            layoutLocationRadius,
+                            layoutPrivateInvites
+                    )
+            );
+            syncPrivateEventUi(
+                    switchPrivateEvent.isChecked(),
+                    switchWaitlist,
+                    switchGeo,
+                    etWaitlistCapacity,
+                    etLocationRadiusKm,
+                    layoutWaitlistCapacity,
+                    layoutLocationRadius,
+                    layoutPrivateInvites
+            );
+        }
+
         Toolbar toolbar = view.findViewById(R.id.toolbar);
         toolbar.setNavigationOnClickListener(v -> dialog.dismiss());
 
@@ -324,6 +486,13 @@ public class ManageFragment extends Fragment {
                 switchGeo.setChecked(false);
                 layoutLocationRadius.setVisibility(View.GONE);
 
+                if (switchPrivateEvent != null) {
+                    switchPrivateEvent.setChecked(false);
+                }
+                if (layoutPrivateInvites != null) {
+                    layoutPrivateInvites.setVisibility(View.GONE);
+                }
+
                 resolvedLat[0] = null;
                 resolvedLng[0] = null;
                 resolvedLocation[0] = null;
@@ -331,11 +500,6 @@ public class ManageFragment extends Fragment {
                 localEventDateMs[0] = null;
                 localStartDateMs[0] = null;
                 localEndDateMs[0] = null;
-
-                EditText organizers = view.findViewById(R.id.et_organizers);
-                if (organizers != null) {
-                    organizers.setText("");
-                }
             });
         }
 
@@ -346,8 +510,9 @@ public class ManageFragment extends Fragment {
             String locationInput = etLocation.getText().toString().trim();
             String capacityText = etEventCapacity.getText().toString().trim();
             String radiusText = etLocationRadiusKm.getText().toString().trim();
+            boolean isPrivateEvent = switchPrivateEvent != null && switchPrivateEvent.isChecked();
             boolean waitlistHasLimit = switchWaitlist.isChecked();
-            boolean geoConstraint = switchGeo.isChecked();
+            boolean geoConstraint = !isPrivateEvent && switchGeo.isChecked();
 
             // input entry enforcement
 
@@ -461,15 +626,17 @@ public class ManageFragment extends Fragment {
             Runnable saveAction = () -> {
                 Event newEvent = new Event(organizerId, eventCapacity, finalWaitlistCapacity);
 
+                setPrivateEventFlag(newEvent, isPrivateEvent);
                 newEvent.setTitle(title);
                 newEvent.setEventDateMs(localEventDateMs[0]);
                 newEvent.setRegStartMs(localStartDateMs[0]);
                 newEvent.setRegEndMs(localEndDateMs[0]);
                 newEvent.setEventCapacity(eventCapacity);
                 newEvent.setWaitlistCapacity(finalWaitlistCapacity);
+                newEvent.setWaitlistCount(0);
                 newEvent.setInvitationCount(0);
-                newEvent.setHasDrawnLottery(false); // force waitlisting state
-                newEvent.setHasGeoConstraint(geoConstraint);
+                newEvent.setHasDrawnLottery(false);
+                newEvent.setHasGeoConstraint(!isPrivateEvent && geoConstraint);
 
                 String criteriaGuidelines = getString(R.string.criteriaGuidelines);
                 newEvent.setCriteriaGuidelines(criteriaGuidelines);
@@ -478,33 +645,19 @@ public class ManageFragment extends Fragment {
                 // only create a geo/address doc when geolocation restriction is enabled
                 EventAddress eventAddress = null;
                 // save an address doc whenever the user entered a location OR enabled geo
-                if (!finalLocationInput.isEmpty() || geoConstraint) {
+                if (!finalLocationInput.isEmpty()) {
                     eventAddress = new EventAddress(newEvent.getEventId());
 
-                    if (geoConstraint) {
-                        eventAddress.setLocation(resolvedLocation[0] == null ? finalLocationInput : resolvedLocation[0]);
-                        eventAddress.setLatitude(resolvedLat[0]);
-                        eventAddress.setLongitude(resolvedLng[0]);
-                        eventAddress.setRadiusKm(locationRadiusKm);
-                    } else {
-                        eventAddress.setLocation(resolvedLocation[0] == null ? finalLocationInput : resolvedLocation[0]);
-                        eventAddress.setLatitude(resolvedLat[0]);
-                        eventAddress.setLongitude(resolvedLng[0]);
-                        eventAddress.setRadiusKm(null);
-                    }
+                    eventAddress.setLocation(resolvedLocation[0] == null ? finalLocationInput : resolvedLocation[0]);
+                    eventAddress.setLatitude(resolvedLat[0]);
+                    eventAddress.setLongitude(resolvedLng[0]);
+                    eventAddress.setRadiusKm((!isPrivateEvent && geoConstraint) ? locationRadiusKm : null);
                 }
                 newEvent.setAddress(eventAddress);
 
+                // get new event status before upserting event values to firebase
                 long now = System.currentTimeMillis();
-                if (now < localStartDateMs[0]) {
-                    newEvent.setStatus(Event.EventStatus.REG_UPCOMING);
-                } else if (now <= localEndDateMs[0]) {
-                    newEvent.setStatus(Event.EventStatus.REG_OPEN);
-                } else if (now < localEventDateMs[0]) {
-                    newEvent.setStatus(Event.EventStatus.REG_CLOSED);
-                } else {
-                    newEvent.setStatus(Event.EventStatus.EVENT_CLOSED);
-                }
+                newEvent.setStatus(resolveStatusForDialog(newEvent, now));
 
                 // eventStorage.upsertEvent got refactored to require onSuccess and onFailure listeners
                 eventStorage.upsertEvent(
@@ -588,6 +741,8 @@ public class ManageFragment extends Fragment {
 
         View layoutLocationRadius = view.findViewById(R.id.layout_location_radius);
         MaterialSwitch switchGeo = view.findViewById(R.id.switch_geolocation);
+        MaterialSwitch switchPrivateEvent = findOptionalSwitch(view, "switch_private_event");
+        View layoutPrivateInvites = findOptionalView(view, "layout_private_invites");
 
         // use dialog-local holders to keep a fresh state
         //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
@@ -611,6 +766,8 @@ public class ManageFragment extends Fragment {
         if (initialResolvedLocation == null) {
             initialResolvedLocation = "";
         }
+
+        boolean initialPrivateEvent = isPrivateEvent(event);
 
         // resolved (or existing) results of the user inputted string for etLocation
         final Double[] resolvedLat = {initialResolvedLat};
@@ -637,6 +794,13 @@ public class ManageFragment extends Fragment {
         // prefill geo controls from the existing address subdocument
         switchGeo.setChecked(hadExistingGeo);
         layoutLocationRadius.setVisibility(hadExistingGeo ? View.VISIBLE : View.GONE);
+
+        if (switchPrivateEvent != null) {
+            switchPrivateEvent.setChecked(initialPrivateEvent);
+        }
+        if (layoutPrivateInvites != null) {
+            layoutPrivateInvites.setVisibility(initialPrivateEvent ? View.VISIBLE : View.GONE);
+        }
 
         if (initialRadiusKm != null) {
             etLocationRadiusKm.setText(String.valueOf(initialRadiusKm));
@@ -726,6 +890,31 @@ public class ManageFragment extends Fragment {
             }
         });
 
+        if (switchPrivateEvent != null) {
+            switchPrivateEvent.setOnCheckedChangeListener((buttonView, isChecked) ->
+                    syncPrivateEventUi(
+                            isChecked,
+                            switchWaitlist,
+                            switchGeo,
+                            etWaitlistCapacity,
+                            etLocationRadiusKm,
+                            layoutWaitlistCapacity,
+                            layoutLocationRadius,
+                            layoutPrivateInvites
+                    )
+            );
+            syncPrivateEventUi(
+                    switchPrivateEvent.isChecked(),
+                    switchWaitlist,
+                    switchGeo,
+                    etWaitlistCapacity,
+                    etLocationRadiusKm,
+                    layoutWaitlistCapacity,
+                    layoutLocationRadius,
+                    layoutPrivateInvites
+            );
+        }
+
         // set clear all button to clear all fields
         View btnClearAll = view.findViewById(R.id.btn_clear_all);
         if (btnClearAll != null) {
@@ -749,6 +938,13 @@ public class ManageFragment extends Fragment {
                 switchGeo.setChecked(false);
                 layoutLocationRadius.setVisibility(View.GONE);
 
+                if (switchPrivateEvent != null) {
+                    switchPrivateEvent.setChecked(false);
+                }
+                if (layoutPrivateInvites != null) {
+                    layoutPrivateInvites.setVisibility(View.GONE);
+                }
+
                 resolvedLat[0] = null;
                 resolvedLng[0] = null;
                 resolvedLocation[0] = null;
@@ -766,8 +962,9 @@ public class ManageFragment extends Fragment {
                     String locationInput = etLocation.getText().toString().trim();
                     String capacityText = etEventCapacity.getText().toString().trim();
                     String radiusText = etLocationRadiusKm.getText().toString().trim();
+                    boolean isPrivateEvent = switchPrivateEvent != null && switchPrivateEvent.isChecked();
                     boolean waitlistHasLimit = switchWaitlist.isChecked();
-                    boolean geoConstraint = switchGeo.isChecked();
+                    boolean geoConstraint = !isPrivateEvent && switchGeo.isChecked();
 
                     // input entry enforcement
 
@@ -871,94 +1068,109 @@ public class ManageFragment extends Fragment {
 
                     // run as one atomic transaction
                     // eventStorage.upsertEvent got refactored to require onSuccess and onFailure listeners
-                    Runnable saveAction = () -> {
-                        event.setTitle(title);
-                        event.setEventDateMs(localEventDateMs[0]);
-                        event.setRegStartMs(localStartDateMs[0]);
-                        event.setRegEndMs(localEndDateMs[0]);
-                        event.setEventCapacity(eventCapacity);
-                        event.setWaitlistCapacity(finalWaitlistCapacity);
+            Runnable saveAction = () -> {
+                event.setTitle(title);
+                event.setEventDateMs(localEventDateMs[0]);
+                event.setRegStartMs(localStartDateMs[0]);
+                event.setRegEndMs(localEndDateMs[0]);
+                event.setEventCapacity(eventCapacity);
 
-                        setOptionalString(event, "setDescription", description);
+                setPrivateEventFlag(event, isPrivateEvent);
+                event.setWaitlistCapacity(finalWaitlistCapacity);
+                setOptionalString(event, "setDescription", description);
 
-                        // store geo settings only in the geo/address subdocument
-                        EventAddress updatedAddress = event.getAddress();
-                        if (updatedAddress == null) {
-                            updatedAddress = new EventAddress(event.getEventId());
-                        }
+                EventAddress updatedAddress = null;
 
-                        if (geoConstraint) {
-                            updatedAddress.setLocation(resolvedLocation[0] == null ? finalLocationInput : resolvedLocation[0]);
-                            updatedAddress.setLatitude(resolvedLat[0]);
-                            updatedAddress.setLongitude(resolvedLng[0]);
-                            updatedAddress.setRadiusKm(locationRadiusKm);
-                        } else {
-                            updatedAddress.setLocation(resolvedLocation[0] == null ? finalLocationInput : resolvedLocation[0]);
-                            updatedAddress.setLatitude(resolvedLat[0]);
-                            updatedAddress.setLongitude(resolvedLng[0]);
-                            updatedAddress.setRadiusKm(null);
-                        }
+                // CHANGED: keep/save a normal location even when private
+                if (!finalLocationInput.isEmpty()) {
+                    updatedAddress = event.getAddress();
+                    if (updatedAddress == null) {
+                        updatedAddress = new EventAddress(event.getEventId());
+                    }
 
-                        event.setHasGeoConstraint(geoConstraint);
-                        event.setAddress(updatedAddress);
+                    updatedAddress.setLocation(
+                            resolvedLocation[0] == null ? finalLocationInput : resolvedLocation[0]
+                    );
+                    updatedAddress.setLatitude(resolvedLat[0]);
+                    updatedAddress.setLongitude(resolvedLng[0]);
 
-                        eventStorage.upsertEvent(
-                                event,
-                                unused -> eventStorage.setEventAddress(
-                                        event.getEventId(),
-                                        event.getAddress(),
-                                        unused2 -> {
-                                            Toast.makeText(requireContext(), "Event updated!", Toast.LENGTH_SHORT).show();
-                                            dialog.dismiss();
-                                            loadUpcomingEvents();
-                                        },
-                                        e -> Toast.makeText(
-                                                requireContext(),
-                                                "Failed to save event address: " + e.getMessage(),
-                                                Toast.LENGTH_LONG
-                                        ).show()
-                                ),
+                    // only public geo-constrained events keep radius
+                    updatedAddress.setRadiusKm((!isPrivateEvent && geoConstraint) ? locationRadiusKm : null);
+                }
+
+                event.setHasGeoConstraint(!isPrivateEvent && geoConstraint);
+                event.setAddress(updatedAddress);
+
+                // get new event status before upserting event values to firebase
+                long now = System.currentTimeMillis();
+                event.setStatus(resolveStatusForDialog(
+                        isPrivateEvent,
+                        now,
+                        localStartDateMs[0],
+                        localEndDateMs[0],
+                        localEventDateMs[0]
+                ));
+
+                event.setHasGeoConstraint(geoConstraint);
+                event.setAddress(updatedAddress);
+
+                eventStorage.upsertEvent(
+                        event,
+                        unused -> eventStorage.setEventAddress(
+                                event.getEventId(),
+                                event.getAddress(),
+                                unused2 -> {
+                                    Toast.makeText(requireContext(), "Event updated!", Toast.LENGTH_SHORT).show();
+                                    dialog.dismiss();
+                                    loadUpcomingEvents();
+                                },
                                 e -> Toast.makeText(
                                         requireContext(),
-                                        "Failed to update event: " + e.getMessage(),
+                                        "Failed to save event address: " + e.getMessage(),
                                         Toast.LENGTH_LONG
                                 ).show()
-                        );
-                    };
+                        ),
+                        e -> Toast.makeText(
+                                requireContext(),
+                                "Failed to update event: " + e.getMessage(),
+                                Toast.LENGTH_LONG
+                        ).show()
+                );
+            };
 
-                    String currentDisplayedLocation = etLocation.getText().toString().trim();
+            String currentDisplayedLocation = etLocation.getText().toString().trim();
 
-                    boolean locationUnchanged =
-                            !currentDisplayedLocation.isEmpty()
-                                    && resolvedLocation[0] != null
-                                    && currentDisplayedLocation.equals(resolvedLocation[0]);
+            boolean locationUnchanged =
+                    !currentDisplayedLocation.isEmpty()
+                            && resolvedLocation[0] != null
+                            && currentDisplayedLocation.equals(resolvedLocation[0]);
 
-                    if (geoConstraint && finalLocationInput.isEmpty()) {
-                        Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
-                    } else if (finalLocationInput.isEmpty()) {
-                        resolvedLat[0] = null;
-                        resolvedLng[0] = null;
-                        resolvedLocation[0] = null;
+            if (geoConstraint && finalLocationInput.isEmpty()) {
+                Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+            } else if (finalLocationInput.isEmpty()) {
+                resolvedLat[0] = null;
+                resolvedLng[0] = null;
+                resolvedLocation[0] = null;
+                saveAction.run();
+            } else if (locationUnchanged && resolvedLat[0] != null && resolvedLng[0] != null) {
+                saveAction.run();
+            } else {
+                resolveLocationAsync(finalLocationInput, new ResolveLocationCallback() {
+                    @Override
+                    public void onResolved(@NonNull String resolvedAddress,
+                                           @Nullable Double latitude,
+                                           @Nullable Double longitude) {
+                        resolvedLocation[0] = resolvedAddress;
+                        resolvedLat[0] = latitude;
+                        resolvedLng[0] = longitude;
                         saveAction.run();
-                    } else if (locationUnchanged && resolvedLat[0] != null && resolvedLng[0] != null) {
-                        saveAction.run();
-                    } else {
-                        resolveLocationAsync(finalLocationInput, new ResolveLocationCallback() {
-                            @Override
-                            public void onResolved(@NonNull String resolvedAddress,
-                                                   @Nullable Double latitude,
-                                                   @Nullable Double longitude) {
-                                resolvedLocation[0] = resolvedAddress;
-                                resolvedLat[0] = latitude;
-                                resolvedLng[0] = longitude;
-                                saveAction.run();
-                            }
+                    }
 
-                            @Override
-                            public void onError(@NonNull String message) {
-                                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
-                            }
-                        });
+                    @Override
+                    public void onError(@NonNull String message) {
+                        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+                    }
+                });
                     }
                 });
 
@@ -1185,7 +1397,7 @@ public class ManageFragment extends Fragment {
      */
     private void setOptionalString(Event event, String methodName, String value) {
         try {
-            java.lang.reflect.Method method = event.getClass().getMethod(methodName, String.class);
+            Method method = event.getClass().getMethod(methodName, String.class);
             method.invoke(event, value);
         } catch (Exception ignored) {
         }
@@ -1195,49 +1407,43 @@ public class ManageFragment extends Fragment {
      * Status-based string builder for DisplayEventGrid subtitles
      */
     private String buildSubtitle(Event event) {
-        Event.EventStatus status = event.getStatus();
-        StringBuilder sb = new StringBuilder(statusString(status));
+        StringBuilder subtitle = new StringBuilder();
 
-        Integer waitlistCap = event.getWaitlistCapacity();
-        if (waitlistCap != null && waitlistCap == UNLIMITED_WAITLIST_SENTINEL) {
-            sb.append("\nWaitlist: ")
-                    .append(event.getWaitlistCount())
-                    .append("/∞");
-        } else if (waitlistCap != null && waitlistCap > 0) {
-            sb.append("\nWaitlist: ")
-                    .append(event.getWaitlistCount())
+        if (isPrivateEvent(event)) {
+            subtitle.append("Private •");
+        }
+
+        if (event != null && event.getStatus() != null) {
+            subtitle.append(event.getStatus().name());
+        }
+
+        if (!event.hasDrawnLottery) {
+            Integer waitlistCap = event.getWaitlistCapacity();
+
+            if (waitlistCap == UNLIMITED_WAITLIST_SENTINEL) {
+                subtitle.append("\nWaitlist: ")
+                        .append(event.getWaitlistCount())
+                        .append("/")
+                        .append("∞");
+
+            } else if (waitlistCap > 0) {
+                subtitle.append("\nWaitlist: ")
+                        .append(event.getWaitlistCount())
+                        .append("/")
+                        .append(waitlistCap);
+            }
+        } else {
+            subtitle.append("\nEnrolled:")
+                    .append(event.getEnrolledCount())
                     .append("/")
-                    .append(waitlistCap);
+                    .append(event.getEventCapacity());
         }
 
-        return sb.toString();
+        if (event != null && event.getEventDateMs() != null) {
+            subtitle.append(formatLocalDate(event.getEventDateMs()));
+        }
+
+        return subtitle.length() == 0 ? "Event" : subtitle.toString();
     }
 
-    /**
-     * Subtitle builder helper for status logic
-     */
-    private String statusString(Event.EventStatus status) {
-        if (status == null) {
-            return "Unknown";
-        }
-
-        switch (status) {
-            case REG_OPEN:
-                return "Registration started";
-            case REG_CLOSED:
-                return "Registration closed";
-            case REG_FULL:
-                return "Waitlist full";
-            case REG_UPCOMING:
-                return "Upcoming";
-            case EVENT_CLOSED:
-                return "Finished";
-            case EVENT_OPEN:
-                return "Invitations Sent";
-            case EVENT_FULL:
-                return "Event is full";
-            default:
-                return "Unknown";
-        }
-    }
 }

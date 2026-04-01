@@ -7,7 +7,15 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/pdf" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -70,12 +78,20 @@
         </activity>
         <activity android:name=".activities.InvitesDashboardActivity" />
         <activity android:name=".activities.PromoteNewAdminActivity" />
+        <activity android:name=".activities.EventAnnouncementActivity" />
         <activity android:name=".activities.UserPrivacyActivity" />
         <activity android:name=".activities.NotificationSettingsActivity" />
         <activity android:name=".activities.EventMapActivity" />
+        <activity android:name=".activities.UserEventHistoryActivity" />
+        <activity android:name=".activities.SearchUsersToInviteActivity" />
         <activity android:name=".activities.CommentsActivity"
             android:label="Comments"
             android:theme="@style/Theme.LotteryApp" />
+        <activity
+            android:name=".activities.TermsOfServiceActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+
 
         <provider
             android:name="androidx.core.content.FileProvider"
