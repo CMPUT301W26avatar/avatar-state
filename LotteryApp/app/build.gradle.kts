@@ -82,6 +82,7 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.storage)
 
     implementation(libs.play.services.phenotype)
     implementation(libs.play.services.auth)
