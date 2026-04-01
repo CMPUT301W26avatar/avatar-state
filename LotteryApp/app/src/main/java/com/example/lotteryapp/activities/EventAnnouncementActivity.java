@@ -3,6 +3,7 @@ package com.example.lotteryapp.activities;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.widget.ArrayAdapter;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
@@ -31,6 +32,7 @@ import java.util.List;
 public class EventAnnouncementActivity extends AppCompatActivity {
 
     private Spinner spinnerTemplate;
+    private Spinner spinnerRecipients;
     private EditText etTitle;
     private EditText etMessage;
     private Switch switchUseTemplate;
@@ -60,7 +62,6 @@ public class EventAnnouncementActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_event_announcement);
-
         // read the event id passed from EventDetailsActivity
         eventId = getIntent().getStringExtra(EventDetailsActivity.EXTRA_EVENT_ID);
 
@@ -87,6 +88,7 @@ public class EventAnnouncementActivity extends AppCompatActivity {
         notificationLogStorage = ServiceLocator.getNotificationLogStorage();
 
         bindViews(); // bind UI components
+        setupRecipientsDropDown();
         setupTemplateDropDown();
         setupListeners();
         loadEvent(); // load Event
@@ -103,6 +105,8 @@ public class EventAnnouncementActivity extends AppCompatActivity {
         btnPreviewTemplate = findViewById(R.id.btn_preview_template);
         btnSendAnnouncement = findViewById(R.id.btn_send_announcement);
         btnCancelAnnouncement = findViewById(R.id.btn_cancel_announcement);
+        // spinner to select recipients
+        spinnerRecipients = findViewById(R.id.recipientsSpinner);
     }
 
     /**
@@ -128,6 +132,15 @@ public class EventAnnouncementActivity extends AppCompatActivity {
         spinnerTemplate.setAdapter(adapter);
     }
 
+    private void setupRecipientsDropDown() {
+        // create string array adapter
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
+                R.array.notificationRecipients, android.R.layout.simple_spinner_item);
+        // set layout of dropdown spinner
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        // apply the adapter to the spinner
+        spinnerRecipients.setAdapter(adapter);
+    }
     /**
      * Attaches all click and state listeners for the activity controls
      */
@@ -231,53 +244,206 @@ public class EventAnnouncementActivity extends AppCompatActivity {
         // Disable the send button to avoid duplicate submissions while the request is running
         btnSendAnnouncement.setEnabled(false);
 
-        // Load all waitlisted entrants for the current event
-        eventPoolStorage.getWaitlistedEntrants(
-                eventId,
-                entrants -> {
-                    List<String> userIds = new ArrayList<>();
+        String selectedRecipients = (String) spinnerRecipients.getSelectedItem();
 
-                    // Extract only valid entrant user ids from the waitlist results
-                    for (Entrant entrant : entrants) {
-                        if (entrant != null && entrant.getEntrantId() != null
-                                && !entrant.getEntrantId().trim().isEmpty()) {
-                            userIds.add(entrant.getEntrantId());
-                        }
-                    }
+        if (selectedRecipients == "waitlisted") {
+            // Load all waitlisted entrants for the current event
+            eventPoolStorage.getWaitlistedEntrants(
+                    eventId,
+                    entrants -> {
+                        List<String> userIds = new ArrayList<>();
 
-                    // If nobody is currently waitlisted, there is nobody to notify
-                    if (userIds.isEmpty()) {
-                        Toast.makeText(this, "No waitlisted users to notify", Toast.LENGTH_SHORT).show();
-                        btnSendAnnouncement.setEnabled(true);
-                        return;
-                    }
-
-                    // Write one notification log entry per waitlisted user
-                    notificationLogStorage.logAnnouncementToUsers(
-                            eventId,
-                            currentUserId,
-                            userIds,
-                            title,
-                            message,
-                            NotificationLog.NotificationType.EVENT_ANNOUNCEMENT,
-                            sentCount -> {
-                                Toast.makeText(
-                                        this,
-                                        "Announcement sent to " + userIds.size() + " waitlisted users",
-                                        Toast.LENGTH_SHORT
-                                ).show();
-                                finish();
-                            },
-                            e -> {
-                                Toast.makeText(this, "Failed to send announcement", Toast.LENGTH_SHORT).show();
-                                btnSendAnnouncement.setEnabled(true);
+                        // Extract only valid entrant user ids from the waitlist results
+                        for (Entrant entrant : entrants) {
+                            if (entrant != null && entrant.getEntrantId() != null
+                                    && !entrant.getEntrantId().trim().isEmpty()) {
+                                userIds.add(entrant.getEntrantId());
                             }
-                    );
-                },
-                e -> {
-                    Toast.makeText(this, "Failed to load waitlisted users", Toast.LENGTH_SHORT).show();
-                    btnSendAnnouncement.setEnabled(true);
-                }
-        );
+                        }
+
+                        // If nobody is currently waitlisted, there is nobody to notify
+                        if (userIds.isEmpty()) {
+                            Toast.makeText(this, "No waitlisted users to notify", Toast.LENGTH_SHORT).show();
+                            btnSendAnnouncement.setEnabled(true);
+                            return;
+                        }
+
+                        // Write one notification log entry per waitlisted user
+                        notificationLogStorage.logAnnouncementToUsers(
+                                eventId,
+                                currentUserId,
+                                userIds,
+                                title,
+                                message,
+                                NotificationLog.NotificationType.EVENT_ANNOUNCEMENT,
+                                sentCount -> {
+                                    Toast.makeText(
+                                            this,
+                                            "Announcement sent to " + userIds.size() + " waitlisted users",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                    finish();
+                                },
+                                e -> {
+                                    Toast.makeText(this, "Failed to send announcement", Toast.LENGTH_SHORT).show();
+                                    btnSendAnnouncement.setEnabled(true);
+                                }
+                        );
+                    },
+                    e -> {
+                        Toast.makeText(this, "Failed to load waitlisted users", Toast.LENGTH_SHORT).show();
+                        btnSendAnnouncement.setEnabled(true);
+                    }
+            );
+        } else if (selectedRecipients == "invited") {
+            // Load all invited entrants for the current event
+            eventPoolStorage.getInvitedEntrants(
+                    eventId,
+                    entrants -> {
+                        List<String> userIds = new ArrayList<>();
+
+                        // Extract only valid entrant user ids from the invited results
+                        for (Entrant entrant : entrants) {
+                            if (entrant != null && entrant.getEntrantId() != null
+                                    && !entrant.getEntrantId().trim().isEmpty()) {
+                                userIds.add(entrant.getEntrantId());
+                            }
+                        }
+
+                        // If nobody is currently invited, there is nobody to notify
+                        if (userIds.isEmpty()) {
+                            Toast.makeText(this, "No invited users to notify", Toast.LENGTH_SHORT).show();
+                            btnSendAnnouncement.setEnabled(true);
+                            return;
+                        }
+
+                        // Write one notification log entry per invited user
+                        notificationLogStorage.logAnnouncementToUsers(
+                                eventId,
+                                currentUserId,
+                                userIds,
+                                title,
+                                message,
+                                NotificationLog.NotificationType.EVENT_ANNOUNCEMENT,
+                                sentCount -> {
+                                    Toast.makeText(
+                                            this,
+                                            "Announcement sent to " + userIds.size() + " invited users",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                    finish();
+                                },
+                                e -> {
+                                    Toast.makeText(this, "Failed to send announcement", Toast.LENGTH_SHORT).show();
+                                    btnSendAnnouncement.setEnabled(true);
+                                }
+                        );
+                    },
+                    e -> {
+                        Toast.makeText(this, "Failed to load invited users", Toast.LENGTH_SHORT).show();
+                        btnSendAnnouncement.setEnabled(true);
+                    }
+            );
+        }
+        else if (selectedRecipients == "cancelled") {
+            // Load all cancelled entrants for the current event
+            eventPoolStorage.getCancelledEntrants(
+                    eventId,
+                    entrants -> {
+                        List<String> userIds = new ArrayList<>();
+
+                        // Extract only valid entrant user ids from the cancelled results
+                        for (Entrant entrant : entrants) {
+                            if (entrant != null && entrant.getEntrantId() != null
+                                    && !entrant.getEntrantId().trim().isEmpty()) {
+                                userIds.add(entrant.getEntrantId());
+                            }
+                        }
+
+                        // If nobody is currently cancelled, there is nobody to notify
+                        if (userIds.isEmpty()) {
+                            Toast.makeText(this, "No cancelled users to notify", Toast.LENGTH_SHORT).show();
+                            btnSendAnnouncement.setEnabled(true);
+                            return;
+                        }
+
+                        // Write one notification log entry per cancelled user
+                        notificationLogStorage.logAnnouncementToUsers(
+                                eventId,
+                                currentUserId,
+                                userIds,
+                                title,
+                                message,
+                                NotificationLog.NotificationType.EVENT_ANNOUNCEMENT,
+                                sentCount -> {
+                                    Toast.makeText(
+                                            this,
+                                            "Announcement sent to " + userIds.size() + " cancelled users",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                    finish();
+                                },
+                                e -> {
+                                    Toast.makeText(this, "Failed to send announcement", Toast.LENGTH_SHORT).show();
+                                    btnSendAnnouncement.setEnabled(true);
+                                }
+                        );
+                    },
+                    e -> {
+                        Toast.makeText(this, "Failed to load cancelled users", Toast.LENGTH_SHORT).show();
+                        btnSendAnnouncement.setEnabled(true);
+                    }
+            );
+        }
+        else {
+            // Load all enrolled entrants for the current event
+            eventPoolStorage.getEnrolledEntrants(
+                    eventId,
+                    entrants -> {
+                        List<String> userIds = new ArrayList<>();
+
+                        // Extract only valid entrant user ids from the enrolled results
+                        for (Entrant entrant : entrants) {
+                            if (entrant != null && entrant.getEntrantId() != null
+                                    && !entrant.getEntrantId().trim().isEmpty()) {
+                                userIds.add(entrant.getEntrantId());
+                            }
+                        }
+
+                        // If nobody is currently enrolled, there is nobody to notify
+                        if (userIds.isEmpty()) {
+                            Toast.makeText(this, "No enrolled users to notify", Toast.LENGTH_SHORT).show();
+                            btnSendAnnouncement.setEnabled(true);
+                            return;
+                        }
+
+                        // Write one notification log entry per enrolled user
+                        notificationLogStorage.logAnnouncementToUsers(
+                                eventId,
+                                currentUserId,
+                                userIds,
+                                title,
+                                message,
+                                NotificationLog.NotificationType.EVENT_ANNOUNCEMENT,
+                                sentCount -> {
+                                    Toast.makeText(
+                                            this,
+                                            "Announcement sent to " + userIds.size() + " enrolled users",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                    finish();
+                                },
+                                e -> {
+                                    Toast.makeText(this, "Failed to send announcement", Toast.LENGTH_SHORT).show();
+                                    btnSendAnnouncement.setEnabled(true);
+                                }
+                        );
+                    },
+                    e -> {
+                        Toast.makeText(this, "Failed to load enrolled users", Toast.LENGTH_SHORT).show();
+                        btnSendAnnouncement.setEnabled(true);
+                    }
+            );
+        }
     }
 }

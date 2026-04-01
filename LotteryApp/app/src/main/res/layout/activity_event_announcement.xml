@@ -25,6 +25,12 @@
             android:text="Send a custom or template-based announcement to all users on this event's waitlist."
             android:textSize="14sp" />
 
+        <Spinner
+            android:id="@+id/recipientsSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:spinnerMode="dropdown" />
+
         <Switch
             android:id="@+id/switch_use_template"
             android:layout_width="wrap_content"
