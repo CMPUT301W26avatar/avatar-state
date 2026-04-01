@@ -246,7 +246,7 @@ public class EventAnnouncementActivity extends AppCompatActivity {
 
         String selectedRecipients = (String) spinnerRecipients.getSelectedItem();
 
-        if (selectedRecipients == "waitlisted") {
+        if (selectedRecipients.equals("waitlisted")) {
             // Load all waitlisted entrants for the current event
             eventPoolStorage.getWaitlistedEntrants(
                     eventId,
@@ -295,7 +295,7 @@ public class EventAnnouncementActivity extends AppCompatActivity {
                         btnSendAnnouncement.setEnabled(true);
                     }
             );
-        } else if (selectedRecipients == "invited") {
+        } else if (selectedRecipients.equals("invited")) {
             // Load all invited entrants for the current event
             eventPoolStorage.getInvitedEntrants(
                     eventId,
@@ -345,7 +345,7 @@ public class EventAnnouncementActivity extends AppCompatActivity {
                     }
             );
         }
-        else if (selectedRecipients == "cancelled") {
+        else if (selectedRecipients.equals("cancelled")) {
             // Load all cancelled entrants for the current event
             eventPoolStorage.getCancelledEntrants(
                     eventId,
