@@ -723,7 +723,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         if (hasSentInvites) {
-          if (status != EVENT_CLOSED) {
+            if (status != EVENT_CLOSED) {
                 btnBeginLotterySelection.setText("Re-draw applicants");
                 btnBeginLotterySelection.setVisibility(View.VISIBLE);
                 btnBeginLotterySelection.setEnabled(true);
@@ -751,6 +751,7 @@ public class EventDetailsActivity extends AppCompatActivity {
                 options.setOrientationLocked(false);
                 barcodeLauncher.launch(options);
             });
+        }
     }
 
     /**

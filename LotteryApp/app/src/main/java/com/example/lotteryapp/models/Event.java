@@ -13,7 +13,7 @@ import java.util.UUID;
  */
 public class Event {
     public String eventId;
-    public final String organizerId;
+    public String organizerId;
 
     private List<String> coOrganizerIds;
     public EventStatus status;
