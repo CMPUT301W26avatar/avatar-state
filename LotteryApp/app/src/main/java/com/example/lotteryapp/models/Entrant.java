@@ -20,6 +20,7 @@ public class Entrant {
         DECLINED, // in waitlist, selected, declined
         WAITLISTED, // in waitlist, selection has yet to happen
         ENROLLED, // won the lottery, enrolled in the Event
+        CANCELLED
     }
 
     public Entrant(String entrantId, String eventId, EntrantStatus status) {
