@@ -120,6 +120,7 @@ public class ManageFragment extends Fragment {
      *      notify change in the list of grid events
      */
     private void renderUpcomingEvents(List<Event> events) {
+        if (!isAdded()) return;
         upcomingEventListContainer.removeAllViews();
 
         if (events == null || events.isEmpty()) {

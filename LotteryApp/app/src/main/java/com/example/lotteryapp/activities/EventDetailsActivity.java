@@ -18,6 +18,8 @@ import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
+import android.graphics.drawable.AnimatedVectorDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
@@ -33,6 +35,7 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.vectordrawable.graphics.drawable.AnimatedVectorDrawableCompat;
 
 import com.bumptech.glide.Glide;
 import com.example.lotteryapp.R;
@@ -50,6 +53,8 @@ import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanOptions;
 import com.example.lotteryapp.services.storage.NotificationLogStorage;
 
 import java.io.IOException;
@@ -95,6 +100,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private MaterialButton btnBeginLotterySelection;
     private MaterialButton btnViewEventMap;
     private MaterialButton btnShowInvitesDashboard;
+    private MaterialButton btnScanTicket;
     private MaterialButton btnSearchForUsers;
     private MaterialButton btnSearchForCoorganizers;
 
@@ -116,6 +122,7 @@ public class EventDetailsActivity extends AppCompatActivity {
     private String eventId;
     private String currentUserId;
     private boolean isAdminMode = false;
+    private boolean hideJoinButton = false;
     private Event currentEvent;
     // services
     private UserStorage userStorage;
@@ -125,6 +132,15 @@ public class EventDetailsActivity extends AppCompatActivity {
     private NotificationLogStorage notificationLogStorage;
     private Entrant.EntrantStatus currentStatus = null;
     private QRCode qrCode = null;
+
+    private final ActivityResultLauncher<ScanOptions> barcodeLauncher = registerForActivityResult(new ScanContract(),
+            result -> {
+                if (result.getContents() == null) {
+                    Toast.makeText(this, "Cancelled", Toast.LENGTH_LONG).show();
+                } else {
+                    handleScanResult(result.getContents());
+                }
+            });
 
     ActivityResultLauncher<Intent> resultLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(), res -> {
@@ -169,6 +185,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_event_details);
 
         isAdminMode = getIntent().getBooleanExtra("isAdminMode", false);
+        hideJoinButton = getIntent().getBooleanExtra("HIDE_JOIN_BUTTON", false);
 
         Intent intent = getIntent();
         Uri data = intent.getData();
@@ -255,6 +272,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnBeginLotterySelection = findViewById(R.id.btn_begin_lottery_selection);
         btnViewEventMap = findViewById(R.id.btn_view_event_map);
         btnShowInvitesDashboard = findViewById(R.id.btn_show_invites_dashboard);
+        btnScanTicket = findViewById(R.id.btn_scan_ticket);
         btnSearchForUsers = findViewById(R.id.btn_send_invite);
         btnSearchForCoorganizers = findViewById(R.id.btn_invite_coorganizers);
 
@@ -704,7 +722,7 @@ public class EventDetailsActivity extends AppCompatActivity {
             btnBeginLotterySelection.setOnClickListener(v -> beginLotterySelection(event));
         }
 
-        if (hasPublicInvites) {
+        if (hasSentInvites) {
             if (status != EVENT_CLOSED) {
                 btnBeginLotterySelection.setText("Re-draw applicants");
                 btnBeginLotterySelection.setVisibility(View.VISIBLE);
@@ -722,6 +740,17 @@ public class EventDetailsActivity extends AppCompatActivity {
                 btnShowInvitesDashboard.setEnabled(true);
                 btnShowInvitesDashboard.setOnClickListener(v -> openInvitesDashboard());
             }
+            btnScanTicket.setVisibility(VISIBLE);
+            btnScanTicket.setOnClickListener(v -> {
+                ScanOptions options = new ScanOptions();
+                options.setDesiredBarcodeFormats(ScanOptions.QR_CODE);
+                options.setPrompt("Scan attendee ticket");
+                options.setCameraId(0);
+                options.setBeepEnabled(false);
+                options.setBarcodeImageEnabled(true);
+                options.setOrientationLocked(false);
+                barcodeLauncher.launch(options);
+            });
         }
     }
 
@@ -781,14 +810,26 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         if (status == ENROLLED) {
-            btnJoin.setVisibility(VISIBLE);
-            btnJoin.setEnabled(true);
-            btnJoin.setText("Unenroll");
-            btnJoin.setOnClickListener(v -> unenroll());
+            if (hideJoinButton) {
+                btnJoin.setVisibility(GONE);
+            } else {
+                btnJoin.setVisibility(VISIBLE);
+                btnJoin.setEnabled(true);
+                btnJoin.setText("Unenroll");
+                btnJoin.setOnClickListener(v -> unenroll());
+            }
             return;
         }
 
+        // If user declines an event invitation, they can join again if status of the event == DECLINED
         if (status == DECLINED) {
+            if (event.isRegistrationOpen()) {
+                btnJoin.setVisibility(VISIBLE);
+                btnJoin.setEnabled(true);
+                btnJoin.setText("Join Waitlist Again");
+                btnJoin.setOnClickListener(v -> joinWaitlist());
+                return;
+            }
             showJoinDisabled("Invitation Declined");
             return;
         }
@@ -807,6 +848,10 @@ public class EventDetailsActivity extends AppCompatActivity {
         btnJoin.setEnabled(true);
         btnJoin.setText("Join Waitlist");
         btnJoin.setOnClickListener(v -> joinWaitlist());
+
+        if (hideJoinButton) {
+            btnJoin.setVisibility(View.GONE);
+        }
     }
 
     /**
@@ -1428,5 +1473,76 @@ public class EventDetailsActivity extends AppCompatActivity {
 
             dialog.show();
         });
+    }
+
+    private void handleScanResult(String contents) {
+        if (contents == null || !contents.contains("|")) {
+            Toast.makeText(this, "Invalid ticket format", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String[] parts = contents.split("\\|");
+        if (parts.length != 2) {
+            Toast.makeText(this, "Invalid ticket data", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String scannedEventId = parts[0];
+        String scannedUid = parts[1];
+
+        if (!scannedEventId.equals(eventId)) {
+            Toast.makeText(this, "Ticket is for a different event", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Verify if the user is enrolled in this event
+        eventPoolStorage.getEnrolledEntrants(eventId, entrants -> {
+            boolean isScannedWinner = false;
+            for (Entrant entrant : entrants) {
+                if (entrant.getEntrantId().equals(scannedUid)) {
+                    isScannedWinner = true;
+                    break;
+                }
+            }
+
+            if (isScannedWinner) {
+                userStorage.getUserProfile(scannedUid, this::showSuccessOverlay, e -> {
+                    Toast.makeText(this, "Winner verified, but profile load failed", Toast.LENGTH_SHORT).show();
+                });
+            } else {
+                Toast.makeText(this, "Attendee is NOT an enrolled winner", Toast.LENGTH_LONG).show();
+            }
+        }, e -> Toast.makeText(this, "Failed to verify attendee", Toast.LENGTH_SHORT).show());
+    }
+
+    private void showSuccessOverlay(User winner) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_scan_success, null);
+        builder.setView(view);
+
+        AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+        dialog.show();
+
+        ImageView ivCheck = view.findViewById(R.id.iv_check_anim);
+        TextView tvWinnerName = view.findViewById(R.id.tv_winner_name);
+        TextView tvEmail = view.findViewById(R.id.tv_winner_email);
+        TextView tvPhone = view.findViewById(R.id.tv_winner_phone);
+        Button btnDone = view.findViewById(R.id.btn_done);
+
+        tvWinnerName.setText(winner.getName() != null ? winner.getName() : "Unknown");
+        tvEmail.setText(winner.getEmail() != null ? winner.getEmail() : "No Email");
+        tvPhone.setText(winner.getPhoneNumber() != null ? winner.getPhoneNumber() : "No Phone");
+
+        Drawable drawable = ivCheck.getDrawable();
+        if (drawable instanceof AnimatedVectorDrawable) {
+            ((AnimatedVectorDrawable) drawable).start();
+        } else if (drawable instanceof AnimatedVectorDrawableCompat) {
+            ((AnimatedVectorDrawableCompat) drawable).start();
+        }
+
+        btnDone.setOnClickListener(v -> dialog.dismiss());
     }
 }

@@ -1,0 +1,47 @@
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="120dp"
+            android:height="120dp"
+            android:viewportWidth="100"
+            android:viewportHeight="100">
+            <path
+                android:name="circle"
+                android:pathData="M 50,10 A 40,40 0 1,1 50,90 A 40,40 0 1,1 50,10"
+                android:strokeColor="#4CAF50"
+                android:strokeWidth="5"
+                android:strokeLineCap="round"
+                android:trimPathEnd="0" />
+            <path
+                android:name="tick"
+                android:pathData="M 30,52 L 45,67 L 70,35"
+                android:strokeColor="#4CAF50"
+                android:strokeWidth="5"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:trimPathEnd="0" />
+        </vector>
+    </aapt:attr>
+    <target android:name="circle">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathEnd"
+                android:duration="600"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+    <target android:name="tick">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathEnd"
+                android:startOffset="600"
+                android:duration="400"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+</animated-vector>

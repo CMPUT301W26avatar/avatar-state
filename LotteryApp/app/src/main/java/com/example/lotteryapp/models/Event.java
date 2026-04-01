@@ -13,7 +13,7 @@ import java.util.UUID;
  */
 public class Event {
     public String eventId;
-    public final String organizerId;
+    public String organizerId;
 
     private List<String> coOrganizerIds;
     public EventStatus status;
@@ -51,6 +51,10 @@ public class Event {
         EVENT_OPEN, // event open, set after reg. end date, event still has capacity
         EVENT_CLOSED, // event closed/finished
         EVENT_FULL, // event open, but exceeding event capacity
+    }
+
+    public Event() {
+        // Required for Firebase toObject()
     }
 
     public Event(String organizerId, int eventCapacity, int waitlistCapacity) {
