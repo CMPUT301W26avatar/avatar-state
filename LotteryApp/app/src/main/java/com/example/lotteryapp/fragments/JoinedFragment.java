@@ -151,7 +151,27 @@ public class JoinedFragment extends Fragment {
      * Replace with your real confirmation ticket activity once wired.
      */
     private void openConfirmationTicket(Event event) {
-        openEventDetails(event);
+        if (!isAdded()) {
+            return;
+        }
+
+        String uid = ServiceLocator.uid();
+        if (uid == null || uid.trim().isEmpty()) {
+            Toast.makeText(requireContext(), "User not signed in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (event == null) {
+            Toast.makeText(requireContext(), "Missing event", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (eventPoolStorage == null) {
+            Toast.makeText(requireContext(), "Ticket service unavailable", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        eventPoolStorage.generateTicketPDF(requireContext(), event, uid);
     }
 
     private void showMoreEventsMenu(View anchor) {
