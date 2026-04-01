@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:cardBackgroundColor="?attr/colorTertiaryContainer"
+    app:strokeWidth="0dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/notification_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingStart="8dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="6dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground">
+
+        <ImageView
+            android:id="@+id/iv_info"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:src="@drawable/ic_info"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="?attr/colorOnTertiaryContainer" />
+
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/tv_notification_header"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="Notifications"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textStyle="bold"
+            android:textSize = "14sp"
+            android:textColor="?attr/colorOnTertiaryContainer"
+            app:layout_constraintStart_toEndOf="@id/iv_info"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/tv_notification_message"
+            app:layout_constraintVertical_chainStyle="packed"
+            app:layout_constraintBottom_toBottomOf="@id/iv_info" />
+
+
+        <LinearLayout
+            android:id="@+id/notification_dots_inline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal"
+            app:layout_constraintEnd_toStartOf="@id/btn_close_notification"
+            app:layout_constraintTop_toTopOf="@id/tv_notification_header"
+            app:layout_constraintBottom_toBottomOf="@id/tv_notification_header" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_close_notification"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            app:icon="@drawable/ic_close"
+            app:iconSize="16dp"
+            app:iconTint="?attr/colorOnTertiaryContainer"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/tv_notification_message"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textSize="14sp"
+            android:textColor="?attr/colorOnTertiaryContainer"
+            app:layout_constraintTop_toBottomOf="@id/tv_notification_header"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="@id/tv_notification_header"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintVertical_bias="0.5" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>
