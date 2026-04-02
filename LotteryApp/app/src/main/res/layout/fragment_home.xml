@@ -58,14 +58,26 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/availability_filter"
-                android:layout_width="wrap_content"
-                android:layout_height="24dp"
-                android:alpha="1"
-                android:text="Filter By Availability"
-                android:textAppearance="@style/TextAppearance.AppCompat.Body1"
-                tools:text="Filter By Availability" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
+
+                <Space
+                    android:layout_weight="1"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"/>
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/availability_filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:alpha="1"
+                    android:text="Filter By Availability"
+                    android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+                    tools:text="Filter By Availability" />
+
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
