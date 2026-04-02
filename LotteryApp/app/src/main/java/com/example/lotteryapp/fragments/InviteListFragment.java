@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -28,6 +29,7 @@ public class InviteListFragment extends Fragment {
     public static final String TYPE_INVITED = "invited";
     public static final String TYPE_DECLINED = "declined";
     public static final String TYPE_ACCEPTED = "accepted";
+    public static final String TYPE_CANCELLED = "cancelled";
 
     private String eventId;
     private String type;
@@ -83,6 +85,12 @@ public class InviteListFragment extends Fragment {
                     this::renderEntrants,
                     e -> handleError("Failed to load declined entrants", e)
             );
+        } else if (TYPE_CANCELLED.equals(type)) {
+            storage.getCancelledEntrants(
+                    eventId,
+                    this::renderEntrants,
+                    e -> handleError("Failed to load cancelled entrants", e)
+            );
         } else {
             storage.getEnrolledEntrants(
                     eventId,
@@ -105,12 +113,15 @@ public class InviteListFragment extends Fragment {
         tvEmpty.setVisibility(View.GONE);
 
         LayoutInflater inflater = LayoutInflater.from(getContext());
+        EventPoolStorage storage = ServiceLocator.getEventPoolStorage();
 
         for (Entrant entrant : entrants) {
             View row = inflater.inflate(R.layout.item_entrant, container, false);
 
             TextView entrantName = row.findViewById(R.id.tv_entrant_name);
             TextView entrantEmail = row.findViewById(R.id.tv_entrant_email);
+
+            View btnCancel = row.findViewById(R.id.btn_cancel_invite);
 
             ServiceLocator.getUserStorage().getUserProfile(
                     entrant.getEntrantId(),
@@ -126,6 +137,42 @@ public class InviteListFragment extends Fragment {
                         entrantEmail.setText("UNKNOWN EMAIL");
                     }
             );
+
+            if (TYPE_INVITED.equals(type)) {
+                btnCancel.setVisibility(View.VISIBLE);
+
+                btnCancel.setOnClickListener(v -> {
+                    new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                            .setTitle("Cancel invitation")
+                            .setMessage("Remove this entrant from invited list?")
+                            .setNegativeButton("No", null)
+                            .setPositiveButton("Yes", (dialog, which) -> {
+
+                                btnCancel.setEnabled(false);
+
+                                storage.cancelInvitation(
+                                        eventId,
+                                        entrant.getEntrantId(),
+                                        unused -> {
+                                            Toast.makeText(requireContext(), "Invitation cancelled", Toast.LENGTH_SHORT).show();
+
+                                            if (requireActivity() instanceof com.example.lotteryapp.activities.InvitesDashboardActivity) {
+                                                ((com.example.lotteryapp.activities.InvitesDashboardActivity) requireActivity()).refreshDashboard();
+                                            }
+                                        },
+                                        e -> {
+                                            btnCancel.setEnabled(true);
+                                            Toast.makeText(requireContext(), "Failed to cancel invitation", Toast.LENGTH_SHORT).show();
+                                        }
+                                );
+                            })
+                            .show();
+                });
+
+            } else {
+                // hide button for accepted / declined tabs
+                btnCancel.setVisibility(View.GONE);
+            }
 
             container.addView(row);
         }

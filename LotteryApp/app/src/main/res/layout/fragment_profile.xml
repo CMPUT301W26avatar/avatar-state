@@ -164,7 +164,7 @@
                     <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" />
                     <include layout="@layout/item_settings" android:id="@+id/item_details" />
                     <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" />
-                    <include layout="@layout/item_settings" android:id="@+id/item_devices" />
+                    <include layout="@layout/item_settings" android:id="@+id/item_availability" />
                     <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" />
                     <include layout="@layout/item_settings" android:id="@+id/item_notifications" />
                     <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" />

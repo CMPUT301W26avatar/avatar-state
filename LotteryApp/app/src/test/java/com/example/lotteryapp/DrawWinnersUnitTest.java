@@ -5,8 +5,10 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -16,10 +18,19 @@ import static org.robolectric.Shadows.shadowOf;
 import android.os.Looper;
 
 import com.example.lotteryapp.models.Entrant;
+import com.example.lotteryapp.models.NotificationLog;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
+import com.example.lotteryapp.models.UserEventHistory;
+import com.example.lotteryapp.services.ServiceLocator;
+import com.example.lotteryapp.services.storage.UserStorage;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.example.lotteryapp.services.storage.NotificationLogStorage;
 import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
@@ -36,6 +47,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -62,7 +74,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DrawWinnersUnitTest {
 
     private FirebaseFirestore db;
-    private EventPoolStorage storage;
+    private EventPoolStorage mockEventPoolStorage;
+    private UserStorage mockUserStorage;
+
+    private NotificationLogStorage mockNotificationLogStorage;
 
     private CollectionReference eventsCollection;
     private DocumentReference eventDoc;
@@ -74,6 +89,7 @@ public class DrawWinnersUnitTest {
 
     // maps invited document refs back to entrant IDs so tests can recover winners
     private Map<DocumentReference, String> invitedRefToEntrantId;
+    private DocumentSnapshot eventSnapshot;
 
     @Before
     public void setUp() {
@@ -87,9 +103,30 @@ public class DrawWinnersUnitTest {
      * without relying on a real database.
      */
     private void initializeFixture() {
-        // mock Firestore database and storage layer
+        ServiceLocator.reset();
+
         db = mock(FirebaseFirestore.class);
-        storage = new EventPoolStorage(db);
+
+        mockNotificationLogStorage = mock(NotificationLogStorage.class);
+        ServiceLocator.setNotificationLogStorageForTests(mockNotificationLogStorage);
+
+        mockUserStorage = mock(UserStorage.class);
+        ServiceLocator.setUserStorageForTests(mockUserStorage);
+
+        mockEventPoolStorage = new EventPoolStorage(db);
+
+        doAnswer(invocation -> {
+            OnSuccessListener<Void> success = invocation.getArgument(4);
+            success.onSuccess(null);
+            return null;
+        }).when(mockUserStorage).addUserEventHistoryEntry(
+                anyString(),
+                anyString(),
+                any(UserEventHistory.HistoryStatus.class),
+                any(),
+                any(),
+                any()
+        );
 
         // mock Firestore collections and references
         eventsCollection = mock(CollectionReference.class);
@@ -99,26 +136,49 @@ public class DrawWinnersUnitTest {
         waitlistedQuery = mock(Query.class);
         querySnapshot = mock(QuerySnapshot.class);
         batch = mock(WriteBatch.class);
+        eventSnapshot = mock(DocumentSnapshot.class);
 
-        // maps invited document refs back to entrant IDs for verification later
         invitedRefToEntrantId = new HashMap<>();
 
-        // setup Firestore structure: events -> eventDoc -> subcollections
         when(db.collection("events")).thenReturn(eventsCollection);
         when(eventsCollection.document(anyString())).thenReturn(eventDoc);
 
         when(eventDoc.collection("waitlisted")).thenReturn(waitlistedCollection);
         when(eventDoc.collection("invited")).thenReturn(invitedCollection);
 
-        // simulate query: only WAITLISTED entrants are selected
         when(waitlistedCollection.whereEqualTo(
-                "status",
-                Entrant.EntrantStatus.WAITLISTED.name()
+                eq("status"),
+                eq(Entrant.EntrantStatus.WAITLISTED.name())
         )).thenReturn(waitlistedQuery);
 
-        // mock batch writes and commit success
+        when(waitlistedCollection.whereIn(
+                eq("status"),
+                eq(Arrays.asList(
+                        Entrant.EntrantStatus.WAITLISTED.name(),
+                        Entrant.EntrantStatus.NOT_INVITED.name()
+                ))
+        )).thenReturn(waitlistedQuery);
+
+        when(eventDoc.get()).thenReturn(Tasks.forResult(eventSnapshot));
+        when(waitlistedQuery.get()).thenReturn(Tasks.forResult(querySnapshot));
+
+        when(eventSnapshot.exists()).thenReturn(true);
+        when(eventSnapshot.getLong("invitationCount")).thenReturn(0L);
+        when(eventSnapshot.getLong("waitlistCount")).thenReturn(1000L);
+        when(eventSnapshot.getLong("enrolledCount")).thenReturn(0L);
+        when(eventSnapshot.getString("title")).thenReturn("Sample Event");
+        when(eventSnapshot.getString("organizerId")).thenReturn("organizer-1");
+        when(eventSnapshot.getBoolean("hasDrawnLottery")).thenReturn(false);
+        when(eventSnapshot.getLong("waitlistCapacity")).thenReturn(1000L);
+        when(eventSnapshot.getLong("eventCapacity")).thenReturn(1000L);
+
         when(db.batch()).thenReturn(batch);
         when(batch.commit()).thenReturn(Tasks.forResult(null));
+    }
+
+    @org.junit.After
+    public void tearDown() {
+        ServiceLocator.reset();
     }
 
     // verify that each draw is capped strictly at eventCapacity
@@ -128,6 +188,13 @@ public class DrawWinnersUnitTest {
         int waitlistSize = 1000;
         int eventCapacity = 2;
 
+        // After drawing 2 winners, waitlistCount becomes 998
+        // With waitlistCapacity also 998 and hasDrawnLottery false,
+        //  resolveEventStatusAfterChange() should produce REG_FULL
+        when(eventSnapshot.getLong("waitlistCount")).thenReturn((long) waitlistSize);
+        when(eventSnapshot.getLong("waitlistCapacity")).thenReturn((long) (waitlistSize - eventCapacity));
+        when(eventSnapshot.getBoolean("hasDrawnLottery")).thenReturn(false);
+
         // create a larger pool than can be selected in a single draw
         List<QueryDocumentSnapshot> docs = buildWaitlistedDocs(waitlistSize);
         stubQueryResult(docs);
@@ -136,7 +203,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw
-        storage.drawWinners(
+        mockEventPoolStorage.drawWinners(
                 eventId,
                 eventCapacity,
                 successCount::set,
@@ -166,7 +233,18 @@ public class DrawWinnersUnitTest {
                 any(FieldValue.class)
         );
 
-        verify(batch, times(1)).update(eq(eventDoc), eq("invitationCount"), any(FieldValue.class));
+        verify(batch).update(eq(eventDoc), argThat(map -> {
+            Object invitationCount = map.get("invitationCount");
+            Object waitlistCount = map.get("waitlistCount");
+            Object status = map.get("status");
+
+            return invitationCount instanceof Number
+                    && ((Number) invitationCount).intValue() == eventCapacity
+                    && waitlistCount instanceof Number
+                    && ((Number) waitlistCount).intValue() == (waitlistSize - eventCapacity)
+                    && "REG_FULL".equals(status);
+        }));
+
         verify(batch, times(1)).commit();
     }
 
@@ -185,7 +263,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw
-        storage.drawWinners(
+        mockEventPoolStorage.drawWinners(
                 eventId,
                 eventCapacity,
                 successCount::set,
@@ -214,7 +292,11 @@ public class DrawWinnersUnitTest {
                 any(FieldValue.class)
         );
 
-        verify(batch, times(1)).update(eq(eventDoc), eq("invitationCount"), any(FieldValue.class));
+        verify(batch).update(eq(eventDoc), argThat(map -> {
+            return map.containsKey("invitationCount")
+                    && map.containsKey("waitlistCount")
+                    && map.containsKey("status");
+        }));
         verify(batch, times(1)).commit();
     }
 
@@ -230,7 +312,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw against an empty waitlist
-        storage.drawWinners(
+        mockEventPoolStorage.drawWinners(
                 eventId,
                 5,
                 successCount::set,
@@ -269,7 +351,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run the draw for this round
-            storage.drawWinners(
+            mockEventPoolStorage.drawWinners(
                     "event-random-" + i,
                     eventCapacity,
                     successCount::set,
@@ -315,7 +397,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run draw for this iteration
-            storage.drawWinners(
+            mockEventPoolStorage.drawWinners(
                     "event-outside-front-" + i,
                     eventCapacity,
                     successCount::set,
@@ -370,7 +452,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run another randomized draw
-            storage.drawWinners(
+            mockEventPoolStorage.drawWinners(
                     "event-regions-" + i,
                     eventCapacity,
                     successCount::set,
@@ -423,7 +505,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run a single draw
-        storage.drawWinners(
+        mockEventPoolStorage.drawWinners(
                 "event-not-front-only",
                 eventCapacity,
                 successCount::set,
@@ -469,7 +551,7 @@ public class DrawWinnersUnitTest {
         AtomicInteger failureCount = new AtomicInteger(0);
 
         // run draw
-        storage.drawWinners(
+        mockEventPoolStorage.drawWinners(
                 eventId,
                 eventCapacity,
                 successCount::set,
@@ -521,7 +603,7 @@ public class DrawWinnersUnitTest {
 
     // simulate repeated draws where users decline and ensure full exhaustion of waitlist
     @Test
-    public void drawWinners_simulateDeclineRounds_eventuallyExhaustsSmallWaitlist() {
+    public void multipleLotteryDrawsEventuallyChoosesAll() {
         // remaining entrants that still need to be sampled in later rounds
         List<String> remainingEntrants = buildEntrantIds(6);
 
@@ -542,7 +624,7 @@ public class DrawWinnersUnitTest {
             AtomicInteger failureCount = new AtomicInteger(0);
 
             // run draw for this decline/resample round
-            storage.drawWinners(
+            mockEventPoolStorage.drawWinners(
                     "event-exhaust-" + round,
                     requestedInvites,
                     successCount::set,
@@ -575,6 +657,151 @@ public class DrawWinnersUnitTest {
         // eventually the full small waitlist should be exhausted
         assertTrue("All entrants should have been sampled and removed", remainingEntrants.isEmpty());
         assertEquals(6, allInvitedAcrossRounds.size());
+    }
+
+    /**
+     * Verifies that drawWinners writes user event history updates for both
+     * invited entrants and non-selected entrants after the batch commit succeeds.
+     */
+    @Test
+    public void userEventHistoryIsUpdatedByDrawWinners() {
+        String eventId = "event-history";
+        int waitlistSize = 6;
+        int eventCapacity = 2;
+
+        List<QueryDocumentSnapshot> docs = buildWaitlistedDocs(waitlistSize);
+        stubQueryResult(docs);
+
+        AtomicInteger successCount = new AtomicInteger(-1);
+        AtomicInteger failureCount = new AtomicInteger(0);
+
+        mockEventPoolStorage.drawWinners(
+                eventId,
+                eventCapacity,
+                successCount::set,
+                e -> failureCount.incrementAndGet()
+        );
+
+        flushAsyncCallbacks();
+
+        assertEquals(0, failureCount.get());
+        assertEquals(eventCapacity, successCount.get());
+
+        // winners selected into invited collection
+        Set<String> invitedEntrants = captureWinnerIds();
+        assertEquals(eventCapacity, invitedEntrants.size());
+
+        // everyone else is treated as not selected / not invited for this round
+        Set<String> allEntrants = new HashSet<>();
+        for (int i = 0; i < waitlistSize; i++) {
+            allEntrants.add("entrant-" + i);
+        }
+
+        Set<String> nonSelectedEntrants = new HashSet<>(allEntrants);
+        nonSelectedEntrants.removeAll(invitedEntrants);
+
+        // verify history entries for winners
+        for (String invitedEntrantId : invitedEntrants) {
+            verify(mockUserStorage).addUserEventHistoryEntry(
+                    eq(invitedEntrantId),
+                    eq(eventId),
+                    eq(UserEventHistory.HistoryStatus.INVITED),
+                    any(),
+                    any(),
+                    any()
+            );
+        }
+
+        // verify history entries for non-selected entrants
+        for (String nonSelectedEntrantId : nonSelectedEntrants) {
+            verify(mockUserStorage).addUserEventHistoryEntry(
+                    eq(nonSelectedEntrantId),
+                    eq(eventId),
+                    eq(UserEventHistory.HistoryStatus.NOT_SELECTED),
+                    any(),
+                    any(),
+                    any()
+            );
+        }
+    }
+
+    /**
+     * Verifies that drawWinners sends lottery-result notifications to both:
+     * 1. Entrants who were selected and moved to invited
+     * 2. Entrants who were not selected and were marked NOT_INVITED
+     */
+    @Test
+    public void notificationsSentToSelectedAndNotSelected() {
+        String eventId = "event-notifications";
+        int waitlistSize = 5;
+        int eventCapacity = 2;
+
+        // build a synthetic waitlist
+        List<QueryDocumentSnapshot> docs = buildWaitlistedDocs(waitlistSize);
+        stubQueryResult(docs);
+
+        AtomicInteger successCount = new AtomicInteger(-1);
+        AtomicInteger failureCount = new AtomicInteger(0);
+
+        // run draw
+        mockEventPoolStorage.drawWinners(
+                eventId,
+                eventCapacity,
+                successCount::set,
+                e -> failureCount.incrementAndGet()
+        );
+
+        flushAsyncCallbacks();
+
+        // ensure draw succeeded
+        assertEquals(0, failureCount.get());
+        assertEquals(eventCapacity, successCount.get());
+
+        // capture notification arguments
+        ArgumentCaptor<String> eventIdCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> organizerIdCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> entrantIdCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> titleCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<NotificationLog.NotificationType> typeCaptor =
+                ArgumentCaptor.forClass(NotificationLog.NotificationType.class);
+
+        verify(mockNotificationLogStorage, times(waitlistSize)).logNotification(
+                eventIdCaptor.capture(),
+                organizerIdCaptor.capture(),
+                entrantIdCaptor.capture(),
+                titleCaptor.capture(),
+                messageCaptor.capture(),
+                typeCaptor.capture(),
+                any(),
+                any()
+        );
+
+        int invitedNotificationCount = 0;
+        int notInvitedNotificationCount = 0;
+
+        for (int i = 0; i < titleCaptor.getAllValues().size(); i++) {
+            assertEquals(eventId, eventIdCaptor.getAllValues().get(i));
+            assertEquals("organizer-1", organizerIdCaptor.getAllValues().get(i));
+            assertEquals(
+                    NotificationLog.NotificationType.LOTTERY_RESULT,
+                    typeCaptor.getAllValues().get(i)
+            );
+
+            String title = titleCaptor.getAllValues().get(i);
+            String message = messageCaptor.getAllValues().get(i);
+
+            if (title.startsWith("Invitation to ")) {
+                invitedNotificationCount++;
+                assertTrue(message.contains("Congratulations!"));
+            } else if (title.startsWith("Not Invited to ")) {
+                notInvitedNotificationCount++;
+                assertTrue(message.contains("Unfortunately"));
+            }
+        }
+
+        assertEquals(eventCapacity, invitedNotificationCount);
+        assertEquals(waitlistSize - eventCapacity, notInvitedNotificationCount);
     }
 
     // Builds entrant IDs for repeated-draw simulations.

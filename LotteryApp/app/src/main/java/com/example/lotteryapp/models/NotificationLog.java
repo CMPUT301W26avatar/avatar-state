@@ -15,12 +15,25 @@ public class NotificationLog {
     private String title;
     private String message;
     private NotificationType type;
+    private NotificationStatus status;
     private Timestamp timestamp;
+    // organizer side (where did it come from, why?)
     public enum NotificationType {
         INVITATION,
         LOTTERY_RESULT,
         MESSAGE,
         COMMENT,
+        PRIVATE_INVITATION,
+        COORGANIZER_INVITATION,
+        EVENT_ANNOUNCEMENT,
+    }
+
+    // user side
+    public enum NotificationStatus {
+        PENDING, // user has yet to do anything with the noti.
+        ACCEPTED, // accepted invitation
+        DECLINED, //declined invitation
+        READ //read status for non-actionable notifications
     }
     public NotificationLog () {}
 
@@ -36,25 +49,27 @@ public class NotificationLog {
      */
     // unverified event constructor
     public NotificationLog(String eventId, String organizerId, String userId, String title,
-                           String message, NotificationType type, Timestamp timestamp) {
+                           String message, NotificationType type, NotificationStatus status, Timestamp timestamp) {
         this.eventId = eventId;
         this.organizerId = organizerId;
         this.userId = userId;
         this.title = title;
         this.message = message;
         this.type = type;
+        this.status = status;
         this.timestamp = timestamp;
     }
 
     // verified event constructor
     public NotificationLog(Event event, String userId, String title,
-                           String message, NotificationType type, Timestamp timestamp) {
+                           String message, NotificationType type, NotificationStatus status, Timestamp timestamp) {
         this.eventId = event.getEventId();
         this.organizerId = event.getOrganizerId();
         this.userId = userId;
         this.title = title;
         this.message = message;
         this.type = type;
+        this.status = status;
         this.timestamp = timestamp;
     }
 
@@ -63,6 +78,15 @@ public class NotificationLog {
     public String getEventId() { return eventId; }
     public void setEventId(String eventId) { this.eventId = eventId; }
     public String getOrganizerId() { return organizerId; }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
+    }
+
     public void setOrganizerId(String organizerId) { this.organizerId = organizerId; }
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -70,6 +94,8 @@ public class NotificationLog {
     public void setMessage(String message) { this.message = message; }
     public NotificationType getType() { return type; }
     public void setType(NotificationType type) { this.type = type; }
+    public NotificationStatus getStatus() { return status; }
+    public void setStatus(NotificationStatus status) { this.status = status; }
     public Timestamp getTimestamp() { return timestamp; }
     public void setTimestamp(Timestamp timestamp) { this.timestamp = timestamp; }
 }

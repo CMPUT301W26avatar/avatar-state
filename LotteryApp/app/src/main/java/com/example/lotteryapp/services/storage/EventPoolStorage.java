@@ -5,20 +5,62 @@ import static com.example.lotteryapp.models.Entrant.EntrantStatus.ENROLLED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.INVITED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
 
+import android.app.Service;
+
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.UserEventHistory;
+import android.widget.Toast;
+
+import com.example.lotteryapp.models.Entrant;
+import com.example.lotteryapp.models.Event;
+import com.example.lotteryapp.models.EventAddress;
+import android.content.ContentValues;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Typeface;
+import android.graphics.pdf.PdfDocument;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.widget.Toast;
+
+import androidx.core.content.FileProvider;
+
+import com.google.firebase.firestore.WriteBatch;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.MultiFormatWriter;
+import com.google.zxing.WriterException;
+import com.google.zxing.common.BitMatrix;
+import com.journeyapps.barcodescanner.BarcodeEncoder;
+
+import com.example.lotteryapp.models.NotificationLog;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldPath;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
+import com.example.lotteryapp.services.storage.NotificationLogStorage;
 
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -34,6 +76,8 @@ public class EventPoolStorage {
     public EventPoolStorage(FirebaseFirestore db) {
         this.db = db;
     }
+
+    private NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
 
     /** firebase retrieval helper
      * - returns a document of the waitlisted subcollection for a certain unique entrantId
@@ -75,6 +119,13 @@ public class EventPoolStorage {
                 .document(entrantId);
     }
 
+    private DocumentReference cancelledDoc(String eventId, String entrantId) {
+        return db.collection("events")
+                .document(eventId)
+                .collection("cancelled")
+                .document(entrantId);
+    }
+
     /** firebase storage helper
      * - takes database fields to store as parameters, and returns a Map with those fields
      */
@@ -100,8 +151,6 @@ public class EventPoolStorage {
     ) {
         DocumentReference eventRef = db.collection("events").document(eventId);
         DocumentReference entrantWaitlistedRef = waitlistedDoc(eventId, entrant.getEntrantId());
-        DocumentReference entrantInvitedRef = invitedDoc(eventId, entrant.getEntrantId());
-        DocumentReference entrantEnrolledRef = enrolledDoc(eventId, entrant.getEntrantId());
 
         db.runTransaction((Transaction.Function<Void>) transaction -> {
                     DocumentSnapshot eventSnap = transaction.get(eventRef);
@@ -110,6 +159,7 @@ public class EventPoolStorage {
                     if (!eventSnap.exists()) {
                         throw new IllegalStateException("Event does not exist");
                     }
+
 
                     // enforce no double waitlisting
                     if (waitlistedSnap.exists() && (waitlistedSnap.getString("status").equals("WAITLISTED"))) {
@@ -150,6 +200,67 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
+
+    public void cancelInvitation(
+            String eventId,
+            String entrantId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        DocumentReference eventRef = db.collection("events").document(eventId);
+        DocumentReference invitedRef = invitedDoc(eventId, entrantId);
+        DocumentReference cancelledRef = cancelledDoc(eventId, entrantId);
+
+        db.runTransaction((Transaction.Function<Void>) transaction -> {
+                    DocumentSnapshot eventSnap = transaction.get(eventRef);
+                    DocumentSnapshot invitedSnap = transaction.get(invitedRef);
+
+                    if (!eventSnap.exists()) {
+                        throw new IllegalStateException("Event does not exist");
+                    }
+
+                    if (!invitedSnap.exists()) {
+                        throw new IllegalStateException("Entrant is not invited");
+                    }
+
+                    int invitationCount = eventSnap.getLong("invitationCount") != null
+                            ? eventSnap.getLong("invitationCount").intValue() : 0;
+                    int waitlistCount = eventSnap.getLong("waitlistCount") != null
+                            ? eventSnap.getLong("waitlistCount").intValue() : 0;
+                    int enrolledCount = eventSnap.getLong("enrolledCount") != null
+                            ? eventSnap.getLong("enrolledCount").intValue() : 0;
+
+                    int updatedInvitationCount = Math.max(0, invitationCount - 1);
+
+                    Map<String, Object> data = mapEntrantData(
+                            eventId,
+                            entrantId,
+                            Entrant.EntrantStatus.CANCELLED.name()
+                    );
+                    data.put("joinedAt", invitedSnap.get("joinedAt"));
+
+                    transaction.delete(invitedRef);
+                    transaction.set(cancelledRef, data);
+
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("invitationCount", updatedInvitationCount);
+                    updates.put(
+                            "status",
+                            resolveEventStatusAfterChange(
+                                    eventSnap,
+                                    waitlistCount,
+                                    updatedInvitationCount,
+                                    enrolledCount
+                            )
+                    );
+
+                    transaction.update(eventRef, updates);
+
+                    return null;
+                }).addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
     /** firebase storage
      * Stores a single entrant inside of the invited subcollection
      * Removes the aforementioned entrant from the waitlisted subcollection
@@ -175,6 +286,15 @@ public class EventPoolStorage {
 
                     if (!eventSnap.exists()) {
                         throw new IllegalStateException("Event does not exist");
+                    }
+
+                    Boolean privateEvent = eventSnap.getBoolean("privateEvent");
+                    if (privateEvent != null && privateEvent) {
+                        throw new IllegalStateException("Use direct invites for private events");
+                    }
+
+                    if (!waitlistedSnap.exists()) {
+                        throw new IllegalStateException("Entrant is not waitlisted");
                     }
 
                     // enforce no double invitation
@@ -209,8 +329,8 @@ public class EventPoolStorage {
                             "status",
                             resolveEventStatusAfterChange(
                                     eventSnap,
-                                    waitlistCount,
-                                    invitationCount,
+                                    updatedWaitlistCount,
+                                    invitationCount + 1,
                                     enrolledCount
                             )
                     );
@@ -348,11 +468,9 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    /** firebase storage
-     * Stores a single entrant inside of the declined subcollection
-     * Removes the aforementioned entrant from the invited subcollection
-     * Asynchronous: requires OnSuccess and OnFailure listeners
-     * - returns nothing, synchronously or asynchronously
+    /**
+     * Removes a single entrant from the invited subcollection and moves them to declined.
+     * Asynchronous: requires OnSuccess and OnFailure listeners.
      */
     public void removeFromInvited(
             String eventId,
@@ -365,14 +483,12 @@ public class EventPoolStorage {
         DocumentReference declinedRef = declinedDoc(eventId, entrantId);
 
         db.runTransaction((Transaction.Function<Void>) transaction -> {
-
                     DocumentSnapshot eventSnap = transaction.get(eventRef);
                     DocumentSnapshot invitedSnap = transaction.get(invitedRef);
 
                     if (!eventSnap.exists()) {
                         throw new IllegalStateException("Event does not exist");
                     }
-
                     if (!invitedSnap.exists()) {
                         throw new IllegalStateException("Entrant is not invited");
                     }
@@ -380,25 +496,21 @@ public class EventPoolStorage {
                     int invitationCount = eventSnap.getLong("invitationCount") != null
                             ? eventSnap.getLong("invitationCount").intValue() : 0;
 
-                    Map<String, Object> data = mapEntrantData(
+                    Map<String, Object> declinedData = mapEntrantData(
                             eventId,
                             entrantId,
                             DECLINED.name()
                     );
-
-                    // preserve original timestamp
-                    data.put("joinedAt", invitedSnap.get("joinedAt"));
+                    declinedData.put("joinedAt", invitedSnap.get("joinedAt"));
 
                     transaction.delete(invitedRef);
-                    transaction.set(declinedRef, data);
+                    transaction.set(declinedRef, declinedData);
 
                     Map<String, Object> updates = new HashMap<>();
                     updates.put("invitationCount", Math.max(0, invitationCount - 1));
 
                     transaction.update(eventRef, updates);
-
                     return null;
-
                 }).addOnSuccessListener(onSuccess)
                 .addOnFailureListener(onFailure);
     }
@@ -618,62 +730,328 @@ public class EventPoolStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    /**
-     * Perform the lottery draw to select winners.
-     * Picks up to capacity random entrants from WAITLISTED pool and mark them as INVITED.
-     * the rest = NOT_INVITED.
-     */
-    public void drawWinners(String eventId, int capacity, OnSuccessListener<Integer> onSuccess, OnFailureListener onFailure) {
-        db.collection("events").document(eventId).collection("waitlisted")
-                .whereEqualTo("status", Entrant.EntrantStatus.WAITLISTED.name())
+    public void getCancelledEntrants(String eventId,
+                                     OnSuccessListener<List<Entrant>> onSuccess,
+                                     OnFailureListener onFailure) {
+        db.collection("events")
+                .document(eventId)
+                .collection("cancelled")
                 .get()
                 .addOnSuccessListener(querySnapshot -> {
-                    List<QueryDocumentSnapshot> waitlisted = new ArrayList<>();
+                    List<Entrant> entrants = new ArrayList<>();
                     for (QueryDocumentSnapshot doc : querySnapshot) {
-                        waitlisted.add(doc);
-                    }
-
-                    if (waitlisted.isEmpty()) {
-                        onSuccess.onSuccess(0);
-                        return;
-                    }
-
-                    // Shuffle for randomness
-                    java.util.Collections.shuffle(waitlisted);
-
-                    int winnersCount = Math.min(capacity, waitlisted.size());
-
-                    com.google.firebase.firestore.WriteBatch batch = db.batch();
-
-                    for (int i = 0; i < waitlisted.size(); i++) {
-                        QueryDocumentSnapshot doc = waitlisted.get(i);
                         String entrantId = doc.getString("entrantId");
-
-                        if (i < winnersCount) {
-                            //Move winner to 'invited' collection
-                            DocumentReference invitedRef = invitedDoc(eventId, entrantId);
-                            Map<String, Object> data = mapEntrantData(eventId, entrantId, Entrant.EntrantStatus.INVITED.name());
-                            data.put("joinedAt", doc.get("joinedAt")); // Preserve original join time
-                            batch.set(invitedRef, data);
-                            batch.delete(doc.getReference());
-                        } else {
-                            // ppl not selected are placed in NOT_INVITED in waitlisted collection
-                            batch.update(doc.getReference(), "status", Entrant.EntrantStatus.NOT_INVITED.name());
-                            // Add/update updatedAt timestamp if it doesn't exist
-                            batch.update(doc.getReference(), "updatedAt", FieldValue.serverTimestamp());
+                        String eid = doc.getString("eventId");
+                        if (entrantId != null && eid != null) {
+                            entrants.add(new Entrant(
+                                    entrantId,
+                                    eid,
+                                    Entrant.EntrantStatus.CANCELLED
+                            ));
                         }
                     }
-
-                    //Update event invitation count
-                    DocumentReference eventRef = db.collection("events").document(eventId);
-                    batch.update(eventRef, "invitationCount", FieldValue.increment(winnersCount));
-
-                    batch.commit().addOnSuccessListener(unused -> onSuccess.onSuccess(winnersCount)).addOnFailureListener(onFailure);
+                    onSuccess.onSuccess(entrants);
                 })
                 .addOnFailureListener(onFailure);
     }
 
+    /**
+     * Returns all events the given user is currently enrolled in.
+     * Uses a collection group query over all /enrolled subcollections.
+     * Asynchronous: requires OnSuccess and OnFailure listeners.
+     */
+    public void getEnrolledEventIdsForUser(
+            String entrantId,
+            OnSuccessListener<List<String>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collectionGroup("enrolled")
+                .whereEqualTo("entrantId", entrantId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> eventIds = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String eventId = doc.getString("eventId");
+                        if (eventId != null && !eventId.trim().isEmpty()) {
+                            eventIds.add(eventId);
+                        }
+                    }
+                    onSuccess.onSuccess(eventIds);
+                })
+                .addOnFailureListener(onFailure);
+    }
 
+    public void getInvitedEventIdsForUser(
+            String entrantId,
+            OnSuccessListener<List<String>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collectionGroup("invited")
+                .whereEqualTo("entrantId", entrantId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> eventIds = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String eventId = doc.getString("eventId");
+                        if (eventId != null && !eventId.trim().isEmpty() && !eventIds.contains(eventId)) {
+                            eventIds.add(eventId);
+                        }
+                    }
+                    onSuccess.onSuccess(eventIds);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    public void getWaitlistedEventIdsForUser(
+            String entrantId,
+            OnSuccessListener<List<String>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collectionGroup("waitlisted")
+                .whereEqualTo("entrantId", entrantId)
+                .whereEqualTo("status", "WAITLISTED")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> eventIds = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String eventId = doc.getString("eventId");
+                        if (eventId != null && !eventId.trim().isEmpty() && !eventIds.contains(eventId)) {
+                            eventIds.add(eventId);
+                        }
+                    }
+                    onSuccess.onSuccess(eventIds);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    public void getPrivateJoinedEventIdsForUser(
+            String entrantId,
+            OnSuccessListener<List<String>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collectionGroup("private_invites")   // replace with actual merged subcollection name
+                .whereEqualTo("entrantId", entrantId)
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<String> eventIds = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String eventId = doc.getString("eventId");
+                        if (eventId != null
+                                && !eventId.trim().isEmpty()
+                                && !eventIds.contains(eventId)) {
+                            eventIds.add(eventId);
+                        }
+                    }
+                    onSuccess.onSuccess(eventIds);
+                })
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Perform the lottery draw to select winners.
+     * Picks up to capacity random entrants from WAITLISTED pool and marks them as INVITED.
+     * The rest are marked as NOT_INVITED.
+     */
+    public void drawWinners(
+            String eventId,
+            int capacity,
+            OnSuccessListener<Integer> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        db.collection("events")
+                .document(eventId)
+                .collection("waitlisted")
+                .whereEqualTo("status", Entrant.EntrantStatus.WAITLISTED.name())
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<QueryDocumentSnapshot> eligibleEntrants = new ArrayList<>();
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        eligibleEntrants.add(doc);
+                    }
+
+                    if (eligibleEntrants.isEmpty()) {
+                        onSuccess.onSuccess(0);
+                        return;
+                    }
+
+                    Collections.shuffle(eligibleEntrants);
+
+                    int winnersCount = Math.min(capacity, eligibleEntrants.size());
+                    DocumentReference eventRef = db.collection("events").document(eventId);
+
+                    eventRef.get()
+                            .addOnSuccessListener(eventSnap -> {
+                                if (!eventSnap.exists()) {
+                                    onFailure.onFailure(
+                                            new IllegalStateException("Event does not exist")
+                                    );
+                                    return;
+                                }
+
+                                int invitationCount = eventSnap.getLong("invitationCount") != null
+                                        ? eventSnap.getLong("invitationCount").intValue()
+                                        : 0;
+                                int waitlistCount = eventSnap.getLong("waitlistCount") != null
+                                        ? eventSnap.getLong("waitlistCount").intValue()
+                                        : 0;
+                                int enrolledCount = eventSnap.getLong("enrolledCount") != null
+                                        ? eventSnap.getLong("enrolledCount").intValue()
+                                        : 0;
+
+                                int updatedInvitationCount = invitationCount + winnersCount;
+                                int updatedWaitlistCount = Math.max(0, waitlistCount - winnersCount);
+
+                                WriteBatch batch = db.batch();
+                                List<String> invitedEntrantIds = new ArrayList<>();
+                                List<String> notSelectedEntrantIds = new ArrayList<>();
+
+                                String eventTitle = eventSnap.getString("title") != null
+                                        ? eventSnap.getString("title")
+                                        : "No Title";
+                                String organizerId = eventSnap.getString("organizerId");
+
+                                String invitedTitle = String.format("Invitation to %s", eventTitle);
+                                String invitedMessage = String.format(
+                                        "Congratulations! You have been invited to sign up for %s. Please accept or decline the invitation promptly.",
+                                        eventTitle
+                                );
+
+                                String notInvitedTitle = String.format("Not Invited to %s", eventTitle);
+                                String notInvitedMessage = String.format(
+                                        "Unfortunately, you have not been selected to sign up for %s. Feel free to check out other events or wait around for another chance to be selected!",
+                                        eventTitle
+                                );
+
+                                for (int i = 0; i < eligibleEntrants.size(); i++) {
+                                    QueryDocumentSnapshot doc = eligibleEntrants.get(i);
+                                    String entrantId = doc.getString("entrantId");
+
+                                    if (entrantId == null || entrantId.trim().isEmpty()) {
+                                        continue;
+                                    }
+
+                                    if (i < winnersCount) {
+                                        DocumentReference invitedRef = invitedDoc(eventId, entrantId);
+
+                                        Map<String, Object> data = mapEntrantData(
+                                                eventId,
+                                                entrantId,
+                                                Entrant.EntrantStatus.INVITED.name()
+                                        );
+                                        data.put("joinedAt", doc.get("joinedAt"));
+
+                                        batch.set(invitedRef, data);
+                                        batch.delete(doc.getReference());
+
+                                        invitedEntrantIds.add(entrantId);
+
+                                        notificationLogStorage.logNotification(
+                                                eventId,
+                                                organizerId,
+                                                entrantId,
+                                                invitedTitle,
+                                                invitedMessage,
+                                                NotificationLog.NotificationType.LOTTERY_RESULT,
+                                                sentCount -> { },
+                                                e -> { }
+                                        );
+                                    } else {
+                                        batch.update(
+                                                doc.getReference(),
+                                                "status",
+                                                Entrant.EntrantStatus.NOT_INVITED.name()
+                                        );
+                                        batch.update(
+                                                doc.getReference(),
+                                                "updatedAt",
+                                                FieldValue.serverTimestamp()
+                                        );
+
+                                        notSelectedEntrantIds.add(entrantId);
+
+                                        notificationLogStorage.logNotification(
+                                                eventId,
+                                                organizerId,
+                                                entrantId,
+                                                notInvitedTitle,
+                                                notInvitedMessage,
+                                                NotificationLog.NotificationType.LOTTERY_RESULT,
+                                                sentCount -> { },
+                                                e -> { }
+                                        );
+                                    }
+                                }
+
+                                Map<String, Object> eventUpdates = new HashMap<>();
+                                eventUpdates.put("invitationCount", updatedInvitationCount);
+                                eventUpdates.put("waitlistCount", updatedWaitlistCount);
+                                eventUpdates.put(
+                                        "status",
+                                        resolveEventStatusAfterChange(
+                                                eventSnap,
+                                                updatedWaitlistCount,
+                                                updatedInvitationCount,
+                                                enrolledCount
+                                        )
+                                );
+
+                                batch.update(eventRef, eventUpdates);
+
+                                batch.commit()
+                                        .addOnSuccessListener(unused -> {
+                                            UserStorage ustore = ServiceLocator.getUserStorage();
+
+                                            int totalHistoryWrites =
+                                                    invitedEntrantIds.size() + notSelectedEntrantIds.size();
+
+                                            if (totalHistoryWrites == 0) {
+                                                onSuccess.onSuccess(winnersCount);
+                                                return;
+                                            }
+
+                                            AtomicInteger remaining = new AtomicInteger(totalHistoryWrites);
+
+                                            OnSuccessListener<Void> historyWriteSuccess = unused2 -> {
+                                                if (remaining.decrementAndGet() == 0) {
+                                                    onSuccess.onSuccess(winnersCount);
+                                                }
+                                            };
+
+                                            OnFailureListener historyWriteFailure = e -> {
+                                                // Do not fail the draw after the batch has already committed.
+                                                if (remaining.decrementAndGet() == 0) {
+                                                    onSuccess.onSuccess(winnersCount);
+                                                }
+                                            };
+
+                                            for (String invitedEntrantId : invitedEntrantIds) {
+                                                ustore.addUserEventHistoryEntry(
+                                                        invitedEntrantId,
+                                                        eventId,
+                                                        UserEventHistory.HistoryStatus.INVITED,
+                                                        System.currentTimeMillis(),
+                                                        historyWriteSuccess,
+                                                        historyWriteFailure
+                                                );
+                                            }
+
+                                            for (String notSelectedEntrantId : notSelectedEntrantIds) {
+                                                ustore.addUserEventHistoryEntry(
+                                                        notSelectedEntrantId,
+                                                        eventId,
+                                                        UserEventHistory.HistoryStatus.NOT_SELECTED,
+                                                        System.currentTimeMillis(),
+                                                        historyWriteSuccess,
+                                                        historyWriteFailure
+                                                );
+                                            }
+                                        })
+                                        .addOnFailureListener(onFailure);
+                            })
+                            .addOnFailureListener(onFailure);
+                })
+                .addOnFailureListener(onFailure);
+    }
 
     // DATABASE DELETE ENTRY (status unknown)
     /** firebase delete single
@@ -682,7 +1060,7 @@ public class EventPoolStorage {
      * Asynchronous: requires OnSuccess and OnFailure listeners
      * - returns nothing, synchronously or asynchronously
      */
-    private void deleteEntryByStatus(
+    public void deleteEntryByStatus(
             String eventId,
             String entrantId,
             Entrant.EntrantStatus status,

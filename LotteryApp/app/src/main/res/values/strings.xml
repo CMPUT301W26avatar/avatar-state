@@ -11,4 +11,11 @@
         This process will be repreated until the event has reached enrollment capacity.</string>
     <string name="btn_export_csv">Export CSV</string>
     <string name="qr_code_base_url">https://avatar-state-api.web.app/event</string>
+    <string name="msg_no_joined_events">No events joined yet...</string>
+    <string-array name="notificationRecipients">
+        <item>waitlisted</item>
+        <item>invited</item>
+        <item>cancelled</item>
+        <item>enrolled</item>
+    </string-array>
 </resources>
