@@ -8,6 +8,8 @@ import android.graphics.drawable.GradientDrawable;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.Pair;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,8 +37,9 @@ import com.example.lotteryapp.activities.TermsOfServiceActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.UserStorage;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.card.MaterialCardView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,15 +57,15 @@ import java.util.List;
  */
 public class HomeFragment extends Fragment {
 
-    private EventStorage estore = ServiceLocator.getEventStorage();
-    private EventPoolStorage eventPoolStorage = ServiceLocator.getEventPoolStorage();
-    private UserStorage ustore = ServiceLocator.getUserStorage();
+    private final EventStorage eventStorage = ServiceLocator.getEventStorage();
+    private final EventPoolStorage eventPoolStorage = ServiceLocator.getEventPoolStorage();
+    private final UserStorage userStorage = ServiceLocator.getUserStorage();
     private GridEventAdapter openAdapter;
     private GridEventAdapter upcomingAdapter;
     private GridEventAdapter fullAdapter;
-    private List<HomeFragment.DisplayGridEvent> displayOpenGridEvents;
-    private List<HomeFragment.DisplayGridEvent> displayUpcomingGridEvents;
-    private List<HomeFragment.DisplayGridEvent> displayFullGridEvents;
+    private List<DisplayGridEvent> displayOpenGridEvents;
+    private List<DisplayGridEvent> displayUpcomingGridEvents;
+    private List<DisplayGridEvent> displayFullGridEvents;
     private boolean isCheckingTOS = false;
     private boolean isTOSActivityOpen = false;
 
@@ -78,11 +81,14 @@ public class HomeFragment extends Fragment {
 
 
     private ViewPager2 notificationsPager;
-    private NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
+    private final NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
 
     private NotificationPagerAdapter notificationPagerAdapter;
     private final List<NotificationLog> notifications = new ArrayList<>();
     private View invitationCard;
+
+    private List<Long> userAvailability;
+    private boolean hasFilterByAvailability = false;
 
     /**
      * Inflates the HomeFragment layout and initializes UI components.
@@ -127,11 +133,21 @@ public class HomeFragment extends Fragment {
         recyclerViewFull.setAdapter(fullAdapter);
 
         checkAndLaunchTOSIfNeeded();
-        loadEventsRegOpen();
-        loadEventsRegUpcoming();
-        loadEventsRegFull();
-        loadNotifications();
 
+        userStorage.getUserAvailabilityDates(
+                ServiceLocator.uid(),
+                dates -> {
+                    userAvailability = dates;
+                    loadEventType(Event.EventStatus.EVENT_OPEN);
+                    loadEventType(Event.EventStatus.REG_UPCOMING);
+                    loadEventType(Event.EventStatus.EVENT_FULL);
+                },
+                e -> {
+                    Log.e("HomeFragment", "Failed to load user availability", e);
+                }
+        );
+
+        loadNotifications();
         return view;
     }
     /**
@@ -142,84 +158,75 @@ public class HomeFragment extends Fragment {
     public void onResume() {
         super.onResume();
         checkAndLaunchTOSIfNeeded();
-        loadEventsRegOpen();
-        loadEventsRegUpcoming();
-        loadEventsRegFull();
+
+        userStorage.getUserAvailabilityDates(
+                ServiceLocator.uid(),
+                dates -> {
+                    userAvailability = dates;
+                    loadEventType(Event.EventStatus.EVENT_OPEN);
+                    loadEventType(Event.EventStatus.REG_UPCOMING);
+                    loadEventType(Event.EventStatus.EVENT_FULL);
+                },
+                e -> {
+                    Log.e("HomeFragment", "Failed to load user availability", e);
+                }
+        );
+
         loadNotifications();
     }
 
-    /**
-     * Populate the grid event adapters with the most recent events with open registration window.
-     *      (regStart < time.now < regEnd && waitlistCapacity > waitlistCount)
-     *      call EventStorage.listEventsRegOpen query to fill events list
-     *      convert Event to DisplayGridEvent
-     *      notify change in the list of grid events
-     */
-    private void loadEventsRegOpen() {
-        if (estore == null || openAdapter == null) return;
+    private Pair<List<DisplayGridEvent>, GridEventAdapter> getEventAdapterPair(Event.EventStatus status) {
+        List<DisplayGridEvent> events = null;
+        GridEventAdapter eventAdapter = null;
 
-        estore.listEventsRegOpen(
-                4,
-                fetchedEvents -> {
-                    displayOpenGridEvents.clear();
-                    for (Event e : fetchedEvents) {
-                        displayOpenGridEvents.add(eventToDisplayEvent(e));
-                    }
-                    openAdapter.notifyDataSetChanged();
-                },
-                e -> {
-                    android.util.Log.e("HomeFragment", "Failed to load open events", e);
-                }
-        );
+        switch (status) {
+            case EVENT_OPEN:
+                events = displayOpenGridEvents;
+                eventAdapter = openAdapter;
+                break;
+            case REG_UPCOMING:
+                events = displayUpcomingGridEvents;
+                eventAdapter = upcomingAdapter;
+                break;
+            case EVENT_FULL:
+                events = displayFullGridEvents;
+                eventAdapter = fullAdapter;
+                break;
+            default: // Don't care about anything else
+                break;
+        }
+
+        return new Pair<>(events, eventAdapter);
     }
 
-    /**
-     * Populate the grid event adapters with the most recent events with upcoming registration window.
-     *      (time.now < regStart)
-     *      call EventStorage.listEventsRegOpen query to fill events list
-     *      convert Event to DisplayGridEvent
-     *      notify change in the list of grid events
-     */
-    private void loadEventsRegUpcoming() {
-        if (estore == null || upcomingAdapter == null) return;
+    private void loadEventType(Event.EventStatus status) {
+        if ((eventStorage == null) || (userStorage == null) || (openAdapter == null)
+                || (upcomingAdapter == null) || (fullAdapter == null)) return;
 
-        estore.listEventsRegUpcoming(
-                4,
+        Pair<List<DisplayGridEvent>, GridEventAdapter>
+                eventAdapterPair = getEventAdapterPair(status);
+
+        OnSuccessListener<List<Event>> successListener =
                 fetchedEvents -> {
-                    displayUpcomingGridEvents.clear();
-                    for (Event e : fetchedEvents) {
-                        displayUpcomingGridEvents.add(eventToDisplayEvent(e));
-                    }
-                    upcomingAdapter.notifyDataSetChanged();
-                },
-                e -> {
-                    android.util.Log.e("HomeFragment", "Failed to load upcoming events", e);
-                }
-        );
-    }
+                    List<DisplayGridEvent> displayGridEvents = eventAdapterPair.first;
+                    GridEventAdapter displayAdapter = eventAdapterPair.second;
 
-    /**
-     * Populate the grid event adapters with the most recent events that are full.
-     *      (waitlistCapacity = waitlistCount)
-     *      call EventStorage.listEventsRegOpen query to fill events list
-     *      convert Event to DisplayGridEvent
-     *      notify change in the list of grid events
-     *      ** later: Popular Events should return events ordered by descending (waitlistCount/waitlistCapacity)**
-     */
-    private void loadEventsRegFull() {
-        if (estore == null || fullAdapter == null) return;
-
-        estore.listEventsRegFull(
-                4,
-                fetchedEvents -> {
-                    displayFullGridEvents.clear();
+                    displayGridEvents.clear();
                     for (Event e : fetchedEvents) {
-                        displayFullGridEvents.add(eventToDisplayEvent(e));
+                        displayGridEvents.add(eventToDisplayEvent(e));
                     }
-                    fullAdapter.notifyDataSetChanged();
-                },
-                e -> android.util.Log.e("HomeFragment", "Failed to load full events", e)
-        );
+
+                    displayAdapter.notifyItemRangeChanged(0, fetchedEvents.size());
+                };
+
+        OnFailureListener failureListener = e ->
+                Log.e("HomeFragment", "Failed to load open events", e);
+
+        if (!hasFilterByAvailability) {
+            eventStorage.getEventsByStatus(status, 4, successListener, failureListener);
+        } else {
+            eventStorage.getEventsByStatus(status, userAvailability, 4, successListener, failureListener);
+        }
     }
 
     /**
@@ -477,7 +484,7 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        estore.acceptInviteToBeCoorganizer(
+        eventStorage.acceptInviteToBeCoorganizer(
                 notification.getEventId(),
                 uid,
                 unused -> resolveNotification(
@@ -512,7 +519,7 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        estore.declineInviteToBeCoorganizer(
+        eventStorage.declineInviteToBeCoorganizer(
                 notification.getEventId(),
                 uid,
                 unused -> resolveNotification(
@@ -726,7 +733,7 @@ public class HomeFragment extends Fragment {
          * Resolves the themed color used for notification pager dots
          */
         private int resolveDotColor(View view) {
-            android.util.TypedValue typedValue = new android.util.TypedValue();
+            TypedValue typedValue = new TypedValue();
             view.getContext().getTheme().resolveAttribute(
                     com.google.android.material.R.attr.colorOnTertiaryContainer,
                     typedValue,
@@ -749,7 +756,7 @@ public class HomeFragment extends Fragment {
 
         isCheckingTOS = true;
 
-        ustore.getHasAcceptedTOS(
+        userStorage.getHasAcceptedTOS(
                 uid,
                 hasAccepted -> {
                     isCheckingTOS = false;
@@ -764,7 +771,7 @@ public class HomeFragment extends Fragment {
                 },
                 e -> {
                     isCheckingTOS = false;
-                    android.util.Log.e("HomeFragment", "Failed to check Terms of Service acceptance", e);
+                    Log.e("HomeFragment", "Failed to check Terms of Service acceptance", e);
                 }
         );
     }
@@ -793,8 +800,8 @@ public class HomeFragment extends Fragment {
     /**
      * Converts an Event parameter into a DisplayGridEvent
      */
-    private HomeFragment.DisplayGridEvent eventToDisplayEvent(Event event) {
-        return new HomeFragment.DisplayGridEvent(
+    private DisplayGridEvent eventToDisplayEvent(Event event) {
+        return new DisplayGridEvent(
                 event.getEventId(),
                 event.getTitle(),
                 buildSubtitle(event),
