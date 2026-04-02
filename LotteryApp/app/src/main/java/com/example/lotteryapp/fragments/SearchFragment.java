@@ -43,7 +43,7 @@ import java.util.List;
 
 public class SearchFragment extends Fragment {
 
-    private EventStorage estore = ServiceLocator.getEventStorage();
+    private final EventStorage eventStorage = ServiceLocator.getEventStorage();
     private GridEventAdapter suggestedAdapter, popularAdapter;
     private List<HomeFragment.DisplayGridEvent> suggestedEvents, popularEvents;
     private boolean isSearchActive = false;
@@ -115,7 +115,7 @@ public class SearchFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         // Temporary migration call to fix existing events
-        estore.syncAllEventKeywords(
+        eventStorage.syncAllEventKeywords(
                 unused -> android.util.Log.d("Migration", "All events updated with keywords!"),
                 e -> android.util.Log.e("Migration", "Failed to update events", e)
         );
@@ -144,7 +144,7 @@ public class SearchFragment extends Fragment {
             if (upcomingContent != null) upcomingContent.setVisibility(View.GONE);
         }
 
-        estore.searchEvents(query, fetchedEvents -> {
+        eventStorage.searchEvents(query, fetchedEvents -> {
             popularEvents.clear();
             for (Event event : fetchedEvents) {
                 popularEvents.add(eventToDisplayEvent(event));
@@ -202,7 +202,7 @@ public class SearchFragment extends Fragment {
      *      notify change in the list of grid events
      */
     private void loadPopularEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
-        estore.listEventsRegOpen(limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
+        eventStorage.getEventsByStatus(Event.EventStatus.REG_OPEN, limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
             displayGridEvents.clear();
                 for (Event event : fetchedEvents) {
                     displayGridEvents.add(eventToDisplayEvent(event));
@@ -222,7 +222,7 @@ public class SearchFragment extends Fragment {
      *      notify change in the list of grid events
      */
     private void loadSuggestedEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
-        estore.listEventsRegOpen(limit, fetchedEvents -> { // replace listOpenEvents with listSuggestedEvents when implemented
+        eventStorage.getEventsByStatus(Event.EventStatus.REG_OPEN, limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
                 displayGridEvents.clear();
                 for (Event event : fetchedEvents) {
                     displayGridEvents.add(eventToDisplayEvent(event));
