@@ -138,9 +138,9 @@ public class HomeFragment extends Fragment {
                 ServiceLocator.uid(),
                 dates -> {
                     userAvailability = dates;
-                    loadEventType(Event.EventStatus.EVENT_OPEN);
-                    loadEventType(Event.EventStatus.REG_UPCOMING);
-                    loadEventType(Event.EventStatus.EVENT_FULL);
+                    loadEventByStatus(Event.EventStatus.EVENT_OPEN);
+                    loadEventByStatus(Event.EventStatus.REG_UPCOMING);
+                    loadEventByStatus(Event.EventStatus.EVENT_FULL);
                 },
                 e -> {
                     Log.e("HomeFragment", "Failed to load user availability", e);
@@ -163,9 +163,9 @@ public class HomeFragment extends Fragment {
                 ServiceLocator.uid(),
                 dates -> {
                     userAvailability = dates;
-                    loadEventType(Event.EventStatus.EVENT_OPEN);
-                    loadEventType(Event.EventStatus.REG_UPCOMING);
-                    loadEventType(Event.EventStatus.EVENT_FULL);
+                    loadEventByStatus(Event.EventStatus.EVENT_OPEN);
+                    loadEventByStatus(Event.EventStatus.REG_UPCOMING);
+                    loadEventByStatus(Event.EventStatus.EVENT_FULL);
                 },
                 e -> {
                     Log.e("HomeFragment", "Failed to load user availability", e);
@@ -199,7 +199,7 @@ public class HomeFragment extends Fragment {
         return new Pair<>(events, eventAdapter);
     }
 
-    private void loadEventType(Event.EventStatus status) {
+    private void loadEventByStatus(Event.EventStatus status) {
         if ((eventStorage == null) || (userStorage == null) || (openAdapter == null)
                 || (upcomingAdapter == null) || (fullAdapter == null)) return;
 
