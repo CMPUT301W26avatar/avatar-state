@@ -40,8 +40,10 @@ import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -87,7 +89,7 @@ public class HomeFragment extends Fragment {
     private final List<NotificationLog> notifications = new ArrayList<>();
     private View invitationCard;
 
-    private List<Long> userAvailability;
+    private List<Long> userAvailability = Arrays.asList(1L, 2L, 3L);
     private boolean hasFilterByAvailability = false;
 
     /**
@@ -132,24 +134,45 @@ public class HomeFragment extends Fragment {
         recyclerViewUpcoming.setAdapter(upcomingAdapter);
         recyclerViewFull.setAdapter(fullAdapter);
 
-        checkAndLaunchTOSIfNeeded();
-
-        userStorage.getUserAvailabilityDates(
-                ServiceLocator.uid(),
-                dates -> {
-                    userAvailability = dates;
-                    loadEventByStatus(Event.EventStatus.EVENT_OPEN);
-                    loadEventByStatus(Event.EventStatus.REG_UPCOMING);
-                    loadEventByStatus(Event.EventStatus.EVENT_FULL);
-                },
-                e -> {
-                    Log.e("HomeFragment", "Failed to load user availability", e);
-                }
-        );
-
-        loadNotifications();
         return view;
     }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        checkAndLaunchTOSIfNeeded();
+        MaterialSwitch availabilityFilterSwitch = view.findViewById(R.id.availability_filter);
+        availabilityFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
+            hasFilterByAvailability = isChecked;
+            loadAllEvents();
+        });
+
+        loadAllEvents();
+        loadNotifications();
+    }
+
+    private void loadAllEvents() {
+        if (!hasFilterByAvailability) {
+            loadEventsByStatus(Event.EventStatus.EVENT_OPEN);
+            loadEventsByStatus(Event.EventStatus.REG_UPCOMING);
+            loadEventsByStatus(Event.EventStatus.EVENT_FULL);
+        } else {
+            userStorage.getUserAvailabilityDates(
+                    ServiceLocator.uid(),
+                    dates -> {
+                        userAvailability = dates;
+                        loadEventsByStatus(Event.EventStatus.EVENT_OPEN);
+                        loadEventsByStatus(Event.EventStatus.REG_UPCOMING);
+                        loadEventsByStatus(Event.EventStatus.EVENT_FULL);
+                    },
+                    e -> {
+                        Log.e("HomeFragment", "Failed to load user availability", e);
+                    }
+            );
+        }
+    }
+
     /**
      * Reloads event lists whenever the fragment comes into view again.
      *      ensures the dashboard reflects the most recent event(s)
@@ -163,9 +186,9 @@ public class HomeFragment extends Fragment {
                 ServiceLocator.uid(),
                 dates -> {
                     userAvailability = dates;
-                    loadEventByStatus(Event.EventStatus.EVENT_OPEN);
-                    loadEventByStatus(Event.EventStatus.REG_UPCOMING);
-                    loadEventByStatus(Event.EventStatus.EVENT_FULL);
+                    loadEventsByStatus(Event.EventStatus.EVENT_OPEN);
+                    loadEventsByStatus(Event.EventStatus.REG_UPCOMING);
+                    loadEventsByStatus(Event.EventStatus.EVENT_FULL);
                 },
                 e -> {
                     Log.e("HomeFragment", "Failed to load user availability", e);
@@ -199,7 +222,7 @@ public class HomeFragment extends Fragment {
         return new Pair<>(events, eventAdapter);
     }
 
-    private void loadEventByStatus(Event.EventStatus status) {
+    private void loadEventsByStatus(Event.EventStatus status) {
         if ((eventStorage == null) || (userStorage == null) || (openAdapter == null)
                 || (upcomingAdapter == null) || (fullAdapter == null)) return;
 
@@ -216,7 +239,7 @@ public class HomeFragment extends Fragment {
                         displayGridEvents.add(eventToDisplayEvent(e));
                     }
 
-                    displayAdapter.notifyItemRangeChanged(0, fetchedEvents.size());
+                    displayAdapter.notifyDataSetChanged();
                 };
 
         OnFailureListener failureListener = e ->

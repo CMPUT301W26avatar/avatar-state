@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?attr/colorSurface">
@@ -54,7 +55,25 @@
                         android:visibility="gone" />
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
+
             </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/availability_filter"
+                android:layout_width="wrap_content"
+                android:layout_height="24dp"
+                android:alpha="1"
+                android:text="Filter By Availability"
+                android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+                tools:text="Filter By Availability" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="end"
+                android:orientation="horizontal">
+
+            </LinearLayout>
 
             <com.google.android.material.textview.MaterialTextView
                 android:layout_width="wrap_content"
