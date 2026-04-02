@@ -98,6 +98,7 @@ public class EventDetailsActivity extends AppCompatActivity {
 
     // poster
     private ImageView ivEventPoster;
+    private ImageView ivEventPosterPlaceholder;
 
     // Admin Tech Details Views
     private View layoutAdminInfo;
@@ -238,6 +239,7 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvViewComments = findViewById(R.id.tv_view_comments);
 
         ivEventPoster = findViewById(R.id.iv_event_poster);
+        ivEventPosterPlaceholder = findViewById(R.id.iv_event_poster_placeholder);
 
         // Admin Info
         layoutAdminInfo = findViewById(R.id.layout_admin_info);
@@ -474,7 +476,9 @@ public class EventDetailsActivity extends AppCompatActivity {
                         e -> Log.e("EventDetailsActivity:adminMode", "Failed to upsert event", e)
                 );
                 Toast.makeText(this, "Image Deleted", Toast.LENGTH_SHORT).show();
-                ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
+                ivEventPoster.setImageDrawable(null);
+                ivEventPoster.setVisibility(GONE);
+                ivEventPosterPlaceholder.setVisibility(VISIBLE);
                 btnDeleteImage.setVisibility(GONE);
             }, e -> Toast.makeText(this, "Failed to delete image", Toast.LENGTH_SHORT).show());
         });
@@ -698,14 +702,15 @@ public class EventDetailsActivity extends AppCompatActivity {
         }
 
         if (event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
+            ivEventPoster.setVisibility(VISIBLE);
+            ivEventPosterPlaceholder.setVisibility(GONE);
             Glide.with(this)
                     .load(event.getPosterUrl())
-                    .placeholder(R.drawable.ic_image_placeholder)
-                    .error(R.drawable.ic_image_placeholder)
                     .into(ivEventPoster);
         }
         else {
-            ivEventPoster.setImageResource(R.drawable.ic_image_placeholder);
+            ivEventPoster.setVisibility(GONE);
+            ivEventPosterPlaceholder.setVisibility(VISIBLE);
         }
 
         if (isAdminMode && event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
