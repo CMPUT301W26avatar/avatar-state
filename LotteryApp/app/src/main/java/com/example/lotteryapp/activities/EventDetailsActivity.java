@@ -670,11 +670,20 @@ public class EventDetailsActivity extends AppCompatActivity {
 
             // For private events, organizers should be able to search/invite users
             // until the lottery has actually started or the event is closed.
-            if (!hasSentInvites && !eventClosed) {
+            boolean allowPrivateUserSearch =
+                    !hasSentInvites
+                            && !eventClosed
+                            && status != REG_CLOSED
+                            && status != REG_FULL;
+
+            if (allowPrivateUserSearch) {
                 btnSearchForUsers.setVisibility(View.VISIBLE);
                 btnSearchForUsers.setEnabled(true);
                 btnSearchForUsers.setText("Search for users to Invite");
                 btnSearchForUsers.setOnClickListener(v -> openInviteUserSearch());
+            } else {
+                btnSearchForUsers.setVisibility(View.GONE);
+                btnSearchForUsers.setEnabled(false);
             }
 
             // Once private waitlist is full / registration closes, organizer should start lottery.

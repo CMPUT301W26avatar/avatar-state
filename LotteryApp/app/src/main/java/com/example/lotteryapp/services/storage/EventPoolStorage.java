@@ -349,13 +349,13 @@ public class EventPoolStorage {
      */
     public void enrollInEvent(
             String eventId,
-            Entrant entrant,
+            String entrantId,
             OnSuccessListener<Void> onSuccess,
             OnFailureListener onFailure
     ) {
         DocumentReference eventRef = db.collection("events").document(eventId);
-        DocumentReference invitedRef = invitedDoc(eventId, entrant.getEntrantId());
-        DocumentReference enrolledRef = enrolledDoc(eventId, entrant.getEntrantId());
+        DocumentReference invitedRef = invitedDoc(eventId, entrantId);
+        DocumentReference enrolledRef = enrolledDoc(eventId, entrantId);
 
         db.runTransaction((Transaction.Function<Void>) transaction -> {
                     DocumentSnapshot eventSnap = transaction.get(eventRef);
@@ -385,7 +385,7 @@ public class EventPoolStorage {
 
                     Map<String, Object> data = mapEntrantData(
                             eventId,
-                            entrant.getEntrantId(),
+                            entrantId,
                             ENROLLED.name()
                     );
                     data.put("joinedAt", invitedSnap.get("joinedAt"));
@@ -951,7 +951,7 @@ public class EventPoolStorage {
                                                 entrantId,
                                                 invitedTitle,
                                                 invitedMessage,
-                                                NotificationLog.NotificationType.LOTTERY_RESULT,
+                                                NotificationLog.NotificationType.WON_LOTTERY,
                                                 sentCount -> { },
                                                 e -> { }
                                         );
@@ -975,7 +975,7 @@ public class EventPoolStorage {
                                                 entrantId,
                                                 notInvitedTitle,
                                                 notInvitedMessage,
-                                                NotificationLog.NotificationType.LOTTERY_RESULT,
+                                                NotificationLog.NotificationType.LOST_LOTTERY,
                                                 sentCount -> { },
                                                 e -> { }
                                         );

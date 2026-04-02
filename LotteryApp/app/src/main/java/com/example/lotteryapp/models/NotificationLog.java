@@ -19,10 +19,9 @@ public class NotificationLog {
     private Timestamp timestamp;
     // organizer side (where did it come from, why?)
     public enum NotificationType {
-        INVITATION,
-        LOTTERY_RESULT,
+        WON_LOTTERY,
+        LOST_LOTTERY,
         MESSAGE,
-        COMMENT,
         PRIVATE_INVITATION,
         COORGANIZER_INVITATION,
         EVENT_ANNOUNCEMENT,
