@@ -9,6 +9,7 @@ import com.example.lotteryapp.models.UserEventHistory;
 import com.example.lotteryapp.services.UserNameService;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /** Database storage and retrieval layer with respect to Users
  * Users have their own firebase collection "users"
@@ -65,10 +67,18 @@ public class UserStorage {
     }
 
     /**
+     * /users/{uuid}/availability
+     */
+    public DocumentReference userAvailabilityDoc(String uuid) {
+        return userDoc(uuid).collection("availability").document("dates");
+    }
+    
+    /**  
      * user event history subdocument
      * /users/{uuid}/event_history/{eventId}
      *      - one entry in the subcollection is for one event
      */
+
     public DocumentReference userEventHistoryDoc(String uuid, String eventId) {
         return userDoc(uuid)
                 .collection("event_history")
@@ -468,8 +478,103 @@ public class UserStorage {
                 .addOnFailureListener(fail);
     }
 
+    /**
+     * Loads the user's saved availability dates from the single availability document.
+     * The document shape is:
+     *      /users/{uuid}/availability/dates
+     *      {
+     *          dateMsList: [long, long, ...],
+     *          updatedAt: timestamp
+     *      }
+     */
+    public void getUserAvailabilityDates(
+            String uuid,
+            OnSuccessListener<List<Long>> ok,
+            OnFailureListener fail
+    ) {
+        userAvailabilityDoc(uuid)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    List<Long> dates = new ArrayList<>();
 
+                    if (snapshot.exists()) {
+                        List<?> rawList = (List<?>) snapshot.get("dateMsList");
+                        if (rawList != null) {
+                            for (Object value : rawList) {
+                                if (value instanceof Number) {
+                                    dates.add(((Number) value).longValue());
+                                }
+                            }
+                        }
+                    }
 
+                    ok.onSuccess(dates);
+                })
+                .addOnFailureListener(fail);
+    }
+
+    /**
+     * Replaces the user's entire availability list in one write.
+     * Use this when saving all selected dates from the multi-date calendar widget.
+     */
+    public void setUserAvailabilityDates(
+            String uuid,
+            List<Long> dateMsList,
+            OnSuccessListener<Void> ok,
+            OnFailureListener fail
+    ) {
+        Map<String, Object> update = new HashMap<>();
+        update.put("uid", uuid);
+        update.put("dateMsList", dateMsList);
+        update.put("updatedAt", FieldValue.serverTimestamp());
+
+        userAvailabilityDoc(uuid)
+                .set(update, SetOptions.merge())
+                .addOnSuccessListener(ok)
+                .addOnFailureListener(fail);
+    }
+
+    /**
+     * Optional helper: add one availability date to the single doc using arrayUnion.
+     * Kept for compatibility with any callers that still want incremental updates.
+     */
+    public void addUserAvailabilityDate(
+            String uuid,
+            long dateMs,
+            OnSuccessListener<Void> ok,
+            OnFailureListener fail
+    ) {
+        Map<String, Object> update = new HashMap<>();
+        update.put("uid", uuid);
+        update.put("dateMsList", FieldValue.arrayUnion(dateMs));
+        update.put("updatedAt", FieldValue.serverTimestamp());
+
+        userAvailabilityDoc(uuid)
+                .set(update, SetOptions.merge())
+                .addOnSuccessListener(ok)
+                .addOnFailureListener(fail);
+    }
+
+    /**
+     * Optional helper: remove one availability date from the single doc using arrayRemove.
+     * Kept for compatibility with any callers that still want incremental updates.
+     */
+    public void deleteUserAvailabilityDate(
+            String uuid,
+            long dateMs,
+            OnSuccessListener<Void> ok,
+            OnFailureListener fail
+    ) {
+        Map<String, Object> update = new HashMap<>();
+        update.put("uid", uuid);
+        update.put("dateMsList", FieldValue.arrayRemove(dateMs));
+        update.put("updatedAt", FieldValue.serverTimestamp());
+
+        userAvailabilityDoc(uuid)
+                .set(update, SetOptions.merge())
+                .addOnSuccessListener(ok)
+                .addOnFailureListener(fail);
+    }
 
 
     /** firebase modify

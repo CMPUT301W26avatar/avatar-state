@@ -50,6 +50,7 @@
         <activity android:name=".activities.UserDetailsActivity"/>
         <activity android:name=".activities.AdminActivity"/>
         <activity android:name=".activities.EnrolledListActivity"/>
+        <activity android:name=".activities.UserAvailabilityActivity" />
         <activity android:name=".activities.InvitedListActivity"/>
         <activity
             android:name=".activities.EventDetailsActivity"
