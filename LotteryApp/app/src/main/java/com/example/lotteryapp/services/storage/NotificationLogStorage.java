@@ -30,9 +30,7 @@ public class NotificationLogStorage {
     private final FirebaseFirestore db;
 
     /**
-     * Makes a NotificationLogStorage from given firestore instance.
-     *
-     * @param db the firestore database instance
+     * Makes a NotificationLogStorage from given firestore instance
      */
     public NotificationLogStorage(FirebaseFirestore db) {
         this.db = db;
@@ -41,14 +39,9 @@ public class NotificationLogStorage {
     /**
      * Logs a notification
      * Call wherever organizer sends a notification to entrant
-     *
-     * @param eventId     ID of the event the notification relates to
-     * @param organizerId ID of the organizer sending the notif
-     * @param title       title of the notification
-     * @param message     message to convey through notif
-     * @param type        either "invitation", "lottery_result", "message", "admin"
-     * @param onSuccess   Called on success
-     * @param onFailure   Called on failure
+     *      map all NotificationLog attributes into a map and add that map as a document in firebase
+     * Asynchronous: requires onSuccess and onFailure listeners
+     *      returns nothing
      */
     public void logNotification(
             String eventId,
@@ -80,6 +73,8 @@ public class NotificationLogStorage {
     /**
      * Sends an announcement to multiple users at once
      *      Creates one NotificationLog entry per user using a Firestore batch write
+     * Asynchronous: requires onSuccess and onFailure listeners
+     *      returns nothing
      */
     public void logAnnouncementToUsers(
             String eventId,
@@ -123,6 +118,8 @@ public class NotificationLogStorage {
     /**
      * Update the status of a notification after a user has accepted or declined it
      *      takes in the new status of the notification to store it
+     * Asynchronous: requires onSuccess and onFailure listeners
+     *      returns nothing
      */
     public void updateNotificationStatus(
             String notificationId,
@@ -154,9 +151,7 @@ public class NotificationLogStorage {
     /**
      * Gets all notification log entries (new first)
      * Intended for admin notification log viewer
-     *
-     * @param onSuccess called with list of NotificationLog entries on success
-     * @param onFailure called with exception on failure
+     * Asynchronous: requires onSuccess (returns all notification logs) and onFailure listeners
      */
     public void getAllNotificationLogs(
             OnSuccessListener<List<NotificationLog>> onSuccess,
@@ -181,6 +176,7 @@ public class NotificationLogStorage {
      * Gets notifications for one user, newest first
      *      only returns pending notifications
      *          accepted or declined notifications are deleted
+     * Asynchronous: requires onSuccess (returns all pending notifications) and onFailure listeners
      */
     public void getPendingNotificationsForUser(
             String userId,
@@ -237,6 +233,11 @@ public class NotificationLogStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /**
+     * Get all of the events who have sent a private event invitation to the user
+     *      query looks through all notification logs for PRIVATE_INVITATION sent to the userId of the current user
+     * Asynchronous: requires onSuccess (returns all private events the user is invited to) and onFailure listeners
+     */
     public void getPrivateInviteEventIdsForUser(
             String entrantId,
             OnSuccessListener<List<String>> onSuccess,
