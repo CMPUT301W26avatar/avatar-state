@@ -5,39 +5,11 @@ import static com.example.lotteryapp.models.Entrant.EntrantStatus.ENROLLED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.INVITED;
 import static com.example.lotteryapp.models.Entrant.EntrantStatus.WAITLISTED;
 
-import android.app.Service;
-
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.UserEventHistory;
-import android.widget.Toast;
-
-import com.example.lotteryapp.models.Entrant;
-import com.example.lotteryapp.models.Event;
-import com.example.lotteryapp.models.EventAddress;
-import android.content.ContentValues;
-import android.content.Context;
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Typeface;
-import android.graphics.pdf.PdfDocument;
-import android.net.Uri;
-import android.os.Build;
-import android.os.Environment;
-import android.provider.MediaStore;
-import android.widget.Toast;
-
-import androidx.core.content.FileProvider;
 
 import com.google.firebase.firestore.WriteBatch;
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.MultiFormatWriter;
-import com.google.zxing.WriterException;
-import com.google.zxing.common.BitMatrix;
-import com.journeyapps.barcodescanner.BarcodeEncoder;
 
 import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.services.ServiceLocator;
@@ -45,22 +17,15 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FieldPath;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.Transaction;
-import com.example.lotteryapp.services.storage.NotificationLogStorage;
 
-import java.io.File;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -77,7 +42,7 @@ public class EventPoolStorage {
         this.db = db;
     }
 
-    private NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
+    private final NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
 
     /** firebase retrieval helper
      * - returns a document of the waitlisted subcollection for a certain unique entrantId
@@ -369,9 +334,6 @@ public class EventPoolStorage {
 
                     int waitlistCount = eventSnap.getLong("waitlistCount") != null
                             ? eventSnap.getLong("waitlistCount").intValue() : 0;
-                    int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null
-                            ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
-
                     transaction.delete(waitlistedRef);
 
                     int updatedWaitlistCount = Math.max(0, waitlistCount - 1);
@@ -1004,8 +966,6 @@ public class EventPoolStorage {
                             ? eventSnap.getLong("invitationCount").intValue() : 0;
                     int enrolledCount = eventSnap.getLong("enrolledCount") != null
                             ? eventSnap.getLong("enrolledCount").intValue() : 0;
-                    int waitlistCapacity = eventSnap.getLong("waitlistCapacity") != null
-                            ? eventSnap.getLong("waitlistCapacity").intValue() : 0;
 
                     Map<String, Object> updates = new HashMap<>();
 
