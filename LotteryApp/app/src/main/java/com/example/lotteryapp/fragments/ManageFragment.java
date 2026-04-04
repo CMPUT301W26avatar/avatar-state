@@ -543,10 +543,10 @@ public class ManageFragment extends Fragment {
                 currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
                 currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
 
-                EditText organizers = view.findViewById(R.id.et_organizers);
-                if (organizers != null) {
-                    organizers.setText("");
-                }
+//                EditText organizers = view.findViewById(R.id.et_organizers);
+//                if (organizers != null) {
+//                    organizers.setText("");
+//                }
             });
         }
 
