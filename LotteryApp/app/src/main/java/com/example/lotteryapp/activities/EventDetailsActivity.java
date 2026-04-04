@@ -61,7 +61,6 @@ import com.example.lotteryapp.services.storage.NotificationLogStorage;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -238,6 +237,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         setupActionBar();
     }
 
+    /**
+     * Refreshes event details whenever the activity returns to the foreground
+     */
     @Override
     protected void onResume() {
         super.onResume();
@@ -300,6 +302,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvEventVisibilityTag = findViewById(R.id.tv_event_visibility_tag);
     }
 
+    /**
+     * Wires the top-level icon actions such as comments, announcements, sharing, and saving
+     */
     private void setupActionBar() {
         View.OnClickListener openComments = v -> {
             Intent intent = new Intent(this, CommentsActivity.class);
@@ -388,6 +393,9 @@ public class EventDetailsActivity extends AppCompatActivity {
                 && currentUserId.equals(event.getOrganizerId());
     }
 
+    /**
+     * Determines whether the current user can manage the event as either the primary organizer or a co-organizer
+     */
     private boolean canManageEvent(Event event) {
         if (event == null || currentUserId == null) {
             return false;
@@ -554,6 +562,11 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Formats a past timestamp into a short relative-time label for comments and other UI components
+     *  takes in parameter long epoch milliseconds postedMs
+     *  returns a String representing relative time (ex. 6 seconds ago)
+     */
     public static String getTimeAgo(long postedMs) {
         long nowMs = System.currentTimeMillis();
         long diffMs = nowMs - postedMs;
@@ -981,6 +994,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         tvAdminPosterUrl.setText("posterUrl: " + (event.getPosterUrl() != null ? "\"" + event.getPosterUrl() + "\"" : "null"));
     }
 
+    /**
+     * Builds the organizer QR-code flow used to preview and download the event's check-in QR code
+     */
     private void setupQrCode() {
         qrCode = new QRCode(eventId);
         Bitmap qrCodeBitMap = qrCode.getBitmap();
@@ -1480,6 +1496,12 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+
+    /**
+     * Loads one of the user's stored addresses for geo-constraint checks and joined_map snapshots
+     *     takes in the enumerator UserAddressMode for taking the current or default address for the user
+     *     asynchronous: requires onSuccess and onFailure listeners
+     */
     private void loadAddressForJoinedMap(
             User.UserAddressMode addressMode,
             com.google.android.gms.tasks.OnSuccessListener<com.example.lotteryapp.models.UserAddress> onSuccess,
@@ -1493,12 +1515,19 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+    * Validates that an address contains the minimum coordinate data required for radius checks and joined_map persistence
+     *  takes in a UserAddress
+    */
     private boolean isUsableJoinedMapAddress(com.example.lotteryapp.models.UserAddress address) {
         return address != null
                 && address.getLatitude() != null
                 && address.getLongitude() != null;
     }
 
+    /**
+    * Saves the event-specific joined_map snapshot for the current user
+    */
     private void writeJoinedMap(
             com.example.lotteryapp.models.UserAddress address,
             Runnable onSuccess,
@@ -1521,12 +1550,16 @@ public class EventDetailsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+    * Parses a scanned ticket payload and verifies that it belongs to this event and to an enrolled entrant.
+    */
     private void handleScanResult(String contents) {
         if (contents == null || !contents.contains("|")) {
             Toast.makeText(this, "Invalid ticket format", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // ticket format is expected to be "eventId|userId"
         String[] parts = contents.split("\\|");
         if (parts.length != 2) {
             Toast.makeText(this, "Invalid ticket data", Toast.LENGTH_SHORT).show();
@@ -1561,6 +1594,9 @@ public class EventDetailsActivity extends AppCompatActivity {
         }, e -> Toast.makeText(this, "Failed to verify attendee", Toast.LENGTH_SHORT).show());
     }
 
+    /**
+    * Displays the successful scan dialog for a verified attendee
+    */
     private void showSuccessOverlay(User winner) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         View view = LayoutInflater.from(this).inflate(R.layout.dialog_scan_success, null);
