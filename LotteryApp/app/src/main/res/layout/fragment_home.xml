@@ -58,25 +58,22 @@
 
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- FILTERS -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="horizontal">
-
+                android:layout_height="wrap_content">
                 <Space
-                    android:layout_weight="1"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"/>
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/availability_filter"
                     android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:alpha="1"
-                    android:text="Filter By Availability"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Body1"
-                    tools:text="Filter By Availability" />
-
+                    android:layout_height="wrap_content"
+                    android:layout_weight="11"/>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/event_filters_button"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Filters"
+                    app:icon="@drawable/ic_sort"
+                    app:iconTint="?attr/colorPrimary" />
             </LinearLayout>
 
             <LinearLayout
@@ -88,6 +85,7 @@
             </LinearLayout>
 
             <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/interest_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
@@ -102,6 +100,7 @@
                 android:nestedScrollingEnabled="false" />
 
             <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/popular_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
@@ -116,6 +115,7 @@
                 android:nestedScrollingEnabled="false" />
 
             <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/upcoming_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
