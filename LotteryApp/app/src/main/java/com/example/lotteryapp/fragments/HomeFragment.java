@@ -1,9 +1,12 @@
 package com.example.lotteryapp.fragments;
 
+import static android.view.View.GONE;
+import static android.view.View.VISIBLE;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.ACCEPTED;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.DECLINED;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.READ;
 
+import android.app.Dialog;
 import android.graphics.drawable.GradientDrawable;
 import android.content.Intent;
 import android.os.Bundle;
@@ -41,10 +44,14 @@ import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textview.MaterialTextView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * HomeFragment displays the main event dashboard of the application.
@@ -89,8 +96,28 @@ public class HomeFragment extends Fragment {
     private final List<NotificationLog> notifications = new ArrayList<>();
     private View invitationCard;
 
-    private List<Long> userAvailability = Arrays.asList(1L, 2L, 3L);
-    private boolean hasFilterByAvailability = false;
+    private MaterialButton filtersButton;
+
+    private List<Long> userAvailability;
+
+    // Filter Values
+    private boolean useAvailabilityFilter = false;
+    private boolean showUpcomingEvents = true;
+    private boolean showOpenEvents = true;
+    private boolean showFullEvents = true;
+    private int minCap;
+    private int maxCap;
+
+
+    private MaterialTextView interestText;
+    private RecyclerView recyclerViewOpen;
+    private MaterialTextView upcomingText;
+    private RecyclerView recyclerViewUpcoming;
+    private MaterialTextView popularText;
+    private RecyclerView recyclerViewFull;
+
+    private Map<GridEventAdapter, RecyclerView> adapterToRecView;
+    private Map<RecyclerView, MaterialTextView> recViewToText;
 
     /**
      * Inflates the HomeFragment layout and initializes UI components.
@@ -111,16 +138,25 @@ public class HomeFragment extends Fragment {
         notificationsPager.setAdapter(notificationPagerAdapter);
 
         if (invitationCard != null) {
-            invitationCard.setVisibility(View.GONE);
+            invitationCard.setVisibility(GONE);
         }
-        notificationsPager.setVisibility(View.GONE);
+        notificationsPager.setVisibility(GONE);
 
-        RecyclerView recyclerViewOpen = view.findViewById(R.id.recycler_view_open);
+        recyclerViewOpen = view.findViewById(R.id.recycler_view_open);
         recyclerViewOpen.setLayoutManager(new GridLayoutManager(getContext(), 2));
-        RecyclerView recyclerViewUpcoming = view.findViewById(R.id.recycler_view_upcoming);
+        recyclerViewUpcoming = view.findViewById(R.id.recycler_view_upcoming);
         recyclerViewUpcoming.setLayoutManager(new GridLayoutManager(getContext(), 2));
-        RecyclerView recyclerViewFull = view.findViewById(R.id.recycler_view_full);
+        recyclerViewFull = view.findViewById(R.id.recycler_view_full);
         recyclerViewFull.setLayoutManager(new GridLayoutManager(getContext(), 2));
+
+        interestText = view.findViewById(R.id.interest_text);
+        popularText = view.findViewById(R.id.popular_text);
+        upcomingText = view.findViewById(R.id.upcoming_text);
+
+        recViewToText = new HashMap<>();
+        recViewToText.put(recyclerViewOpen, interestText);
+        recViewToText.put(recyclerViewFull, popularText);
+        recViewToText.put(recyclerViewUpcoming, upcomingText);
 
         displayOpenGridEvents = new ArrayList<>();
         displayUpcomingGridEvents = new ArrayList<>();
@@ -134,42 +170,176 @@ public class HomeFragment extends Fragment {
         recyclerViewUpcoming.setAdapter(upcomingAdapter);
         recyclerViewFull.setAdapter(fullAdapter);
 
+        adapterToRecView = new HashMap<>();
+        adapterToRecView.put(openAdapter, recyclerViewOpen);
+        adapterToRecView.put(upcomingAdapter, recyclerViewUpcoming);
+        adapterToRecView.put(fullAdapter, recyclerViewFull);
+
+        filtersButton = view.findViewById(R.id.event_filters_button);
+        minCap = -1;
+        maxCap = -1;
+
+        userAvailability = Arrays.asList(1123L, 80L, 67L);
+
         return view;
+    }
+
+    private void setupFilterButton(@NonNull View view) {
+        filtersButton.setOnClickListener(v -> {
+            Log.d("HomeFragment", "Hello Filters :)");
+            Dialog dialog = new Dialog(view.getContext());
+            View filterView = LayoutInflater.from(view.getContext()).inflate(R.layout.dialog_filter, null);
+            dialog.setContentView(filterView);
+
+            //
+            // Filters
+            //
+            MaterialSwitch avbFilterSwitch = filterView.findViewById(R.id.availability_filter);
+            avbFilterSwitch.setChecked(useAvailabilityFilter);
+            avbFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
+                useAvailabilityFilter = isChecked;
+            });
+
+            MaterialSwitch upcomingFilterSwitch = filterView.findViewById(R.id.showUpcoming_filter);
+            upcomingFilterSwitch.setChecked(showUpcomingEvents);
+            upcomingFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
+                showUpcomingEvents = isChecked;
+            });
+
+            MaterialSwitch openFilterSwitch = filterView.findViewById(R.id.showOpen_filter);
+            openFilterSwitch.setChecked(showOpenEvents);
+            openFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
+                showOpenEvents = isChecked;
+            });
+
+            MaterialSwitch fullFilterSwitch = filterView.findViewById(R.id.fullEvent_filter);
+            fullFilterSwitch.setChecked(showFullEvents);
+            fullFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
+                showFullEvents = isChecked;
+            });
+
+            TextInputEditText minCapFilter = filterView.findViewById(R.id.event_min_filter);
+            if (minCap == -1) {
+                minCapFilter.setText("");
+            } else {
+                minCapFilter.setText(String.valueOf(minCap));
+            }
+
+
+            TextInputEditText maxCapFilter = filterView.findViewById(R.id.event_max_filter);
+            if (maxCap == -1) {
+                maxCapFilter.setText("");
+            } else {
+                maxCapFilter.setText(String.valueOf(maxCap));
+            }
+
+            //
+            // Positive & Negative Buttons
+            //
+            MaterialButton applyButton = filterView.findViewById(R.id.filter_apply_button);
+            applyButton.setOnClickListener(_NA -> {
+                // Get min. max. cap
+                int val;
+                String minCapInput = minCapFilter.getText().toString();
+                if (!minCapInput.isEmpty()) {
+                    val = Integer.parseInt(minCapInput);
+                    if (val < 1) {
+                        Toast.makeText(view.getContext(),
+                                "Min. capacity must be greater than 0.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    minCap = val;
+                }
+
+                String maxCapInput = maxCapFilter.getText().toString();
+                if (!maxCapInput.isEmpty()) {
+                    val = Integer.parseInt(maxCapInput);
+                    if (val <= minCap) {
+                        Toast.makeText(view.getContext(),
+                                "Max. capacity must by greater than min. capacity.", Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    maxCap = val;
+                }
+
+                loadAllEvents();
+                dialog.dismiss();
+            });
+
+            MaterialButton cancelButton = filterView.findViewById(R.id.filter_cancel_button);
+            cancelButton.setOnClickListener(_NA -> {
+                dialog.cancel();
+            });
+
+            dialog.show();
+        });
+
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
+        setupFilterButton(view);
         checkAndLaunchTOSIfNeeded();
-        MaterialSwitch availabilityFilterSwitch = view.findViewById(R.id.availability_filter);
-        availabilityFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
-            hasFilterByAvailability = isChecked;
-            loadAllEvents();
-        });
-
         loadAllEvents();
         loadNotifications();
     }
 
     private void loadAllEvents() {
-        if (!hasFilterByAvailability) {
-            loadEventsByStatus(Event.EventStatus.EVENT_OPEN);
-            loadEventsByStatus(Event.EventStatus.REG_UPCOMING);
-            loadEventsByStatus(Event.EventStatus.EVENT_FULL);
-        } else {
+        Runnable LOAD_EVENTS_ACTION = () -> {
+            displayOpenGridEvents.clear();
+            openAdapter.notifyDataSetChanged();
+
+            displayFullGridEvents.clear();
+            fullAdapter.notifyDataSetChanged();
+
+            displayUpcomingGridEvents.clear();
+            upcomingAdapter.notifyDataSetChanged();
+
+            if (showUpcomingEvents) { // Show upcoming events
+                recyclerViewUpcoming.setVisibility(VISIBLE);
+                upcomingText.setVisibility(VISIBLE);
+                loadEventsByStatus(Event.EventStatus.REG_UPCOMING);
+            } else {
+                recyclerViewUpcoming.setVisibility(GONE);
+                upcomingText.setVisibility(GONE);
+            }
+
+            if (showOpenEvents) { // Show open events
+                recyclerViewOpen.setVisibility(VISIBLE);
+                interestText.setVisibility(VISIBLE);
+                loadEventsByStatus(Event.EventStatus.EVENT_OPEN);
+            } else {
+                recyclerViewOpen.setVisibility(GONE);
+                interestText.setVisibility(GONE);
+            }
+
+            if (showFullEvents) { // Show full events
+                recyclerViewFull.setVisibility(VISIBLE);
+                popularText.setVisibility(VISIBLE);
+                loadEventsByStatus(Event.EventStatus.EVENT_FULL);
+            } else {
+                recyclerViewFull.setVisibility(GONE);
+                popularText.setVisibility(GONE);
+            }
+        };
+
+        if (useAvailabilityFilter) {
             userStorage.getUserAvailabilityDates(
                     ServiceLocator.uid(),
                     dates -> {
                         userAvailability = dates;
-                        loadEventsByStatus(Event.EventStatus.EVENT_OPEN);
-                        loadEventsByStatus(Event.EventStatus.REG_UPCOMING);
-                        loadEventsByStatus(Event.EventStatus.EVENT_FULL);
+                        Log.d("HomeFragment", userAvailability.toString());
+                        LOAD_EVENTS_ACTION.run();
                     },
                     e -> {
                         Log.e("HomeFragment", "Failed to load user availability", e);
                     }
             );
+        } else {
+            LOAD_EVENTS_ACTION.run();
         }
     }
 
@@ -181,20 +351,7 @@ public class HomeFragment extends Fragment {
     public void onResume() {
         super.onResume();
         checkAndLaunchTOSIfNeeded();
-
-        userStorage.getUserAvailabilityDates(
-                ServiceLocator.uid(),
-                dates -> {
-                    userAvailability = dates;
-                    loadEventsByStatus(Event.EventStatus.EVENT_OPEN);
-                    loadEventsByStatus(Event.EventStatus.REG_UPCOMING);
-                    loadEventsByStatus(Event.EventStatus.EVENT_FULL);
-                },
-                e -> {
-                    Log.e("HomeFragment", "Failed to load user availability", e);
-                }
-        );
-
+        loadAllEvents();
         loadNotifications();
     }
 
@@ -234,21 +391,40 @@ public class HomeFragment extends Fragment {
                     List<DisplayGridEvent> displayGridEvents = eventAdapterPair.first;
                     GridEventAdapter displayAdapter = eventAdapterPair.second;
 
-                    displayGridEvents.clear();
-                    for (Event e : fetchedEvents) {
-                        displayGridEvents.add(eventToDisplayEvent(e));
-                    }
+                    RecyclerView recView = adapterToRecView.get(displayAdapter);
+                    MaterialTextView displayText = recViewToText.get(recView);
 
-                    displayAdapter.notifyDataSetChanged();
+                    displayGridEvents.clear();
+                    if (fetchedEvents.isEmpty()) {
+                        recView.setVisibility(GONE);
+                        displayText.setVisibility(GONE);
+                    } else {
+                        recView.setVisibility(VISIBLE);
+                        displayText.setVisibility(VISIBLE);
+                        for (Event e : fetchedEvents) {
+                            displayGridEvents.add(eventToDisplayEvent(e));
+                        }
+
+                        displayAdapter.notifyDataSetChanged();
+                    }
                 };
 
         OnFailureListener failureListener = e ->
                 Log.e("HomeFragment", "Failed to load open events", e);
 
-        if (!hasFilterByAvailability) {
-            eventStorage.getEventsByStatus(status, 4, successListener, failureListener);
+        if (useAvailabilityFilter) {
+            if (userAvailability.isEmpty()) {
+                userAvailability = Arrays.asList(67L, 301L);
+            }
+            eventStorage.getEventsByStatus(
+                    minCap, maxCap,
+                    userAvailability, status,
+                    4, successListener, failureListener);
         } else {
-            eventStorage.getEventsByStatus(status, userAvailability, 4, successListener, failureListener);
+            eventStorage.getEventsByStatus(
+                    minCap, maxCap, status,
+                    4, successListener, failureListener);
+
         }
     }
 
@@ -260,15 +436,15 @@ public class HomeFragment extends Fragment {
     private void loadNotifications() {
         String uid = ServiceLocator.uid();
         if (uid == null || uid.trim().isEmpty()) {
-            if (invitationCard != null) invitationCard.setVisibility(View.GONE);
-            notificationsPager.setVisibility(View.GONE);
+            if (invitationCard != null) invitationCard.setVisibility(GONE);
+            notificationsPager.setVisibility(GONE);
             return;
         }
 
         if (notificationLogStorage == null) {
             Log.e("HomeFragment", "NotificationLogStorage is null");
-            if (invitationCard != null) invitationCard.setVisibility(View.GONE);
-            notificationsPager.setVisibility(View.GONE);
+            if (invitationCard != null) invitationCard.setVisibility(GONE);
+            notificationsPager.setVisibility(GONE);
             return;
         }
 
@@ -281,8 +457,8 @@ public class HomeFragment extends Fragment {
                 },
                 e -> {
                     Log.e("HomeFragment", "Failed to load notifications", e);
-                    if (invitationCard != null) invitationCard.setVisibility(View.GONE);
-                    notificationsPager.setVisibility(View.GONE);
+                    if (invitationCard != null) invitationCard.setVisibility(GONE);
+                    notificationsPager.setVisibility(GONE);
                 }
         );
     }
@@ -292,13 +468,13 @@ public class HomeFragment extends Fragment {
      */
     private void updateNotificationBannerVisibility() {
         if (notifications.isEmpty()) {
-            if (invitationCard != null) invitationCard.setVisibility(View.GONE);
-            notificationsPager.setVisibility(View.GONE);
+            if (invitationCard != null) invitationCard.setVisibility(GONE);
+            notificationsPager.setVisibility(GONE);
             return;
         }
 
-        if (invitationCard != null) invitationCard.setVisibility(View.VISIBLE);
-        notificationsPager.setVisibility(View.VISIBLE);
+        if (invitationCard != null) invitationCard.setVisibility(VISIBLE);
+        notificationsPager.setVisibility(VISIBLE);
         notificationPagerAdapter.notifyDataSetChanged();
         notificationsPager.setCurrentItem(0, false);
     }
@@ -712,12 +888,12 @@ public class HomeFragment extends Fragment {
 
             // do pending notifications exist for this user?
             if (container.getContext() == null || notifications.size() <= 1) {
-                container.setVisibility(View.GONE);
+                container.setVisibility(GONE);
                 return;
             }
 
             // notifications exist, so the pager indicator should be visible
-            container.setVisibility(View.VISIBLE);
+            container.setVisibility(VISIBLE);
 
             // one dot per notification currently shown in the banner list
             int sizePx = dpToPx(container, 8);

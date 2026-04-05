@@ -202,7 +202,7 @@ public class SearchFragment extends Fragment {
      *      notify change in the list of grid events
      */
     private void loadPopularEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
-        eventStorage.getEventsByStatus(Event.EventStatus.REG_OPEN, limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
+        eventStorage.getEventsByStatus(-1, -1, Event.EventStatus.REG_OPEN, limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
             displayGridEvents.clear();
                 for (Event event : fetchedEvents) {
                     displayGridEvents.add(eventToDisplayEvent(event));
@@ -222,7 +222,7 @@ public class SearchFragment extends Fragment {
      *      notify change in the list of grid events
      */
     private void loadSuggestedEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
-        eventStorage.getEventsByStatus(Event.EventStatus.REG_OPEN, limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
+        eventStorage.getEventsByStatus(-1, -1, Event.EventStatus.REG_OPEN, limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
                 displayGridEvents.clear();
                 for (Event event : fetchedEvents) {
                     displayGridEvents.add(eventToDisplayEvent(event));
