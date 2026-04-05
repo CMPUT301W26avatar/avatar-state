@@ -59,14 +59,13 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Show Upcoming Events"
+            android:text="Hide Upcoming Events"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textStyle="italic" />
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/showUpcoming_filter"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:checked="true"
             android:layout_weight="1" />
     </LinearLayout>
 
@@ -79,14 +78,13 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Show Open Events"
+            android:text="Hide Open Events"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textStyle="italic" />
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/showOpen_filter"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:checked="true"
             android:layout_weight="1" />
     </LinearLayout>
 
@@ -98,14 +96,13 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="Show Full Events"
+            android:text="Hide Full Events"
             android:textAppearance="@style/TextAppearance.AppCompat.Medium"
             android:textStyle="italic" />
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/fullEvent_filter"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:checked="true"
             android:layout_weight="1" />
     </LinearLayout>
 

@@ -24,9 +24,9 @@ public class FilterDialog extends Dialog {
     public static final int NOT_SET = -1;
 
     private boolean useAvailabilityFilter;
-    private boolean showUpcomingEvents;
-    private boolean showOpenEvents;
-    private boolean showFullEvents;
+    private boolean hideUpcomingEvents;
+    private boolean hideOpenEvents;
+    private boolean hideFullEvents;
 
     private TextInputEditText minCapTextInput;
     private int minCapValue;
@@ -37,9 +37,9 @@ public class FilterDialog extends Dialog {
         super(context);
 
         useAvailabilityFilter = false;
-        showUpcomingEvents = true;
-        showOpenEvents = true;
-        showFullEvents = true;
+        hideUpcomingEvents = false;
+        hideOpenEvents = false;
+        hideFullEvents = false;
 
         minCapValue = NOT_SET;
         maxCapValue = NOT_SET;
@@ -50,11 +50,11 @@ public class FilterDialog extends Dialog {
             case AVAILABILITY_FILTER:
                 return useAvailabilityFilter;
             case UPCOMING_EVENTS_FILTER:
-                return showUpcomingEvents;
+                return hideUpcomingEvents;
             case OPEN_EVENTS_FILTER:
-                return showOpenEvents;
+                return hideOpenEvents;
             case FULL_EVENTS_FILTER:
-                return showFullEvents;
+                return hideFullEvents;
         }
 
         return false;
@@ -102,21 +102,21 @@ public class FilterDialog extends Dialog {
         });
 
         MaterialSwitch upcomingFilterSwitch = filterView.findViewById(R.id.showUpcoming_filter);
-        upcomingFilterSwitch.setChecked(showUpcomingEvents);
+        upcomingFilterSwitch.setChecked(hideUpcomingEvents);
         upcomingFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
-            showUpcomingEvents = isChecked;
+            hideUpcomingEvents = isChecked;
         });
 
         MaterialSwitch openFilterSwitch = filterView.findViewById(R.id.showOpen_filter);
-        openFilterSwitch.setChecked(showOpenEvents);
+        openFilterSwitch.setChecked(hideOpenEvents);
         openFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
-            showOpenEvents = isChecked;
+            hideOpenEvents = isChecked;
         });
 
         MaterialSwitch fullFilterSwitch = filterView.findViewById(R.id.fullEvent_filter);
-        fullFilterSwitch.setChecked(showFullEvents);
+        fullFilterSwitch.setChecked(hideFullEvents);
         fullFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
-            showFullEvents = isChecked;
+            hideFullEvents = isChecked;
         });
 
         minCapTextInput = filterView.findViewById(R.id.event_min_filter);

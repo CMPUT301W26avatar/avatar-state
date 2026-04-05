@@ -77,11 +77,52 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/loading_indicator"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="end"
-                android:orientation="horizontal">
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:visibility="gone"
+                android:orientation="vertical">
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="128dp"/>
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:layout_width="128dp"
+                    android:layout_height="128dp"
+                    android:indeterminate="true"
+                    app:indicatorSize="64dp"
+                    app:trackThickness="16dp"
+                    />
+            </LinearLayout>
 
+            <LinearLayout
+                android:id="@+id/empty_indicator"
+                android:orientation="vertical"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="128dp"/>
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="There Are Currently No Events\n:("
+                    android:textAlignment="center"
+                    android:textAppearance="@style/TextAppearance.Material3.HeadlineLarge.Emphasized"
+                    android:layout_weight="1"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.textview.MaterialTextView
+                    android:paddingTop="16dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Try again later or with different filter parameters"
+                    android:textAlignment="center"
+                    android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+                    android:layout_weight="1"
+                    android:textStyle="italic" />
             </LinearLayout>
 
             <com.google.android.material.textview.MaterialTextView
@@ -91,12 +132,14 @@
                 android:layout_marginBottom="16dp"
                 android:text="These may Interest you"
                 android:textAppearance="?attr/textAppearanceTitleLarge"
+                android:visibility="gone"
                 android:textStyle="bold" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recycler_view_open"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:visibility="gone"
                 android:nestedScrollingEnabled="false" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -106,12 +149,14 @@
                 android:layout_marginBottom="16dp"
                 android:text="Popular Events"
                 android:textAppearance="?attr/textAppearanceTitleLarge"
+                android:visibility="gone"
                 android:textStyle="bold" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recycler_view_full"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:visibility="gone"
                 android:nestedScrollingEnabled="false" />
 
             <com.google.android.material.textview.MaterialTextView
@@ -121,12 +166,14 @@
                 android:layout_marginBottom="16dp"
                 android:text="Upcoming Events"
                 android:textAppearance="?attr/textAppearanceTitleLarge"
+                android:visibility="gone"
                 android:textStyle="bold" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recycler_view_upcoming"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:visibility="gone"
                 android:nestedScrollingEnabled="false" />
 
             <com.google.android.material.search.SearchView

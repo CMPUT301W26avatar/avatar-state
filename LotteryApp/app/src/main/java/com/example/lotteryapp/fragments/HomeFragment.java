@@ -107,12 +107,15 @@ public class HomeFragment extends Fragment {
     private MaterialTextView popularText;
     private RecyclerView recyclerViewFull;
 
+    private LinearLayout loadingIndicator;
+    private LinearLayout emptyIndicator;
+
     private Map<GridEventAdapter, RecyclerView> adapterToRecView;
     private Map<RecyclerView, MaterialTextView> recViewToText;
 
     private FilterDialog filterDialog;
     Runnable LOAD_EVENTS_ACTION = () -> {
-        if (filterDialog.isActive(UPCOMING_EVENTS_FILTER)) { // Show upcoming events
+        if (!filterDialog.isActive(UPCOMING_EVENTS_FILTER)) { // Hide upcoming events
             recyclerViewUpcoming.setVisibility(VISIBLE);
             upcomingText.setVisibility(VISIBLE);
             loadEventsByStatus(Event.EventStatus.REG_UPCOMING);
@@ -121,7 +124,7 @@ public class HomeFragment extends Fragment {
             upcomingText.setVisibility(GONE);
         }
 
-        if (filterDialog.isActive(OPEN_EVENTS_FILTER)) { // Show open events
+        if (!filterDialog.isActive(OPEN_EVENTS_FILTER)) { // Hide open events
             recyclerViewOpen.setVisibility(VISIBLE);
             interestText.setVisibility(VISIBLE);
             loadEventsByStatus(Event.EventStatus.EVENT_OPEN);
@@ -130,7 +133,7 @@ public class HomeFragment extends Fragment {
             interestText.setVisibility(GONE);
         }
 
-        if (filterDialog.isActive(FULL_EVENTS_FILTER)) { // Show full events
+        if (!filterDialog.isActive(FULL_EVENTS_FILTER)) { // Hide full events
             recyclerViewFull.setVisibility(VISIBLE);
             popularText.setVisibility(VISIBLE);
             loadEventsByStatus(Event.EventStatus.EVENT_FULL);
@@ -191,6 +194,9 @@ public class HomeFragment extends Fragment {
         recyclerViewUpcoming.setAdapter(upcomingAdapter);
         recyclerViewFull.setAdapter(fullAdapter);
 
+        emptyIndicator = view.findViewById(R.id.empty_indicator);
+        loadingIndicator = view.findViewById(R.id.loading_indicator);
+
         adapterToRecView = new HashMap<>();
         adapterToRecView.put(openAdapter, recyclerViewOpen);
         adapterToRecView.put(upcomingAdapter, recyclerViewUpcoming);
@@ -202,6 +208,14 @@ public class HomeFragment extends Fragment {
         userAvailability = Arrays.asList(1123L, 80L, 67L);
 
         return view;
+    }
+
+    private void toggleLoadingIndicator(boolean isVisible) {
+        if (isVisible) {
+            loadingIndicator.setVisibility(VISIBLE);
+        } else {
+            loadingIndicator.setVisibility(GONE);
+        }
     }
 
     /**
@@ -333,6 +347,7 @@ public class HomeFragment extends Fragment {
         if ((eventStorage == null) || (userStorage == null) || (openAdapter == null)
                 || (upcomingAdapter == null) || (fullAdapter == null)) return;
 
+        toggleLoadingIndicator(true);
         Pair<List<DisplayGridEvent>, GridEventAdapter>
                 eventAdapterPair = getEventAdapterPair(status);
 
@@ -359,11 +374,15 @@ public class HomeFragment extends Fragment {
                         }
 
                         displayAdapter.notifyDataSetChanged();
+                        toggleLoadingIndicator(false);
+                        emptyIndicator.setVisibility(GONE);
                         return;
                     }
 
                     recView.setVisibility(GONE);
                     displayText.setVisibility(GONE);
+                    toggleLoadingIndicator(false);
+                    emptyIndicator.setVisibility(VISIBLE);
                 };
 
         OnFailureListener failureListener = e ->
