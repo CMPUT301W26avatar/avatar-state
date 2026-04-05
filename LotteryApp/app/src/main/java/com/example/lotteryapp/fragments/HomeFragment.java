@@ -114,6 +114,12 @@ public class HomeFragment extends Fragment {
     private Map<RecyclerView, MaterialTextView> recViewToText;
 
     private FilterDialog filterDialog;
+
+    // tracks how many event status queries are still in flight for the current load cycle
+    private int pendingEventLoads = 0;
+
+    // prevents stale callbacks from an older load cycle from updating the empty state
+    private int eventLoadGeneration = 0;
     Runnable LOAD_EVENTS_ACTION = () -> {
         if (!filterDialog.isActive(UPCOMING_EVENTS_FILTER)) { // Hide upcoming events
             recyclerViewUpcoming.setVisibility(VISIBLE);
@@ -277,7 +283,39 @@ public class HomeFragment extends Fragment {
      * <br>
      * Will automatically account for the FilterDialog availability filter
      */
+    /**
+     * loads all visible event sections and only resolves the empty state after all section queries finish
+     */
     private void loadAllEvents() {
+        // start a new load cycle so older callbacks can be ignored
+        eventLoadGeneration++;
+
+        // reset all displayed data before new results arrive
+        displayOpenGridEvents.clear();
+        displayUpcomingGridEvents.clear();
+        displayFullGridEvents.clear();
+
+        if (openAdapter != null) openAdapter.notifyDataSetChanged();
+        if (upcomingAdapter != null) upcomingAdapter.notifyDataSetChanged();
+        if (fullAdapter != null) fullAdapter.notifyDataSetChanged();
+
+        // hide empty state while loading so it does not flash before results resolve
+        emptyIndicator.setVisibility(GONE);
+        toggleLoadingIndicator(true);
+
+        // count how many visible sections will actually be loaded
+        pendingEventLoads = 0;
+        if (!filterDialog.isActive(UPCOMING_EVENTS_FILTER)) pendingEventLoads++;
+        if (!filterDialog.isActive(OPEN_EVENTS_FILTER)) pendingEventLoads++;
+        if (!filterDialog.isActive(FULL_EVENTS_FILTER)) pendingEventLoads++;
+
+        // if every section is hidden by filters there is nothing to load
+        if (pendingEventLoads == 0) {
+            toggleLoadingIndicator(false);
+            emptyIndicator.setVisibility(VISIBLE);
+            return;
+        }
+
         if (filterDialog.isActive(AVAILABILITY_FILTER)) {
             userStorage.getUserAvailabilityDates(
                     ServiceLocator.uid(),
@@ -286,12 +324,41 @@ public class HomeFragment extends Fragment {
                         Log.d("HomeFragment", userAvailability.toString());
                         LOAD_EVENTS_ACTION.run();
                     },
-                    e -> Log.e("HomeFragment", "Failed to load user availability", e)
+                    e -> {
+                        Log.e("HomeFragment", "Failed to load user availability", e);
+                        toggleLoadingIndicator(false);
+                        emptyIndicator.setVisibility(VISIBLE);
+                    }
             );
             return;
         }
 
         LOAD_EVENTS_ACTION.run();
+    }
+
+    /**
+     * marks one event section load as complete and updates loading and empty state once all sections resolve
+     */
+    private void finishEventSectionLoad(int generationAtRequestTime) {
+        // ignore stale callbacks from an older load cycle
+        if (generationAtRequestTime != eventLoadGeneration) {
+            return;
+        }
+
+        pendingEventLoads--;
+
+        // only resolve ui once every visible section has responded
+        if (pendingEventLoads <= 0) {
+            toggleLoadingIndicator(false);
+
+            if (!displayFullGridEvents.isEmpty()
+                    || !displayOpenGridEvents.isEmpty()
+                    || !displayUpcomingGridEvents.isEmpty()) {
+                emptyIndicator.setVisibility(GONE);
+            } else {
+                emptyIndicator.setVisibility(VISIBLE);
+            }
+        }
     }
 
     /**
@@ -343,6 +410,12 @@ public class HomeFragment extends Fragment {
      * turns on the availability filter in the filter dialog.
      * @param status the event status to load
      */
+    /**
+     * loads the events tagged with the given status
+     * <br>
+     * will automatically filter out events if the user
+     * turns on the availability filter in the filter dialog
+     */
     private void loadEventsByStatus(Event.EventStatus status) {
         if ((eventStorage == null) || (userStorage == null) || (openAdapter == null)
                 || (upcomingAdapter == null) || (fullAdapter == null)) return;
@@ -350,9 +423,17 @@ public class HomeFragment extends Fragment {
         Pair<List<DisplayGridEvent>, GridEventAdapter>
                 eventAdapterPair = getEventAdapterPair(status);
 
+        // capture current load generation so stale callbacks do not mutate ui
+        int generationAtRequestTime = eventLoadGeneration;
+
         @SuppressLint("NotifyDataSetChanged")
         OnSuccessListener<List<Event>> successListener =
                 fetchedEvents -> {
+                    // ignore stale callbacks from an older load cycle
+                    if (generationAtRequestTime != eventLoadGeneration) {
+                        return;
+                    }
+
                     List<DisplayGridEvent> displayGridEvents = eventAdapterPair.first;
                     GridEventAdapter displayAdapter = eventAdapterPair.second;
 
@@ -364,6 +445,7 @@ public class HomeFragment extends Fragment {
                     }
 
                     displayGridEvents.clear();
+
                     if (!fetchedEvents.isEmpty()) {
                         recView.setVisibility(VISIBLE);
                         displayText.setVisibility(VISIBLE);
@@ -376,26 +458,43 @@ public class HomeFragment extends Fragment {
                     } else {
                         recView.setVisibility(GONE);
                         displayText.setVisibility(GONE);
+                        displayAdapter.notifyDataSetChanged();
                     }
 
-                    toggleLoadingIndicator(false);
-                    if (!displayFullGridEvents.isEmpty() || !displayOpenGridEvents.isEmpty() || !displayUpcomingGridEvents.isEmpty()) {
-                        emptyIndicator.setVisibility(GONE);
-                    } else {
-                        emptyIndicator.setVisibility(VISIBLE);
-                    }
+                    finishEventSectionLoad(generationAtRequestTime);
                 };
 
-        OnFailureListener failureListener = e ->
-                Log.e("HomeFragment", "Failed to load open events", e);
+        OnFailureListener failureListener = e -> {
+            // ignore stale callbacks from an older load cycle
+            if (generationAtRequestTime != eventLoadGeneration) {
+                return;
+            }
 
-        // Get event capacity range from filters
+            Log.e("HomeFragment", "Failed to load events for status " + status, e);
+
+            Pair<List<DisplayGridEvent>, GridEventAdapter> pair = getEventAdapterPair(status);
+            RecyclerView recView = adapterToRecView.get(pair.second);
+            MaterialTextView displayText = recViewToText.get(recView);
+
+            if (pair.first != null) {
+                pair.first.clear();
+            }
+            if (pair.second != null) {
+                pair.second.notifyDataSetChanged();
+            }
+            if (recView != null) {
+                recView.setVisibility(GONE);
+            }
+            if (displayText != null) {
+                displayText.setVisibility(GONE);
+            }
+
+            finishEventSectionLoad(generationAtRequestTime);
+        };
+
         Pair<Integer, Integer> CAP_FILTER_VALS = filterDialog.getCapacityFilterValues();
         int MIN_CAP = CAP_FILTER_VALS.first;
         int MAX_CAP = CAP_FILTER_VALS.second;
-
-        toggleLoadingIndicator(true);
-        emptyIndicator.setVisibility(GONE);
 
         if (filterDialog.isActive(AVAILABILITY_FILTER)) {
             if (userAvailability.isEmpty()) {
@@ -409,7 +508,6 @@ public class HomeFragment extends Fragment {
             eventStorage.getEventsByStatus(
                     MIN_CAP, MAX_CAP, status,
                     4, successListener, failureListener);
-
         }
     }
 

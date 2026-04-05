@@ -91,7 +91,7 @@
                     android:layout_height="128dp"
                     android:indeterminate="true"
                     app:indicatorSize="64dp"
-                    app:trackThickness="16dp"
+                    app:trackThickness="4dp"
                     />
             </LinearLayout>
 
