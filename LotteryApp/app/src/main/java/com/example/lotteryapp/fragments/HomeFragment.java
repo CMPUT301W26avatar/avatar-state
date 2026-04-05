@@ -808,7 +808,7 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /*
+    /**
      * Checks the current user's TOS acceptance state in Firestore.
      * If the user has not accepted, launch the full TermsOfServiceActivity.
      */
