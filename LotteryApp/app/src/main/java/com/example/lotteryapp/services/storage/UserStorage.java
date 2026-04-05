@@ -9,7 +9,6 @@ import com.example.lotteryapp.models.UserEventHistory;
 import com.example.lotteryapp.services.UserNameService;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -24,7 +23,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /** Database storage and retrieval layer with respect to Users
  * Users have their own firebase collection "users"
@@ -534,49 +532,6 @@ public class UserStorage {
                 .addOnFailureListener(fail);
     }
 
-    /**
-     * Optional helper: add one availability date to the single doc using arrayUnion.
-     * Kept for compatibility with any callers that still want incremental updates.
-     */
-    public void addUserAvailabilityDate(
-            String uuid,
-            long dateMs,
-            OnSuccessListener<Void> ok,
-            OnFailureListener fail
-    ) {
-        Map<String, Object> update = new HashMap<>();
-        update.put("uid", uuid);
-        update.put("dateMsList", FieldValue.arrayUnion(dateMs));
-        update.put("updatedAt", FieldValue.serverTimestamp());
-
-        userAvailabilityDoc(uuid)
-                .set(update, SetOptions.merge())
-                .addOnSuccessListener(ok)
-                .addOnFailureListener(fail);
-    }
-
-    /**
-     * Optional helper: remove one availability date from the single doc using arrayRemove.
-     * Kept for compatibility with any callers that still want incremental updates.
-     */
-    public void deleteUserAvailabilityDate(
-            String uuid,
-            long dateMs,
-            OnSuccessListener<Void> ok,
-            OnFailureListener fail
-    ) {
-        Map<String, Object> update = new HashMap<>();
-        update.put("uid", uuid);
-        update.put("dateMsList", FieldValue.arrayRemove(dateMs));
-        update.put("updatedAt", FieldValue.serverTimestamp());
-
-        userAvailabilityDoc(uuid)
-                .set(update, SetOptions.merge())
-                .addOnSuccessListener(ok)
-                .addOnFailureListener(fail);
-    }
-
-
     /** firebase modify
      * Updates the fields of a user entry in Users firebase collection (image removed!)
      * Asynchronous: requires OnSuccess and OnFailure listeners
@@ -641,6 +596,10 @@ public class UserStorage {
         }, onFailure);
     }
 
+    /**
+     * Set a new FCM token for the user in Firebase
+     *      Asynchronous
+     */
     public void updateFcmToken(String uuid, String token) {
         userDoc(uuid).update("fcmToken", token);
     }

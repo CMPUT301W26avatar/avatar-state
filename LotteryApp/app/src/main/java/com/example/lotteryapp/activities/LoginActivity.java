@@ -14,10 +14,27 @@ import com.google.android.material.button.MaterialButton;
 
 /**
  * Manages login functionality
- * sets up three buttons for logging in, logging in as a guest or registeration.
+ * sets up three buttons for logging in, logging in as a guest or registration.
  *
  */
 public class LoginActivity extends AppCompatActivity {
+
+    /**
+     * Initialize the UI components for the Login Activity, sets all listeners and authenticates the User
+     *  launches main for authenticated users
+     */
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_login);
+
+        AuthService auth = ServiceLocator.getAuthService();
+        setupListeners(auth);
+        if (auth.signInPrevSession()) {
+            gotoMain();
+        }
+
+    }
 
     /**
      * Set up login button and obtains user input for login authentication
@@ -70,18 +87,5 @@ public class LoginActivity extends AppCompatActivity {
     private void gotoMain() {
         startActivity(new Intent(LoginActivity.this, MainActivity.class));
         finish();
-    }
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login);
-
-        AuthService auth = ServiceLocator.getAuthService();
-        setupListeners(auth);
-        if (auth.signInPrevSession()) {
-            gotoMain();
-        }
-
     }
 }

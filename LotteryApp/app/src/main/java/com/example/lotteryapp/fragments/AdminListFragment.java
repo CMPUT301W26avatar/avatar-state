@@ -342,18 +342,17 @@ public class AdminListFragment extends Fragment {
         }
         String typeStr;
         switch (type) {
-            case INVITATION:
+            case WON_LOTTERY:
                 typeStr = "Invitation";
-                break;
-            case LOTTERY_RESULT:
+            case LOST_LOTTERY:
                 typeStr = "Lottery Result";
                 break;
             case MESSAGE:
                 typeStr = "Message";
-                break;
-            case COMMENT:
-                typeStr = "Comment";
-                break;
+            case PRIVATE_INVITATION:
+                typeStr = "Private Event Invitation";
+            case EVENT_ANNOUNCEMENT:
+                typeStr = "Event Announcement";
             default:
                 typeStr = "Notification";
                 break;

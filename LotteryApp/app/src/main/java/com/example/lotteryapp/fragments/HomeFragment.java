@@ -339,7 +339,8 @@ public class HomeFragment extends Fragment {
         }
 
         return notification.getType() == NotificationLog.NotificationType.PRIVATE_INVITATION
-                || notification.getType() == NotificationLog.NotificationType.COORGANIZER_INVITATION;
+                || notification.getType() == NotificationLog.NotificationType.COORGANIZER_INVITATION
+                || notification.getType() == NotificationLog.NotificationType.WON_LOTTERY;
     }
 
     /**
@@ -360,6 +361,8 @@ public class HomeFragment extends Fragment {
             showPrivateInviteDialog(position, notification);
         } else if (notification.getType() == NotificationLog.NotificationType.COORGANIZER_INVITATION) {
             showCoorganizerInviteDialog(position, notification);
+        } else if (notification.getType() == NotificationLog.NotificationType.WON_LOTTERY) {
+            showLotteryInviteDialog(position, notification);
         }
     }
 
@@ -390,6 +393,21 @@ public class HomeFragment extends Fragment {
                 .setPositiveButton("Accept", (dialog, which) -> acceptCoorganizerInvite(position, notification))
                 .show();
     }
+
+    private void showLotteryInviteDialog(int position, NotificationLog notification) {
+        if (getContext() == null) return;
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Lottery Selection")
+                .setMessage("You have been selected! Would you like to accept your spot?")
+                .setNegativeButton("Decline", (dialog, which) ->
+                        declineLotteryInvite(position, notification))
+                .setPositiveButton("Accept", (dialog, which) ->
+                        acceptLotteryInvite(position, notification))
+                .show();
+    }
+
+
 
     /**
      * Runs on the user clicking confirm in the private event invite dialog
@@ -526,6 +544,60 @@ public class HomeFragment extends Fragment {
                         e.getMessage() == null ? "Failed to decline co-organizer invite" : e.getMessage(),
                         Toast.LENGTH_SHORT
                 ).show()
+        );
+    }
+
+    private void acceptLotteryInvite(int position, NotificationLog notification) {
+        String uid = ServiceLocator.uid();
+
+        if (notification == null || notification.getEventId() == null) {
+            Toast.makeText(requireContext(), "Missing event", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (uid == null) {
+            Toast.makeText(requireContext(), "User not signed in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        eventPoolStorage.enrollInEvent(
+                notification.getEventId(),
+                uid,
+                unused -> resolveNotification(
+                        position,
+                        notification,
+                        ACCEPTED.name(),
+                        "You are now enrolled!"
+                ),
+                e -> Toast.makeText(requireContext(),
+                        "Failed to accept invite", Toast.LENGTH_SHORT).show()
+        );
+    }
+
+    private void declineLotteryInvite(int position, NotificationLog notification) {
+        String uid = ServiceLocator.uid();
+
+        if (notification == null || notification.getEventId() == null) {
+            Toast.makeText(requireContext(), "Missing event", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (uid == null) {
+            Toast.makeText(requireContext(), "User not signed in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        eventPoolStorage.removeFromInvited(
+                notification.getEventId(),
+                uid,
+                unused -> resolveNotification(
+                        position,
+                        notification,
+                        DECLINED.name(),
+                        "Invite declined"
+                ),
+                e -> Toast.makeText(requireContext(),
+                        "Failed to decline invite", Toast.LENGTH_SHORT).show()
         );
     }
 

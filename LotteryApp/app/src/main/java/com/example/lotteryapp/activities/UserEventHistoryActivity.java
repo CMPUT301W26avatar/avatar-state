@@ -2,7 +2,6 @@ package com.example.lotteryapp.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.format.DateFormat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -21,7 +20,6 @@ import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.appbar.MaterialToolbar;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,6 +34,9 @@ public class UserEventHistoryActivity extends AppCompatActivity {
     private UserStorage userStorage;
     private EventStorage eventStorage;
 
+    /**
+     * Initialize UI components , call storage services and begin loading the user event history
+     */
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,6 +53,9 @@ public class UserEventHistoryActivity extends AppCompatActivity {
         loadUserEventHistory();
     }
 
+    /**
+     * On activity reload, reload the latest version of the user event history
+     */
     @Override
     protected void onResume() {
         super.onResume();
