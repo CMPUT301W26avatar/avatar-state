@@ -1,5 +1,7 @@
 package com.example.lotteryapp.services.storage;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -959,14 +961,30 @@ public class EventStorage {
     }
 
     public void getEventsByStatus(
+            Integer minCap,
+            Integer maxCap,
+            List<Long> availabilityRequirements,
             Event.EventStatus eventStatus,
             Integer limit,
             OnSuccessListener<List<Event>> onSuccess,
             OnFailureListener onFailure) {
 
+        int MIN_VAL = 1;
+        if (minCap != -1) {
+            MIN_VAL = minCap;
+        }
+
+        int MAX_VAL = Integer.MAX_VALUE;
+        if (maxCap != -1) {
+            MAX_VAL = maxCap;
+        }
+
         Query query = db.collection("events")
                 .whereEqualTo("status", eventStatus.name())
-                .whereEqualTo("privateEvent", false);
+                .whereEqualTo("privateEvent", false)
+                .whereLessThanOrEqualTo("eventCapacity", MAX_VAL)
+                .whereGreaterThanOrEqualTo("eventCapacity", MIN_VAL)
+                .whereIn("eventDateMs", availabilityRequirements);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);
@@ -976,16 +994,30 @@ public class EventStorage {
     }
 
     public void getEventsByStatus(
+            Integer minCap,
+            Integer maxCap,
             Event.EventStatus eventStatus,
-            List<Long> availabilityRequirements,
             Integer limit,
             OnSuccessListener<List<Event>> onSuccess,
             OnFailureListener onFailure) {
 
+        int MIN_VAL = 1;
+        if (minCap != -1) {
+            MIN_VAL = minCap;
+        }
+
+        int MAX_VAL = Integer.MAX_VALUE;
+        if (maxCap != -1) {
+            MAX_VAL = maxCap;
+        }
+
+        Log.d("EventStorage", String.format("Min: %d, Max: %d", MIN_VAL, MAX_VAL));
+
         Query query = db.collection("events")
                 .whereEqualTo("status", eventStatus.name())
                 .whereEqualTo("privateEvent", false)
-                .whereIn("eventDateMs", availabilityRequirements);
+                .whereLessThanOrEqualTo("eventCapacity", MAX_VAL)
+                .whereGreaterThanOrEqualTo("eventCapacity", MIN_VAL);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);
