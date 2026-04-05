@@ -152,7 +152,7 @@ public class ManageFragment extends Fragment {
 
         if (events == null || events.isEmpty()) {
             TextView emptyView = new TextView(requireContext());
-            emptyView.setText("No organizer events yet.");
+            emptyView.setText("No Events Yet, Click + to Add an Event");
             upcomingEventListContainer.addView(emptyView);
             return;
         }
