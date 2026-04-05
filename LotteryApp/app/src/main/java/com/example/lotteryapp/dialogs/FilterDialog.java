@@ -77,6 +77,8 @@ public class FilterDialog extends Dialog {
             }
 
             minCapValue = val;
+        } else {
+            minCapValue = NOT_SET;
         }
 
         String maxCapInput = maxCapTextInput.getText().toString();
@@ -89,6 +91,8 @@ public class FilterDialog extends Dialog {
             }
 
             maxCapValue = val;
+        } else {
+            maxCapValue = NOT_SET;
         }
 
         return true;

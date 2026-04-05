@@ -347,7 +347,6 @@ public class HomeFragment extends Fragment {
         if ((eventStorage == null) || (userStorage == null) || (openAdapter == null)
                 || (upcomingAdapter == null) || (fullAdapter == null)) return;
 
-        toggleLoadingIndicator(true);
         Pair<List<DisplayGridEvent>, GridEventAdapter>
                 eventAdapterPair = getEventAdapterPair(status);
 
@@ -374,15 +373,17 @@ public class HomeFragment extends Fragment {
                         }
 
                         displayAdapter.notifyDataSetChanged();
-                        toggleLoadingIndicator(false);
-                        emptyIndicator.setVisibility(GONE);
-                        return;
+                    } else {
+                        recView.setVisibility(GONE);
+                        displayText.setVisibility(GONE);
                     }
 
-                    recView.setVisibility(GONE);
-                    displayText.setVisibility(GONE);
                     toggleLoadingIndicator(false);
-                    emptyIndicator.setVisibility(VISIBLE);
+                    if (!displayFullGridEvents.isEmpty() || !displayOpenGridEvents.isEmpty() || !displayUpcomingGridEvents.isEmpty()) {
+                        emptyIndicator.setVisibility(GONE);
+                    } else {
+                        emptyIndicator.setVisibility(VISIBLE);
+                    }
                 };
 
         OnFailureListener failureListener = e ->
@@ -392,6 +393,9 @@ public class HomeFragment extends Fragment {
         Pair<Integer, Integer> CAP_FILTER_VALS = filterDialog.getCapacityFilterValues();
         int MIN_CAP = CAP_FILTER_VALS.first;
         int MAX_CAP = CAP_FILTER_VALS.second;
+
+        toggleLoadingIndicator(true);
+        emptyIndicator.setVisibility(GONE);
 
         if (filterDialog.isActive(AVAILABILITY_FILTER)) {
             if (userAvailability.isEmpty()) {
