@@ -8,8 +8,6 @@ import java.util.UUID;
  * - primary key: event ID, foreign key: user ID (organizerId)
  * - New Event: Pull Event document from Firebase and set EventID as docID.
  * - Only getters and setters
- *
- * PosterUrl attribute deprecated
  */
 public class Event {
     public String eventId;

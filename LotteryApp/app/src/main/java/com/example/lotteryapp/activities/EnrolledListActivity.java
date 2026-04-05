@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+
 /**
  * US 02.06.03 & 02.06.05
  * Displays final list of entrants enrolled in specified event and allows CSV export as a file.
@@ -50,6 +51,11 @@ public class EnrolledListActivity extends AppCompatActivity {
     private String eventId;
     private boolean isFinalList = false;
 
+    /**
+     * Initialize UI components for the enrolled entrants screen
+     *  validate ids for entrants
+     *  trigger initial data load
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -82,6 +88,9 @@ public class EnrolledListActivity extends AppCompatActivity {
         loadEnrolledEntrants(eventId);
     }
 
+    /**
+     * Reads the event status so the export button can reflect whether the current export represents a final entrant list
+     */
     private void checkEventStatus() {
         eventStorage.getEvent(eventId, event -> {
             if (event != null && (event.getStatus() == com.example.lotteryapp.models.Event.EventStatus.REG_FULL 
@@ -94,15 +103,20 @@ public class EnrolledListActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Loads all enrolled entrants for the supplied event and updates the empty list
+     */
     private void loadEnrolledEntrants(String eventId) {
         eventPoolStorage.getEnrolledEntrants(
                 eventId,
                 entrants -> {
                     if (entrants.isEmpty()) {
+                        // hide the list and disable exporting.
                         tvEmpty.setVisibility(View.VISIBLE);
                         recyclerView.setVisibility(View.GONE);
                         btnExportCsv.setEnabled(false);
                     } else {
+                        // render entrants and allow export.
                         tvEmpty.setVisibility(View.GONE);
                         recyclerView.setVisibility(View.VISIBLE);
                         btnExportCsv.setEnabled(true);
@@ -128,6 +142,7 @@ public class EnrolledListActivity extends AppCompatActivity {
             return;
         }
 
+        // User profile reads are asynchronous, so count completions until every entrant lookup has either succeeded or failed.
         Map<String, User> userMap = new HashMap<>();
         AtomicInteger count = new AtomicInteger(0);
         int total = entrants.size();
@@ -137,10 +152,12 @@ public class EnrolledListActivity extends AppCompatActivity {
                 if (user != null) {
                     userMap.put(entrant.getEntrantId(), user);
                 }
+                // Once all profile reads complete, build the CSV with whatever user details were successfully resolved
                 if (count.incrementAndGet() == total) {
                     generateAndShareCSVFile(entrants, userMap);
                 }
             }, e -> {
+                // Once all profile reads complete, build the CSV with whatever user details were successfully resolved
                 if (count.incrementAndGet() == total) {
                     generateAndShareCSVFile(entrants, userMap);
                 }
@@ -153,6 +170,7 @@ public class EnrolledListActivity extends AppCompatActivity {
      */
     private void generateAndShareCSVFile(List<Entrant> entrants, Map<String, User> userMap) {
         StringBuilder csv = new StringBuilder();
+        // header row expected by spreadsheet tools when the file is shared/opened
         csv.append("Name,Email,Phone,Status\n");
 
         for (Entrant entrant : entrants) {
@@ -196,25 +214,40 @@ public class EnrolledListActivity extends AppCompatActivity {
         }
     }
 
+    /**
+    * Removes CSV-breaking commas/newlines from exported values
+     * takes in non-normalized value and returns it normalized
+    */
     private String sanitize(String value) {
         if (value == null) return "";
         return value.replace(",", " ").replace("\n", " ").trim();
     }
-
+    /**
+     * RecyclerView adapter for displaying enrolled entrants with asynchronously loaded profile details
+     */
     private static class EntrantAdapter extends RecyclerView.Adapter<EntrantAdapter.ViewHolder> {
         private final List<Entrant> entrants = new ArrayList<>();
         private final UserStorage userStorage;
 
+        /**
+         * Creates an adapter that can resolve entrant ids into user profiles
+         */
         public EntrantAdapter(UserStorage userStorage) {
             this.userStorage = userStorage;
         }
 
+        /**
+         * replaces the current entrant list and refreshes the recycler view
+         */
         public void setEntrants(List<Entrant> newEntrants) {
             entrants.clear();
             entrants.addAll(newEntrants);
             notifyDataSetChanged();
         }
 
+        /**
+        * Returns a copy of the current entrant list for export
+        */
         public List<Entrant> getEntrants() {
             return new ArrayList<>(entrants);
         }
@@ -229,6 +262,7 @@ public class EnrolledListActivity extends AppCompatActivity {
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             Entrant entrant = entrants.get(position);
+            // Show immediate placeholders until the user profile lookup finishes
             holder.tvEntrantName.setText("Loading...");
             holder.tvEntrantEmail.setText(entrant.getEntrantId());
 
@@ -247,6 +281,7 @@ public class EnrolledListActivity extends AppCompatActivity {
                 holder.tvEntrantEmail.setText(entrant.getEntrantId());
             });
 
+            // Organizer/admin can tap through to the entrant's full user details
             holder.itemView.setOnClickListener(v -> {
                 Intent intent = new Intent(v.getContext(), UserDetailsActivity.class);
                 intent.putExtra(UserDetailsActivity.EXTRA_USER_ID, entrant.getEntrantId());
@@ -259,7 +294,9 @@ public class EnrolledListActivity extends AppCompatActivity {
         public int getItemCount() {
             return entrants.size();
         }
-
+        /**
+         * ViewHolder that caches the two TextViews used in each entrant row
+         */
         static class ViewHolder extends RecyclerView.ViewHolder {
             TextView tvEntrantName;
             TextView tvEntrantEmail;

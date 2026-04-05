@@ -20,6 +20,22 @@ import com.google.android.material.button.MaterialButton;
  */
 public class SignupActivity extends AppCompatActivity {
 
+    /**
+     * Initialize UI components (set listeners for all buttons)
+     *  get all necessary database classes from service locator
+     */
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_signup);
+
+        AuthService auth = ServiceLocator.getAuthService();
+        setupListeners(auth);
+    }
+
+    /**
+     * Set up all of the textViews and buttons for the Sign Up Activity UI components
+     */
     private void setupListeners(AuthService auth) {
         EditText etName = findViewById(R.id.et_name);
         EditText etEmail = findViewById(R.id.et_email);
@@ -51,12 +67,4 @@ public class SignupActivity extends AppCompatActivity {
         });
     }
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_signup);
-
-        AuthService auth = ServiceLocator.getAuthService();
-        setupListeners(auth);
-    }
 }

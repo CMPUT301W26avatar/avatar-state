@@ -4,23 +4,30 @@ import android.app.Dialog;
 import android.content.Intent;
 import android.location.Address;
 import android.location.Geocoder;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.util.Pair;
 import androidx.fragment.app.Fragment;
 
+import com.bumptech.glide.Glide;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.services.ServiceLocator;
@@ -28,11 +35,15 @@ import com.example.lotteryapp.activities.EnrolledListActivity;
 import com.example.lotteryapp.activities.InvitedListActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
-
+import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.UserStorage;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.firebase.storage.StorageReference;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -54,6 +65,22 @@ public class ManageFragment extends Fragment {
 
     private LinearLayout upcomingEventListContainer;
     private EventStorage eventStorage;
+
+    // Image picking state
+    private Uri selectedImageUri;
+    private ImageView currentPreviewImage;
+
+    private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
+            registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
+                if (uri != null) {
+                    selectedImageUri = uri;
+                    if (currentPreviewImage != null) {
+                        currentPreviewImage.setImageURI(uri);
+                        currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        currentPreviewImage.setImageTintList(null); // Clear placeholder tint
+                    }
+                }
+            });
 
     /**
      * Inflates the fragment layout and set up UI elements
@@ -125,7 +152,7 @@ public class ManageFragment extends Fragment {
 
         if (events == null || events.isEmpty()) {
             TextView emptyView = new TextView(requireContext());
-            emptyView.setText("No organizer events yet.");
+            emptyView.setText("No Events Yet, Click + to Add an Event");
             upcomingEventListContainer.addView(emptyView);
             return;
         }
@@ -359,6 +386,17 @@ public class ManageFragment extends Fragment {
         MaterialSwitch switchPrivateEvent = findOptionalSwitch(view, "switch_private_event");
         View layoutPrivateInvites = findOptionalView(view, "layout_private_invites");
 
+        // Poster handling
+        View cardAddMedia = view.findViewById(R.id.card_add_media);
+        currentPreviewImage = view.findViewById(R.id.iv_event_poster_preview);
+        selectedImageUri = null; // Reset for new dialog
+
+        cardAddMedia.setOnClickListener(v -> {
+            pickMedia.launch(new PickVisualMediaRequest.Builder()
+                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                    .build());
+        });
+
         // use dialog-local holders to keep a fresh state
         //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
         final Long[] localEventDateMs = {null};
@@ -500,6 +538,15 @@ public class ManageFragment extends Fragment {
                 localEventDateMs[0] = null;
                 localStartDateMs[0] = null;
                 localEndDateMs[0] = null;
+
+                selectedImageUri = null;
+                currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
+                currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+
+//                EditText organizers = view.findViewById(R.id.et_organizers);
+//                if (organizers != null) {
+//                    organizers.setText("");
+//                }
             });
         }
 
@@ -682,6 +729,18 @@ public class ManageFragment extends Fragment {
                                 Toast.LENGTH_LONG
                         ).show()
                 );
+
+                if (selectedImageUri != null) {
+                    uploadImage(selectedImageUri, newEvent.getEventId(), url -> {
+                        newEvent.setPosterUrl(url);
+                        performUpsert(newEvent, dialog);
+                    }, e -> {
+                        Toast.makeText(requireContext(), "Failed to upload image", Toast.LENGTH_SHORT).show();
+                        performUpsert(newEvent, dialog);
+                    });
+                } else {
+                    performUpsert(newEvent, dialog);
+                }
             };
 
             if (finalLocationInput.isEmpty()) {
@@ -710,6 +769,31 @@ public class ManageFragment extends Fragment {
         });
 
         dialog.show();
+    }
+
+    private void performUpsert(Event event, Dialog dialog) {
+        eventStorage.upsertEvent(
+                event,
+                unused -> eventStorage.setEventAddress(
+                        event.getEventId(),
+                        event.getAddress(),
+                        unused2 -> {
+                            Toast.makeText(requireContext(), "Event saved!", Toast.LENGTH_SHORT).show();
+                            dialog.dismiss();
+                            loadUpcomingEvents();
+                        },
+                        e -> Toast.makeText(
+                                requireContext(),
+                                "Failed to save event address: " + e.getMessage(),
+                                Toast.LENGTH_LONG
+                        ).show()
+                ),
+                e -> Toast.makeText(
+                        requireContext(),
+                        "Failed to save event: " + e.getMessage(),
+                        Toast.LENGTH_LONG
+                ).show()
+        );
     }
 
     /**
@@ -743,6 +827,26 @@ public class ManageFragment extends Fragment {
         MaterialSwitch switchGeo = view.findViewById(R.id.switch_geolocation);
         MaterialSwitch switchPrivateEvent = findOptionalSwitch(view, "switch_private_event");
         View layoutPrivateInvites = findOptionalView(view, "layout_private_invites");
+
+        // Poster handling
+        View cardAddMedia = view.findViewById(R.id.card_add_media);
+        currentPreviewImage = view.findViewById(R.id.iv_event_poster_preview);
+        selectedImageUri = null;
+
+        if (event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
+            Glide.with(this)
+                    .load(event.getPosterUrl())
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .centerCrop()
+                    .into(currentPreviewImage);
+            currentPreviewImage.setImageTintList(null);
+        }
+
+        cardAddMedia.setOnClickListener(v -> {
+            pickMedia.launch(new PickVisualMediaRequest.Builder()
+                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                    .build());
+        });
 
         // use dialog-local holders to keep a fresh state
         //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
@@ -952,6 +1056,10 @@ public class ManageFragment extends Fragment {
                 localEventDateMs[0] = null;
                 localStartDateMs[0] = null;
                 localEndDateMs[0] = null;
+
+                selectedImageUri = null;
+                currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
+                currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
             });
         }
 
@@ -1136,6 +1244,18 @@ public class ManageFragment extends Fragment {
                                 Toast.LENGTH_LONG
                         ).show()
                 );
+
+                        if (selectedImageUri != null) {
+                            uploadImage(selectedImageUri, event.getEventId(), url -> {
+                                event.setPosterUrl(url);
+                                performUpsert(event, dialog);
+                            }, e -> {
+                                Toast.makeText(requireContext(), "Failed to upload image", Toast.LENGTH_SHORT).show();
+                                performUpsert(event, dialog);
+                            });
+                        } else {
+                            performUpsert(event, dialog);
+                        }
             };
 
             String currentDisplayedLocation = etLocation.getText().toString().trim();
@@ -1175,6 +1295,17 @@ public class ManageFragment extends Fragment {
                 });
 
         dialog.show();
+    }
+
+    private void uploadImage(Uri uri, String eventId, OnSuccessListener<String> onSuccess, OnFailureListener onFailure) {
+        StorageReference ref = ServiceLocator.getFirebase().getStorage().getReference()
+                .child("posters/" + eventId + ".jpg");
+
+        ref.putFile(uri)
+                .addOnSuccessListener(taskSnapshot -> ref.getDownloadUrl().addOnSuccessListener(downloadUri -> {
+                    onSuccess.onSuccess(downloadUri.toString());
+                }))
+                .addOnFailureListener(onFailure);
     }
 
     /**

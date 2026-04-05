@@ -545,7 +545,8 @@ public class HomeFragment extends Fragment {
         }
 
         return notification.getType() == NotificationLog.NotificationType.PRIVATE_INVITATION
-                || notification.getType() == NotificationLog.NotificationType.COORGANIZER_INVITATION;
+                || notification.getType() == NotificationLog.NotificationType.COORGANIZER_INVITATION
+                || notification.getType() == NotificationLog.NotificationType.WON_LOTTERY;
     }
 
     /**
@@ -566,6 +567,8 @@ public class HomeFragment extends Fragment {
             showPrivateInviteDialog(position, notification);
         } else if (notification.getType() == NotificationLog.NotificationType.COORGANIZER_INVITATION) {
             showCoorganizerInviteDialog(position, notification);
+        } else if (notification.getType() == NotificationLog.NotificationType.WON_LOTTERY) {
+            showLotteryInviteDialog(position, notification);
         }
     }
 
@@ -596,6 +599,21 @@ public class HomeFragment extends Fragment {
                 .setPositiveButton("Accept", (dialog, which) -> acceptCoorganizerInvite(position, notification))
                 .show();
     }
+
+    private void showLotteryInviteDialog(int position, NotificationLog notification) {
+        if (getContext() == null) return;
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Lottery Selection")
+                .setMessage("You have been selected! Would you like to accept your spot?")
+                .setNegativeButton("Decline", (dialog, which) ->
+                        declineLotteryInvite(position, notification))
+                .setPositiveButton("Accept", (dialog, which) ->
+                        acceptLotteryInvite(position, notification))
+                .show();
+    }
+
+
 
     /**
      * Runs on the user clicking confirm in the private event invite dialog
@@ -732,6 +750,60 @@ public class HomeFragment extends Fragment {
                         e.getMessage() == null ? "Failed to decline co-organizer invite" : e.getMessage(),
                         Toast.LENGTH_SHORT
                 ).show()
+        );
+    }
+
+    private void acceptLotteryInvite(int position, NotificationLog notification) {
+        String uid = ServiceLocator.uid();
+
+        if (notification == null || notification.getEventId() == null) {
+            Toast.makeText(requireContext(), "Missing event", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (uid == null) {
+            Toast.makeText(requireContext(), "User not signed in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        eventPoolStorage.enrollInEvent(
+                notification.getEventId(),
+                uid,
+                unused -> resolveNotification(
+                        position,
+                        notification,
+                        ACCEPTED.name(),
+                        "You are now enrolled!"
+                ),
+                e -> Toast.makeText(requireContext(),
+                        "Failed to accept invite", Toast.LENGTH_SHORT).show()
+        );
+    }
+
+    private void declineLotteryInvite(int position, NotificationLog notification) {
+        String uid = ServiceLocator.uid();
+
+        if (notification == null || notification.getEventId() == null) {
+            Toast.makeText(requireContext(), "Missing event", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (uid == null) {
+            Toast.makeText(requireContext(), "User not signed in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        eventPoolStorage.removeFromInvited(
+                notification.getEventId(),
+                uid,
+                unused -> resolveNotification(
+                        position,
+                        notification,
+                        DECLINED.name(),
+                        "Invite declined"
+                ),
+                e -> Toast.makeText(requireContext(),
+                        "Failed to decline invite", Toast.LENGTH_SHORT).show()
         );
     }
 
@@ -985,14 +1057,15 @@ public class HomeFragment extends Fragment {
      *       for an event
      */
     public static class DisplayGridEvent {
-        public String eventId, title, subtitle, description, tag;
+        public String eventId, title, subtitle, description, tag, posterUrl;
 
-        public DisplayGridEvent(String eventId, String title, String subtitle, String description, String tag) {
+        public DisplayGridEvent(String eventId, String title, String subtitle, String description, String tag, String posterUrl) {
             this.eventId = eventId;
             this.title = title;
             this.subtitle = subtitle;
             this.description = description;
-            this.tag = "Home fragment";
+            this.tag = tag;
+            this.posterUrl = posterUrl;
         }
     }
 
@@ -1005,7 +1078,8 @@ public class HomeFragment extends Fragment {
                 event.getTitle(),
                 buildSubtitle(event),
                 event.getDescription(),
-                event.getTag()
+                event.getTag(),
+                event.getPosterUrl()
         );
     }
 
@@ -1019,13 +1093,13 @@ public class HomeFragment extends Fragment {
         StringBuilder sb = new StringBuilder(statusString(status));
 
         Integer waitlistCap = event.getWaitlistCapacity();
-        if (waitlistCap == -1) {
+        if (waitlistCap != null && waitlistCap == -1) {
             sb.append("\nWaitlist: ")
                     .append(event.getWaitlistCount())
                     .append("/")
                     .append("∞");
 
-        } else if (waitlistCap > 0){
+        } else if (waitlistCap != null && waitlistCap > 0){
             sb.append("\nWaitlist: ")
                     .append(event.getWaitlistCount())
                     .append("/")
@@ -1039,6 +1113,7 @@ public class HomeFragment extends Fragment {
      * Subtitle builder helper for status logic
      */
     private String statusString(Event.EventStatus status) {
+        if (status == null) return "Unknown";
         switch (status) {
             case REG_OPEN:
                 return "Open for registration";
@@ -1055,6 +1130,6 @@ public class HomeFragment extends Fragment {
             case EVENT_FULL:
                 return "Event is full";
         }
-        return null;
+        return "Unknown";
     }
 }

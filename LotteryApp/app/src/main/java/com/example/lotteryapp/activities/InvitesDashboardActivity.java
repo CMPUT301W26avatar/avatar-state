@@ -14,6 +14,10 @@ import com.example.lotteryapp.fragments.InviteListFragment;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
+/**
+ * Hosts the invite-management tabs for a single event. Each page is an InviteListFragment filtered to a different invitation state
+ *      states are: Invited (pending), Accepted (enrolled), Cancelled (organizer cancelled), and Declined (user declined).
+ */
 public class InvitesDashboardActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
@@ -23,6 +27,9 @@ public class InvitesDashboardActivity extends AppCompatActivity {
     private ViewPager2 viewPager;
     private TabLayoutMediator tabMediator;
 
+    /**
+     * Initializes the dashboard, validates the event id, and wires the pager
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -43,11 +50,16 @@ public class InvitesDashboardActivity extends AppCompatActivity {
         setupPager();
     }
 
+    /**
+     * Rebuilds the pager so each tab fragment refreshes its underlying data
+     *  while preserving the user's currently selected tab when possible
+     */
     public void refreshDashboard() {
         if (viewPager == null || tabLayout == null || eventId == null || eventId.trim().isEmpty()) {
             return;
         }
 
+        // Preserve the active tab so refreshes do not jump the user elsewhere
         int currentItem = viewPager.getCurrentItem();
 
         if (tabMediator != null) {
@@ -63,11 +75,15 @@ public class InvitesDashboardActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Creates the pager adapter and attaches tab labels for the four invitation states
+     */
     private void setupPager() {
         viewPager.setAdapter(new FragmentStateAdapter(this) {
             @NonNull
             @Override
             public Fragment createFragment(int position) {
+                // each tab is a new instance of an invited fragment
                 switch (position) {
                     case 0:
                         return InviteListFragment.newInstance(
@@ -98,6 +114,7 @@ public class InvitesDashboardActivity extends AppCompatActivity {
             }
         });
 
+        // UI labels for the tabs
         tabMediator = new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             switch (position) {
                 case 0:

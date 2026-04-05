@@ -118,7 +118,8 @@ public class EventStorage {
      * Takes in an Event as a parameter and creates/upserts it into the database.
      * Transaction ensures the createdAt value is only set once.
      * Address is stored separately under /geo/address and does not affect query success.
-     * Asynchronous
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
      */
     public void upsertEvent(
             Event event,
@@ -150,6 +151,8 @@ public class EventStorage {
      * firebase modify
      * Sets or updates the EventAddress fields for an event
      * Optional: if address is null the address document is removed
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
      */
     public void setEventAddress(
             String eventId,
@@ -177,6 +180,8 @@ public class EventStorage {
     /**
      * Creates or updates the joined_map document for a user for an event.
      * The stored address is a snapshot of the user's chosen address at join time.
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
      */
     public void setEventJoinedMap(
             @NonNull String eventId,
@@ -206,7 +211,10 @@ public class EventStorage {
     }
 
     /**
-     * Removes the joined_map document for a user for an event.
+     * Removes the joined_map document from firebase for a user for an event.
+     *      event/{eventId}/joined_map/{userId}
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
      */
     public void removeEventJoinedMap(
             @NonNull String eventId,
@@ -221,7 +229,10 @@ public class EventStorage {
     }
 
     /**
-     * Returns all joined_map entries for an event.
+     * Returns all joined_map entries for an event from firebase.
+     *      event/{eventId}/joined_map/*
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
      */
     public void getEventJoinedMapEntries(
             @NonNull String eventId,
@@ -293,6 +304,7 @@ public class EventStorage {
     /**
      * Maps EventJoinedMap into a flat Firestore payload.
      * UserAddress fields are stored as a snapshot at join time.
+     * Synchronous
      */
     private Map<String, Object> eventJoinedMapToMap(EventJoinedMap joinedMap) {
         Map<String, Object> data = new HashMap<>();
@@ -347,29 +359,9 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    /**
-     * Returns only the event address subdocument for the given event.
-     * Returns null when the event has no geo/address document.
-     */
-    public void getEventAddress(
-            @NonNull String eventId,
-            OnSuccessListener<EventAddress> onSuccess,
-            OnFailureListener onFailure
-    ) {
-        eventAddressDoc(eventId)
-                .get()
-                .addOnSuccessListener(snapshot -> {
-                    if (!snapshot.exists()) {
-                        onSuccess.onSuccess(null);
-                        return;
-                    }
-                    onSuccess.onSuccess(documentToEventAddress(snapshot, eventId));
-                })
-                .addOnFailureListener(onFailure);
-    }
-
     /** firebase retrieval helper
      * Returns a single Event from the parameter doc (database DocumentSnapshot)
+     * Synchronous
      */
     private Event documentToEvent(DocumentSnapshot doc) {
         String organizerId = doc.getString("organizerId");
@@ -446,6 +438,7 @@ public class EventStorage {
 
     /** firebase retrieval helper
      * Returns a single EventAddress from the address doc
+     * Synchronous
      */
     private EventAddress documentToEventAddress(DocumentSnapshot doc, String eventId) {
         String location = doc.getString("location");
@@ -462,8 +455,9 @@ public class EventStorage {
         return address;
     }
 
-    /**
-     * Builds one EventJoinedMap from a joined_map document.
+    /** firebase retrieval helper
+     * Builds one EventJoinedMap object from a joined_map document.
+     * Synchronous: returns the build EventJoinedMap object
      */
     @Nullable
     private EventJoinedMap documentToEventJoinedMap(
@@ -489,6 +483,8 @@ public class EventStorage {
      *  Address read failures do not fail the overall event query.
      *      - read failures skipped by going Event by Event and performing a recursive call on
      *        index + 1 when failing
+     * Asynchronous: requires OnSuccess listener
+     * - returns nothing, synchronously or asynchronously
      */
     private void populateEventAddressesSafely(
             List<Event> events,
@@ -517,6 +513,8 @@ public class EventStorage {
     /** firebase retrieval helper
      * Runs a query, converts docs to events, then best-effort hydrates their address subdocuments.
      * Event queries should never fail because an address subdocument is missing or unreadable.
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
      */
     private void queryEventsWithAddresses(
             Query query,
@@ -542,14 +540,20 @@ public class EventStorage {
 
     /** firebase modify
      * Deletes a single document in firebase keyed by the parameter eventId
-     * Address subdocument delete is best-effort.
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
      */
     public void deleteEvent(String eventId) {
         eventAddressDoc(eventId).delete();
         eventDoc(eventId).delete();
     }
 
-
+    /**
+     * Sends an invite to be a coorganizer for the currently managed event
+     *      appends to event/{eventId}/coorganizer_invites/{userId}
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void inviteCoorganizer(
             @NonNull String eventId,
             @NonNull String organizerId,
@@ -629,6 +633,13 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /**
+     * from the user side, accept the invite to become a coorganizer for an event
+     *      removes the user from the coorganizer_invites subcollection
+     *      adds them to the coorganizerId's array field for the event
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
     public void acceptInviteToBeCoorganizer(
             @NonNull String eventId,
             @NonNull String invitedUserId,
@@ -703,7 +714,37 @@ public class EventStorage {
     }
 
     /**
-     * Adds a single comment to an event's comments subcollection.
+     * from the user side, decline the invite to become a coorganizer for an event
+     *      removes the user from the coorganizer_invites subcollection
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
+     */
+    public void declineInviteToBeCoorganizer(
+            @NonNull String eventId,
+            @NonNull String invitedUserId,
+            OnSuccessListener<Void> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        if (eventId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("eventId required"));
+            return;
+        }
+
+        if (invitedUserId.trim().isEmpty()) {
+            onFailure.onFailure(new IllegalArgumentException("invitedUserId required"));
+            return;
+        }
+
+        eventCoorganizerInviteDoc(eventId, invitedUserId)
+                .delete()
+                .addOnSuccessListener(onSuccess)
+                .addOnFailureListener(onFailure);
+    }
+
+    /**
+     * Adds a single comment to an event's comments subcollection in firebase
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
      */
     public void addEventComment(
             @NonNull String eventId,
@@ -748,6 +789,7 @@ public class EventStorage {
 
     /**
      * Returns all comments for an event ordered by newest first.
+     * Asynchronous: requires OnSuccess and OnFailure listeners
      */
     public void getEventComments(
             @NonNull String eventId,
@@ -775,6 +817,8 @@ public class EventStorage {
 
     /**
      * Deletes a comment from an event.
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
      */
     public void deleteEventComment(
             @NonNull String eventId,
@@ -792,6 +836,8 @@ public class EventStorage {
     /**
      * Reports a comment.
      * Reports are stored in a subcollection "reported_comments" under the event document.
+     * Asynchronous: requires OnSuccess and OnFailure listeners
+     * - returns nothing, synchronously or asynchronously
      */
     public void reportComment(
             @NonNull String eventId,
@@ -814,6 +860,7 @@ public class EventStorage {
 
     /**
      * Returns all reported comments for an event.
+     * Asynchronous: requires OnSuccess and OnFailure listeners
      */
     public void getEventReportedComments(
             @NonNull String eventId,
@@ -837,27 +884,6 @@ public class EventStorage {
                     }
                     onSuccess.onSuccess(reports);
                 })
-                .addOnFailureListener(onFailure);
-    }
-    public void declineInviteToBeCoorganizer(
-            @NonNull String eventId,
-            @NonNull String invitedUserId,
-            OnSuccessListener<Void> onSuccess,
-            OnFailureListener onFailure
-    ) {
-        if (eventId.trim().isEmpty()) {
-            onFailure.onFailure(new IllegalArgumentException("eventId required"));
-            return;
-        }
-
-        if (invitedUserId.trim().isEmpty()) {
-            onFailure.onFailure(new IllegalArgumentException("invitedUserId required"));
-            return;
-        }
-
-        eventCoorganizerInviteDoc(eventId, invitedUserId)
-                .delete()
-                .addOnSuccessListener(onSuccess)
                 .addOnFailureListener(onFailure);
     }
 
@@ -934,7 +960,7 @@ public class EventStorage {
 
     /** firebase modify
      * Deletes all events in the database pertaining to the organizerId given as a parameter
-     * for use inside of cascadeDeleteUserProfile
+     *      for use inside of cascadeDeleteUserProfile
      * Asynchronous: requires OnSuccess and OnFailure listeners
      */
     public void delAllOrganizerEvents(
@@ -1027,8 +1053,9 @@ public class EventStorage {
     }
 
     /**
-     * function searchEvents will search using the keywords array
-     * partial word matching.
+     * function searchEvents will search using the keywords array partial word matching.
+     *      returns all events in the events collection matching the keyword search
+     * Asynchronous: requires onSuccess and onFailure listeners
      */
     public void searchEvents(
             String query,
@@ -1049,6 +1076,11 @@ public class EventStorage {
         queryEventsWithAddresses(searchQuery, onSuccess, onFailure);
     }
 
+    /**
+     * Get all of the events within (parameter: radiusKm) of a user
+     *      treats the user as the origin and scans for all events whos address is within a circle of radius  int radiusKm to the user
+     * Asynchronous: requires onSuccess listeners
+     */
     public void getEventsNearUser(
             @NonNull String uid,
             @NonNull User.UserAddressMode userAddressMode,
@@ -1099,6 +1131,7 @@ public class EventStorage {
 
     /**
      * Filters a list of events to only those within the given radius of the user.
+     * Synchronous: returns an array of events who pass the radius filter.
      */
     public List<Event> filterEventsWithinRadius(
             @NonNull UserAddress userAddress,
@@ -1138,7 +1171,8 @@ public class EventStorage {
 
     /**
      * Returns true when the supplied event has a usable geo/radius restriction.
-     */
+     * Synchronous
+     * */
     public boolean eventHasUsableGeoConstraint(@Nullable Event event) {
         if (event == null) {
             return false;
@@ -1158,6 +1192,7 @@ public class EventStorage {
 
     /**
      * Returns true when the user address falls inside the event's configured waitlist radius.
+     * Synchronous
      */
     public boolean isWithinEventRadius(
             @Nullable UserAddress userAddress,
@@ -1172,6 +1207,7 @@ public class EventStorage {
 
     /**
      * Returns true when the user address falls inside the supplied event address radius.
+     * Synchronous
      */
     public boolean isWithinEventRadius(
             @Nullable UserAddress userAddress,
@@ -1211,7 +1247,8 @@ public class EventStorage {
 
     /**
      * firebase retrieval helper
-     * Returns the user geo document reference for the selected address mode.
+     * Returns the user geo document reference for the selected address mode.\
+     * Synchronous
      */
     private DocumentReference userAddressDoc(
             @NonNull String uid,
@@ -1230,6 +1267,7 @@ public class EventStorage {
     /**
      * firebase retrieval helper
      * Builds a UserAddress model from the selected user geo document.
+     * Synchronous
      */
     private UserAddress documentToUserAddress(
             @NonNull DocumentSnapshot doc,
@@ -1244,6 +1282,7 @@ public class EventStorage {
 
     /**
      * distance helper: accurate distance between two points (x,y) over a curve with radius earthRadiusKm
+     * Synchronous: returns a double precision value representing the haversize distance between two points.
      */
     // 3. Calculate the Distance Using the Haversine Formula, Harpal Singh, Last Updated: 01/24/2026
     // https://www.baeldung.com/java-find-distance-between-points
@@ -1267,7 +1306,9 @@ public class EventStorage {
     }
 
     /**
-     ** One time migration tool to update all existing events with keywords.
+     * One time migration tool to update all existing events with keywords.
+     *      breaks down the event title into searchable keywords
+     * Asynchronous, requires onSuccess and onFailure listeners
      */
     public void syncAllEventKeywords(OnSuccessListener<Void> onSuccess, OnFailureListener onFailure) {
         getAllEvents(events -> {

@@ -3,6 +3,7 @@ package com.example.lotteryapp;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -783,20 +784,21 @@ public class DrawWinnersUnitTest {
         for (int i = 0; i < titleCaptor.getAllValues().size(); i++) {
             assertEquals(eventId, eventIdCaptor.getAllValues().get(i));
             assertEquals("organizer-1", organizerIdCaptor.getAllValues().get(i));
-            assertEquals(
-                    NotificationLog.NotificationType.LOTTERY_RESULT,
-                    typeCaptor.getAllValues().get(i)
-            );
 
             String title = titleCaptor.getAllValues().get(i);
             String message = messageCaptor.getAllValues().get(i);
+            NotificationLog.NotificationType type = typeCaptor.getAllValues().get(i);
 
             if (title.startsWith("Invitation to ")) {
                 invitedNotificationCount++;
+                assertEquals(NotificationLog.NotificationType.WON_LOTTERY, type);
                 assertTrue(message.contains("Congratulations!"));
             } else if (title.startsWith("Not Invited to ")) {
                 notInvitedNotificationCount++;
+                assertEquals(NotificationLog.NotificationType.LOST_LOTTERY, type);
                 assertTrue(message.contains("Unfortunately"));
+            } else {
+                fail("Unexpected notification title: " + title);
             }
         }
 

@@ -248,7 +248,8 @@ public class SearchFragment extends Fragment {
                 event.getTitle(),
                 buildSubtitle(event),
                 event.getDescription(),
-                event.getTag()
+                event.getTag(),
+                event.getPosterUrl()
         );
     }
 
@@ -261,13 +262,13 @@ public class SearchFragment extends Fragment {
         StringBuilder sb = new StringBuilder(statusString(status));
 
         Integer waitlistCap = event.getWaitlistCapacity();
-        if (waitlistCap == -1) {
+        if (waitlistCap != null && waitlistCap == -1) {
             sb.append("\nWaitlist: ")
                     .append(event.getWaitlistCount())
                     .append("/")
                     .append("∞");
 
-        } else if (waitlistCap > 0){
+        } else if (waitlistCap != null && waitlistCap > 0){
             sb.append("\nWaitlist: ")
                     .append(event.getWaitlistCount())
                     .append("/")
@@ -282,6 +283,7 @@ public class SearchFragment extends Fragment {
      *      need Event param
      */
     private String statusString(Event.EventStatus status) {
+        if (status == null) return "Unknown";
         switch (status) {
             case REG_OPEN:
                 return "Open for registration";
@@ -298,6 +300,6 @@ public class SearchFragment extends Fragment {
             case EVENT_FULL:
                 return "Event is full";
         }
-        return null;
+        return "Unknown";
     }
 }
