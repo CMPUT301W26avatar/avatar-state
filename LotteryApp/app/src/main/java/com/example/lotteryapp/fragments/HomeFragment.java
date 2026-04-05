@@ -779,14 +779,15 @@ public class HomeFragment extends Fragment {
      *       for an event
      */
     public static class DisplayGridEvent {
-        public String eventId, title, subtitle, description, tag;
+        public String eventId, title, subtitle, description, tag, posterUrl;
 
-        public DisplayGridEvent(String eventId, String title, String subtitle, String description, String tag) {
+        public DisplayGridEvent(String eventId, String title, String subtitle, String description, String tag, String posterUrl) {
             this.eventId = eventId;
             this.title = title;
             this.subtitle = subtitle;
             this.description = description;
-            this.tag = "Home fragment";
+            this.tag = tag;
+            this.posterUrl = posterUrl;
         }
     }
 
@@ -799,7 +800,8 @@ public class HomeFragment extends Fragment {
                 event.getTitle(),
                 buildSubtitle(event),
                 event.getDescription(),
-                event.getTag()
+                event.getTag(),
+                event.getPosterUrl()
         );
     }
 
@@ -813,13 +815,13 @@ public class HomeFragment extends Fragment {
         StringBuilder sb = new StringBuilder(statusString(status));
 
         Integer waitlistCap = event.getWaitlistCapacity();
-        if (waitlistCap == -1) {
+        if (waitlistCap != null && waitlistCap == -1) {
             sb.append("\nWaitlist: ")
                     .append(event.getWaitlistCount())
                     .append("/")
                     .append("∞");
 
-        } else if (waitlistCap > 0){
+        } else if (waitlistCap != null && waitlistCap > 0){
             sb.append("\nWaitlist: ")
                     .append(event.getWaitlistCount())
                     .append("/")
@@ -833,6 +835,7 @@ public class HomeFragment extends Fragment {
      * Subtitle builder helper for status logic
      */
     private String statusString(Event.EventStatus status) {
+        if (status == null) return "Unknown";
         switch (status) {
             case REG_OPEN:
                 return "Open for registration";
@@ -849,6 +852,6 @@ public class HomeFragment extends Fragment {
             case EVENT_FULL:
                 return "Event is full";
         }
-        return null;
+        return "Unknown";
     }
 }
