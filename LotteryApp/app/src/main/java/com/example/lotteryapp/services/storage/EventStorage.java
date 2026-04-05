@@ -5,6 +5,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.example.lotteryapp.dialogs.FilterDialog;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
 import com.example.lotteryapp.models.EventJoinedMap;
@@ -996,12 +997,12 @@ public class EventStorage {
             OnFailureListener onFailure) {
 
         int MIN_VAL = 1;
-        if (minCap != -1) {
+        if (minCap != FilterDialog.NOT_SET) {
             MIN_VAL = minCap;
         }
 
         int MAX_VAL = Integer.MAX_VALUE;
-        if (maxCap != -1) {
+        if (maxCap != FilterDialog.NOT_SET) {
             MAX_VAL = maxCap;
         }
 
@@ -1028,12 +1029,12 @@ public class EventStorage {
             OnFailureListener onFailure) {
 
         int MIN_VAL = 1;
-        if (minCap != -1) {
+        if (minCap != FilterDialog.NOT_SET) {
             MIN_VAL = minCap;
         }
 
         int MAX_VAL = Integer.MAX_VALUE;
-        if (maxCap != -1) {
+        if (maxCap != FilterDialog.NOT_SET) {
             MAX_VAL = maxCap;
         }
 

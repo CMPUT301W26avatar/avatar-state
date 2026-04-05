@@ -2,11 +2,12 @@ package com.example.lotteryapp.fragments;
 
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
+import static com.example.lotteryapp.dialogs.FilterDialog.FilterType.*;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.ACCEPTED;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.DECLINED;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.READ;
 
-import android.app.Dialog;
+import android.annotation.SuppressLint;
 import android.graphics.drawable.GradientDrawable;
 import android.content.Intent;
 import android.os.Bundle;
@@ -31,6 +32,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.dialogs.FilterDialog;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
@@ -43,8 +45,6 @@ import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.materialswitch.MaterialSwitch;
-import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textview.MaterialTextView;
 
 import java.util.ArrayList;
@@ -100,15 +100,6 @@ public class HomeFragment extends Fragment {
 
     private List<Long> userAvailability;
 
-    // Filter Values
-    private boolean useAvailabilityFilter = false;
-    private boolean showUpcomingEvents = true;
-    private boolean showOpenEvents = true;
-    private boolean showFullEvents = true;
-    private int minCap;
-    private int maxCap;
-
-
     private MaterialTextView interestText;
     private RecyclerView recyclerViewOpen;
     private MaterialTextView upcomingText;
@@ -118,6 +109,36 @@ public class HomeFragment extends Fragment {
 
     private Map<GridEventAdapter, RecyclerView> adapterToRecView;
     private Map<RecyclerView, MaterialTextView> recViewToText;
+
+    private FilterDialog filterDialog;
+    Runnable LOAD_EVENTS_ACTION = () -> {
+        if (filterDialog.isActive(UPCOMING_EVENTS_FILTER)) { // Show upcoming events
+            recyclerViewUpcoming.setVisibility(VISIBLE);
+            upcomingText.setVisibility(VISIBLE);
+            loadEventsByStatus(Event.EventStatus.REG_UPCOMING);
+        } else {
+            recyclerViewUpcoming.setVisibility(GONE);
+            upcomingText.setVisibility(GONE);
+        }
+
+        if (filterDialog.isActive(OPEN_EVENTS_FILTER)) { // Show open events
+            recyclerViewOpen.setVisibility(VISIBLE);
+            interestText.setVisibility(VISIBLE);
+            loadEventsByStatus(Event.EventStatus.EVENT_OPEN);
+        } else {
+            recyclerViewOpen.setVisibility(GONE);
+            interestText.setVisibility(GONE);
+        }
+
+        if (filterDialog.isActive(FULL_EVENTS_FILTER)) { // Show full events
+            recyclerViewFull.setVisibility(VISIBLE);
+            popularText.setVisibility(VISIBLE);
+            loadEventsByStatus(Event.EventStatus.EVENT_FULL);
+        } else {
+            recyclerViewFull.setVisibility(GONE);
+            popularText.setVisibility(GONE);
+        }
+    };
 
     /**
      * Inflates the HomeFragment layout and initializes UI components.
@@ -176,157 +197,74 @@ public class HomeFragment extends Fragment {
         adapterToRecView.put(fullAdapter, recyclerViewFull);
 
         filtersButton = view.findViewById(R.id.event_filters_button);
-        minCap = -1;
-        maxCap = -1;
+        filterDialog = new FilterDialog(view.getContext());
 
         userAvailability = Arrays.asList(1123L, 80L, 67L);
 
         return view;
     }
 
-    private void setupFilterButton(@NonNull View view) {
+    /**
+     * Adds an onClickListener to "filtersButton" that
+     * opens up the FilterDialog dialog.
+     * @param filterView the view representing the FilterDialog.
+     * @param filterDialog the FilterDialog obj.
+     */
+    private void setupFilterButton(@NonNull View filterView, @NonNull FilterDialog filterDialog) {
         filtersButton.setOnClickListener(v -> {
-            Log.d("HomeFragment", "Hello Filters :)");
-            Dialog dialog = new Dialog(view.getContext());
-            View filterView = LayoutInflater.from(view.getContext()).inflate(R.layout.dialog_filter, null);
-            dialog.setContentView(filterView);
+            filterDialog.show();
 
-            //
-            // Filters
-            //
-            MaterialSwitch avbFilterSwitch = filterView.findViewById(R.id.availability_filter);
-            avbFilterSwitch.setChecked(useAvailabilityFilter);
-            avbFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
-                useAvailabilityFilter = isChecked;
-            });
-
-            MaterialSwitch upcomingFilterSwitch = filterView.findViewById(R.id.showUpcoming_filter);
-            upcomingFilterSwitch.setChecked(showUpcomingEvents);
-            upcomingFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
-                showUpcomingEvents = isChecked;
-            });
-
-            MaterialSwitch openFilterSwitch = filterView.findViewById(R.id.showOpen_filter);
-            openFilterSwitch.setChecked(showOpenEvents);
-            openFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
-                showOpenEvents = isChecked;
-            });
-
-            MaterialSwitch fullFilterSwitch = filterView.findViewById(R.id.fullEvent_filter);
-            fullFilterSwitch.setChecked(showFullEvents);
-            fullFilterSwitch.setOnCheckedChangeListener((_NA, isChecked) -> {
-                showFullEvents = isChecked;
-            });
-
-            TextInputEditText minCapFilter = filterView.findViewById(R.id.event_min_filter);
-            if (minCap == -1) {
-                minCapFilter.setText("");
-            } else {
-                minCapFilter.setText(String.valueOf(minCap));
-            }
-
-
-            TextInputEditText maxCapFilter = filterView.findViewById(R.id.event_max_filter);
-            if (maxCap == -1) {
-                maxCapFilter.setText("");
-            } else {
-                maxCapFilter.setText(String.valueOf(maxCap));
-            }
-
-            //
             // Positive & Negative Buttons
-            //
             MaterialButton applyButton = filterView.findViewById(R.id.filter_apply_button);
             applyButton.setOnClickListener(_NA -> {
-                // Get min. max. cap
-                int val;
-                String minCapInput = minCapFilter.getText().toString();
-                if (!minCapInput.isEmpty()) {
-                    val = Integer.parseInt(minCapInput);
-                    if (val < 1) {
-                        Toast.makeText(view.getContext(),
-                                "Min. capacity must be greater than 0.", Toast.LENGTH_LONG).show();
-                        return;
-                    }
-
-                    minCap = val;
-                }
-
-                String maxCapInput = maxCapFilter.getText().toString();
-                if (!maxCapInput.isEmpty()) {
-                    val = Integer.parseInt(maxCapInput);
-                    if (val <= minCap) {
-                        Toast.makeText(view.getContext(),
-                                "Max. capacity must by greater than min. capacity.", Toast.LENGTH_LONG).show();
-                        return;
-                    }
-
-                    maxCap = val;
+                Log.d("HomeFragment", "User clicked on the filter apply button");
+                boolean isValidInput = filterDialog.validateInput(filterView);
+                if (!isValidInput) {
+                    return;
                 }
 
                 loadAllEvents();
-                dialog.dismiss();
+                filterDialog.dismiss();
             });
 
             MaterialButton cancelButton = filterView.findViewById(R.id.filter_cancel_button);
             cancelButton.setOnClickListener(_NA -> {
-                dialog.cancel();
+                Log.d("HomeFragment", "User clicked on the filter cancel button");
+                filterDialog.cancel();
             });
-
-            dialog.show();
         });
 
+    }
+
+    /**
+     *  Sets up the FilterDialog w/ Listeners and adds an onClickListener to "filtersButton"
+     * @param view The parent view
+     */
+    private void setupFilterDialog(@NonNull View view) {
+        Log.d("HomeFragment", "Hello Filters :)");
+
+        View filterView = LayoutInflater.from(view.getContext()).inflate(R.layout.dialog_filter, null);
+        filterDialog.setupListeners(filterView);
+        filterDialog.setContentView(filterView);
+        setupFilterButton(filterView, filterDialog);
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        setupFilterButton(view);
         checkAndLaunchTOSIfNeeded();
+        setupFilterDialog(view);
         loadAllEvents();
         loadNotifications();
     }
 
+    /**
+     * Helper function that loads events into their respective lists
+     * <br>
+     * Will automatically account for the FilterDialog availability filter
+     */
     private void loadAllEvents() {
-        Runnable LOAD_EVENTS_ACTION = () -> {
-            displayOpenGridEvents.clear();
-            openAdapter.notifyDataSetChanged();
-
-            displayFullGridEvents.clear();
-            fullAdapter.notifyDataSetChanged();
-
-            displayUpcomingGridEvents.clear();
-            upcomingAdapter.notifyDataSetChanged();
-
-            if (showUpcomingEvents) { // Show upcoming events
-                recyclerViewUpcoming.setVisibility(VISIBLE);
-                upcomingText.setVisibility(VISIBLE);
-                loadEventsByStatus(Event.EventStatus.REG_UPCOMING);
-            } else {
-                recyclerViewUpcoming.setVisibility(GONE);
-                upcomingText.setVisibility(GONE);
-            }
-
-            if (showOpenEvents) { // Show open events
-                recyclerViewOpen.setVisibility(VISIBLE);
-                interestText.setVisibility(VISIBLE);
-                loadEventsByStatus(Event.EventStatus.EVENT_OPEN);
-            } else {
-                recyclerViewOpen.setVisibility(GONE);
-                interestText.setVisibility(GONE);
-            }
-
-            if (showFullEvents) { // Show full events
-                recyclerViewFull.setVisibility(VISIBLE);
-                popularText.setVisibility(VISIBLE);
-                loadEventsByStatus(Event.EventStatus.EVENT_FULL);
-            } else {
-                recyclerViewFull.setVisibility(GONE);
-                popularText.setVisibility(GONE);
-            }
-        };
-
-        if (useAvailabilityFilter) {
+        if (filterDialog.isActive(AVAILABILITY_FILTER)) {
             userStorage.getUserAvailabilityDates(
                     ServiceLocator.uid(),
                     dates -> {
@@ -334,13 +272,12 @@ public class HomeFragment extends Fragment {
                         Log.d("HomeFragment", userAvailability.toString());
                         LOAD_EVENTS_ACTION.run();
                     },
-                    e -> {
-                        Log.e("HomeFragment", "Failed to load user availability", e);
-                    }
+                    e -> Log.e("HomeFragment", "Failed to load user availability", e)
             );
-        } else {
-            LOAD_EVENTS_ACTION.run();
+            return;
         }
+
+        LOAD_EVENTS_ACTION.run();
     }
 
     /**
@@ -355,6 +292,12 @@ public class HomeFragment extends Fragment {
         loadNotifications();
     }
 
+    /**
+     * Returns the associated associated list of DisplayGridEvents
+     * and its GridEventAdapter.
+     * @param status the associated event status
+     * @return a Pair containing a List of DisplayGridEvents and its associated Adapter
+     */
     private Pair<List<DisplayGridEvent>, GridEventAdapter> getEventAdapterPair(Event.EventStatus status) {
         List<DisplayGridEvent> events = null;
         GridEventAdapter eventAdapter = null;
@@ -379,6 +322,13 @@ public class HomeFragment extends Fragment {
         return new Pair<>(events, eventAdapter);
     }
 
+    /**
+     * Loads the events tagged with the given status
+     * <br>
+     * Will automatically filter out events if the user
+     * turns on the availability filter in the filter dialog.
+     * @param status the event status to load
+     */
     private void loadEventsByStatus(Event.EventStatus status) {
         if ((eventStorage == null) || (userStorage == null) || (openAdapter == null)
                 || (upcomingAdapter == null) || (fullAdapter == null)) return;
@@ -386,6 +336,7 @@ public class HomeFragment extends Fragment {
         Pair<List<DisplayGridEvent>, GridEventAdapter>
                 eventAdapterPair = getEventAdapterPair(status);
 
+        @SuppressLint("NotifyDataSetChanged")
         OnSuccessListener<List<Event>> successListener =
                 fetchedEvents -> {
                     List<DisplayGridEvent> displayGridEvents = eventAdapterPair.first;
@@ -393,36 +344,47 @@ public class HomeFragment extends Fragment {
 
                     RecyclerView recView = adapterToRecView.get(displayAdapter);
                     MaterialTextView displayText = recViewToText.get(recView);
+                    if (recView == null || displayText == null) {
+                        throw new RuntimeException("Something went wrong " +
+                                "with retrieving the GridEventRecyclerView and DisplayText!");
+                    }
 
                     displayGridEvents.clear();
-                    if (fetchedEvents.isEmpty()) {
-                        recView.setVisibility(GONE);
-                        displayText.setVisibility(GONE);
-                    } else {
+                    if (!fetchedEvents.isEmpty()) {
                         recView.setVisibility(VISIBLE);
                         displayText.setVisibility(VISIBLE);
+
                         for (Event e : fetchedEvents) {
                             displayGridEvents.add(eventToDisplayEvent(e));
                         }
 
                         displayAdapter.notifyDataSetChanged();
+                        return;
                     }
+
+                    recView.setVisibility(GONE);
+                    displayText.setVisibility(GONE);
                 };
 
         OnFailureListener failureListener = e ->
                 Log.e("HomeFragment", "Failed to load open events", e);
 
-        if (useAvailabilityFilter) {
+        // Get event capacity range from filters
+        Pair<Integer, Integer> CAP_FILTER_VALS = filterDialog.getCapacityFilterValues();
+        int MIN_CAP = CAP_FILTER_VALS.first;
+        int MAX_CAP = CAP_FILTER_VALS.second;
+
+        if (filterDialog.isActive(AVAILABILITY_FILTER)) {
             if (userAvailability.isEmpty()) {
                 userAvailability = Arrays.asList(67L, 301L);
             }
             eventStorage.getEventsByStatus(
-                    minCap, maxCap,
+                    MIN_CAP, MAX_CAP,
                     userAvailability, status,
                     4, successListener, failureListener);
         } else {
             eventStorage.getEventsByStatus(
-                    minCap, maxCap, status,
+                    MIN_CAP, MAX_CAP, status,
                     4, successListener, failureListener);
 
         }
