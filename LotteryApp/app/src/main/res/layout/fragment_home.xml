@@ -1,30 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?attr/colorSurface">
 
-    <com.google.android.material.appbar.AppBarLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="?attr/colorSurface"
-        app:elevation="0dp">
-
-        <com.google.android.material.search.SearchBar
-            android:id="@+id/search_bar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:hint="Search" />
-
-    </com.google.android.material.appbar.AppBarLayout>
-
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        android:layout_height="match_parent">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -32,12 +15,22 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/home_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:text="Home"
+                android:textAppearance="@style/TextAppearance.Material3.HeadlineMedium"
+                android:textStyle="bold" />
+
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/invitation_card"
                 style="@style/Widget.Material3.CardView.Elevated"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
+                android:minHeight="86dp"
                 android:visibility="visible"
                 app:cardBackgroundColor="?attr/colorTertiaryContainer"
                 app:strokeWidth="0dp">
@@ -45,142 +38,157 @@
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:padding="4dp">
+                    android:minHeight="86dp"
+                    android:padding="8dp">
 
                     <androidx.viewpager2.widget.ViewPager2
                         android:id="@+id/notifications_pager"
                         android:layout_width="match_parent"
                         android:layout_height="70dp"
-                        android:layout_marginBottom="24dp"
-                        android:visibility="gone" />
+                        android:minHeight="70dp"
+                        android:visibility="gone"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent" />
+
+                    <LinearLayout
+                        android:id="@+id/notifications_empty_state"
+                        android:layout_width="match_parent"
+                        android:layout_height="70dp"
+                        android:minHeight="70dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="12dp"
+                        android:paddingVertical="10dp"
+                        android:visibility="gone"
+                        app:layout_constraintBottom_toBottomOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintTop_toTopOf="parent">
+
+                        <ImageView
+                            android:id="@+id/notifications_empty_icon"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_marginEnd="12dp"
+                            android:contentDescription="Notifications"
+                            android:src="@drawable/ic_announcement"
+                            app:tint="?attr/colorOnTertiaryContainer" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <com.google.android.material.textview.MaterialTextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="You're all caught up"
+                                android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+                                android:textStyle="bold" />
+
+                            <com.google.android.material.textview.MaterialTextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:alpha="0.8"
+                                android:text="No new notifications right now"
+                                android:textAppearance="@style/TextAppearance.Material3.BodyMedium" />
+                        </LinearLayout>
+
+                    </LinearLayout>
 
                 </androidx.constraintlayout.widget.ConstraintLayout>
 
             </com.google.android.material.card.MaterialCardView>
-
-            <!-- FILTERS -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
-                <Space
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="11"/>
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/event_filters_button"
-                    style="@style/Widget.Material3.Button.IconButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Filters"
-                    app:icon="@drawable/ic_sort"
-                    app:iconTint="?attr/colorPrimary" />
-            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/loading_indicator"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:visibility="gone"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:visibility="gone">
+
                 <Space
                     android:layout_width="match_parent"
-                    android:layout_height="128dp"/>
+                    android:layout_height="128dp" />
+
                 <com.google.android.material.progressindicator.CircularProgressIndicator
                     android:layout_width="128dp"
                     android:layout_height="128dp"
                     android:indeterminate="true"
                     app:indicatorSize="64dp"
-                    app:trackThickness="4dp"
-                    />
+                    app:trackThickness="4dp" />
             </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/empty_indicator"
-                android:orientation="vertical"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
 
                 <Space
                     android:layout_width="match_parent"
-                    android:layout_height="128dp"/>
+                    android:layout_height="128dp" />
 
                 <com.google.android.material.textview.MaterialTextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="There Are Currently No Events\n:("
                     android:textAlignment="center"
                     android:textAppearance="@style/TextAppearance.Material3.HeadlineLarge.Emphasized"
-                    android:layout_weight="1"
                     android:textStyle="bold" />
 
                 <com.google.android.material.textview.MaterialTextView
-                    android:paddingTop="16dp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Try again later or with different filter parameters"
+                    android:layout_weight="1"
+                    android:paddingTop="16dp"
+                    android:text="Try again later"
                     android:textAlignment="center"
                     android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-                    android:layout_weight="1"
                     android:textStyle="italic" />
             </LinearLayout>
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/interest_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                android:text="These may Interest you"
-                android:textAppearance="?attr/textAppearanceTitleLarge"
-                android:visibility="gone"
-                android:textStyle="bold" />
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recycler_view_open"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:visibility="gone"
-                android:nestedScrollingEnabled="false" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/popular_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                android:text="Popular Events"
+                android:text="Everyone's Talking about these..."
                 android:textAppearance="?attr/textAppearanceTitleLarge"
-                android:visibility="gone"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recycler_view_full"
+                android:id="@+id/recycler_view_popular"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:visibility="gone"
-                android:nestedScrollingEnabled="false" />
+                android:nestedScrollingEnabled="false"
+                android:visibility="gone" />
 
             <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/upcoming_text"
+                android:id="@+id/nearby_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                android:text="Upcoming Events"
+                android:text="Upcoming Near You"
                 android:textAppearance="?attr/textAppearanceTitleLarge"
-                android:visibility="gone"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:visibility="gone" />
+
 
             <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recycler_view_upcoming"
+                android:id="@+id/recycler_view_nearby"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:visibility="gone"
-                android:nestedScrollingEnabled="false" />
-
-            <com.google.android.material.search.SearchView
-                android:id="@+id/search_view"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:hint="Search" />
+                android:layout_marginBottom="24dp"
+                android:nestedScrollingEnabled="false"
+                android:visibility="gone" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
