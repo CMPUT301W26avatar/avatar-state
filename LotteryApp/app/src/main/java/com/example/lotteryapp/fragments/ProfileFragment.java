@@ -16,6 +16,7 @@ import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.AdminActivity;
 import com.example.lotteryapp.activities.LoginActivity;
 import com.example.lotteryapp.activities.NotificationSettingsActivity;
+import com.example.lotteryapp.activities.TermsOfServiceActivity;
 import com.example.lotteryapp.activities.UserAvailabilityActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
 import com.example.lotteryapp.activities.UserLocationSettingsActivity;
@@ -51,6 +52,7 @@ public class ProfileFragment extends Fragment {
         setupSettingItem(view.findViewById(R.id.item_language), "Language");
         setupSettingItem(view.findViewById(R.id.item_location), "Location Preferences");
         setupSettingItem(view.findViewById(R.id.item_storage), "Storage");
+        setupSettingItem(view.findViewById(R.id.item_tos), "Terms of Service");
 
         setupListeners(view);
         return view;
@@ -121,6 +123,15 @@ public class ProfileFragment extends Fragment {
         if (storageItem != null) {
             storageItem.setOnClickListener(v -> {
                 // TODO: Add item_storage logic here
+            });
+        }
+
+        View tosItem = view.findViewById(R.id.item_tos);
+        if (tosItem != null) {
+            tosItem.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), TermsOfServiceActivity.class);
+                intent.putExtra(TermsOfServiceActivity.EXTRA_READ_ONLY, true);
+                startActivity(intent);
             });
         }
 

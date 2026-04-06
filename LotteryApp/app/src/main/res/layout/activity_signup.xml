@@ -123,6 +123,7 @@
                 android:layout_height="wrap_content" />
 
             <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/tv_terms_link"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="I've read and agree with the Terms and Conditions and the Privacy Policy."
