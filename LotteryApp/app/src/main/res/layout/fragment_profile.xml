@@ -84,18 +84,6 @@
                     app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
                     app:tint="?attr/colorOnSecondaryContainer" />
 
-                <com.google.android.material.floatingactionbutton.FloatingActionButton
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/ic_edit"
-                    app:backgroundTint="?attr/colorPrimary"
-                    app:fabCustomSize="28dp"
-                    app:layout_constraintBottom_toBottomOf="@id/iv_profile_pic"
-                    app:layout_constraintEnd_toEndOf="@id/iv_profile_pic"
-                    app:maxImageSize="14dp"
-                    app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
-                    app:tint="?attr/colorOnPrimary" />
-
                 <com.google.android.material.textview.MaterialTextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
