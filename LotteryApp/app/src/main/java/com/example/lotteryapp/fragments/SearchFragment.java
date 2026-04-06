@@ -21,7 +21,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
-import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.lotteryapp.R;
@@ -35,6 +34,7 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.search.SearchBar;
 import com.google.android.material.search.SearchView;
+import com.google.android.material.textview.MaterialTextView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,47 +61,64 @@ import java.util.List;
 
 public class SearchFragment extends Fragment {
 
+    private static final int SECTION_LIMIT = 4;
+
     private final EventStorage eventStorage = ServiceLocator.getEventStorage();
     private final UserStorage userStorage = ServiceLocator.getUserStorage();
 
-    private GridEventAdapter suggestedAdapter, popularAdapter;
-    private List<HomeFragment.DisplayGridEvent> suggestedEvents, popularEvents;
     private boolean isSearchActive = false;
+    private boolean suppressNextSearchHideReset = false;
+    private String currentSearchQuery = "";
 
     private MaterialButton filtersButton;
     private FilterDialog filterDialog;
     private List<Long> userAvailability;
 
-    private RecyclerView recyclerViewPopular;
-    private RecyclerView recyclerViewSuggested;
-    private View yourEventsHeader;
-    private View upcomingHeader;
-    private View upcomingContent;
-    private View nearYouHeader;
+    private SearchBar searchBar;
+    private SearchView searchView;
+
+    private MaterialTextView openHeader;
+    private MaterialTextView upcomingHeader;
+    private MaterialTextView fullHeader;
+
+    private RecyclerView openRecycler;
+    private RecyclerView upcomingRecycler;
+    private RecyclerView fullRecycler;
+
+    private GridEventAdapter openAdapter;
+    private GridEventAdapter upcomingAdapter;
+    private GridEventAdapter fullAdapter;
+
+    private final List<HomeFragment.DisplayGridEvent> openEvents = new ArrayList<>();
+    private final List<HomeFragment.DisplayGridEvent> upcomingEvents = new ArrayList<>();
+    private final List<HomeFragment.DisplayGridEvent> fullEvents = new ArrayList<>();
 
     Runnable LOAD_EVENTS_ACTION = () -> {
         if (!filterDialog.isActive(OPEN_EVENTS_FILTER)) {
-            recyclerViewPopular.setVisibility(VISIBLE);
-            loadPopularEvents(popularEvents, popularAdapter, 4);
+            loadOpenEvents(SECTION_LIMIT);
         } else {
-            recyclerViewPopular.setVisibility(GONE);
-        }
-
-        if (!filterDialog.isActive(FULL_EVENTS_FILTER)) {
-            recyclerViewSuggested.setVisibility(VISIBLE);
-            if (yourEventsHeader != null) yourEventsHeader.setVisibility(VISIBLE);
-            loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
-        } else {
-            recyclerViewSuggested.setVisibility(GONE);
-            if (yourEventsHeader != null) yourEventsHeader.setVisibility(GONE);
+            openEvents.clear();
+            openAdapter.notifyDataSetChanged();
+            if (openHeader != null) openHeader.setVisibility(GONE);
+            if (openRecycler != null) openRecycler.setVisibility(GONE);
         }
 
         if (!filterDialog.isActive(UPCOMING_EVENTS_FILTER)) {
-            if (upcomingHeader != null) upcomingHeader.setVisibility(VISIBLE);
-            if (upcomingContent != null) upcomingContent.setVisibility(VISIBLE);
+            loadUpcomingEvents(SECTION_LIMIT);
         } else {
+            upcomingEvents.clear();
+            upcomingAdapter.notifyDataSetChanged();
             if (upcomingHeader != null) upcomingHeader.setVisibility(GONE);
-            if (upcomingContent != null) upcomingContent.setVisibility(GONE);
+            if (upcomingRecycler != null) upcomingRecycler.setVisibility(GONE);
+        }
+
+        if (!filterDialog.isActive(FULL_EVENTS_FILTER)) {
+            loadFullEvents(SECTION_LIMIT);
+        } else {
+            fullEvents.clear();
+            fullAdapter.notifyDataSetChanged();
+            if (fullHeader != null) fullHeader.setVisibility(GONE);
+            if (fullRecycler != null) fullRecycler.setVisibility(GONE);
         }
     };
 
@@ -113,43 +130,40 @@ public class SearchFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_search, container, false);
 
-        SearchBar searchBar = view.findViewById(R.id.search_bar);
-        SearchView searchView = view.findViewById(R.id.search_view);
-
+        searchBar = view.findViewById(R.id.search_bar);
+        searchView = view.findViewById(R.id.search_view);
         filtersButton = view.findViewById(R.id.event_filters_button);
 
-        recyclerViewPopular = view.findViewById(R.id.recycler_view_popular);
-        recyclerViewSuggested = view.findViewById(R.id.recycler_view_suggested);
-
-        nearYouHeader = view.findViewById(R.id.near_you_header);
-        yourEventsHeader = view.findViewById(R.id.your_events_header);
+        openHeader = view.findViewById(R.id.open_header);
         upcomingHeader = view.findViewById(R.id.upcoming_header);
-        upcomingContent = view.findViewById(R.id.upcoming_content);
+        fullHeader = view.findViewById(R.id.full_header);
 
-        if (recyclerViewPopular != null) {
-            recyclerViewPopular.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        openRecycler = view.findViewById(R.id.open_recycler);
+        upcomingRecycler = view.findViewById(R.id.upcoming_recycler);
+        fullRecycler = view.findViewById(R.id.full_recycler);
 
-            popularEvents = new ArrayList<>();
-            popularAdapter = new GridEventAdapter(popularEvents);
-            recyclerViewPopular.setAdapter(popularAdapter);
-        }
+        openRecycler.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        upcomingRecycler.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        fullRecycler.setLayoutManager(new GridLayoutManager(getContext(), 2));
 
-        if (recyclerViewSuggested != null) {
-            recyclerViewSuggested.setLayoutManager(new LinearLayoutManager(getContext()));
+        openAdapter = new GridEventAdapter(openEvents);
+        upcomingAdapter = new GridEventAdapter(upcomingEvents);
+        fullAdapter = new GridEventAdapter(fullEvents);
 
-            suggestedEvents = new ArrayList<>();
-            suggestedAdapter = new GridEventAdapter(suggestedEvents);
-            recyclerViewSuggested.setAdapter(suggestedAdapter);
-        }
+        openRecycler.setAdapter(openAdapter);
+        upcomingRecycler.setAdapter(upcomingAdapter);
+        fullRecycler.setAdapter(fullAdapter);
 
         filterDialog = new FilterDialog(view.getContext());
         userAvailability = Arrays.asList(1123L, 80L, 67L);
 
         if (searchView != null) {
             searchView.getEditText().setOnEditorActionListener((v, actionId, event) -> {
-                String query = searchView.getEditText().getText().toString();
+                String query = searchView.getEditText().getText().toString().trim();
                 if (!query.isEmpty()) {
+                    currentSearchQuery = query;
                     isSearchActive = true;
+                    suppressNextSearchHideReset = true;
                     performSearch(query);
                     searchView.hide();
                 }
@@ -157,10 +171,16 @@ public class SearchFragment extends Fragment {
             });
 
             searchView.addTransitionListener((searchView1, previousState, newState) -> {
-                if (newState == SearchView.TransitionState.HIDDEN
-                        && searchView1.getEditText().getText().length() == 0
-                        && isSearchActive) {
-                    resetDashboard();
+                if (newState == SearchView.TransitionState.HIDDEN) {
+                    if (suppressNextSearchHideReset) {
+                        suppressNextSearchHideReset = false;
+                        return;
+                    }
+
+                    String text = searchView1.getEditText().getText().toString().trim();
+                    if (text.isEmpty() && isSearchActive) {
+                        resetDashboard();
+                    }
                 }
             });
         }
@@ -179,7 +199,6 @@ public class SearchFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        // Temporary migration call to fix existing events
         eventStorage.syncAllEventKeywords(
                 unused -> android.util.Log.d("Migration", "All events updated with keywords!"),
                 e -> android.util.Log.e("Migration", "Failed to update events", e)
@@ -192,27 +211,73 @@ public class SearchFragment extends Fragment {
      * Executes the search query and updates the popular section with results.
      */
     private void performSearch(String query) {
-        View view = getView();
-        if (view != null) {
-            View nearYouTitle = view.findViewById(R.id.near_you_title);
-            View yourEventsRecycler = view.findViewById(R.id.recycler_view_suggested);
+        currentSearchQuery = query;
 
-            if (nearYouTitle instanceof android.widget.TextView) {
-                ((android.widget.TextView) nearYouTitle).setText("Search Results");
-            }
-            if (yourEventsHeader != null) yourEventsHeader.setVisibility(View.GONE);
-            if (yourEventsRecycler != null) yourEventsRecycler.setVisibility(View.GONE);
-            if (upcomingHeader != null) upcomingHeader.setVisibility(View.GONE);
-            if (upcomingContent != null) upcomingContent.setVisibility(View.GONE);
+        if (openHeader != null) {
+            openHeader.setText("Search Results");
+            openHeader.setVisibility(VISIBLE);
         }
+        if (openRecycler != null) openRecycler.setVisibility(VISIBLE);
+
+        if (upcomingHeader != null) upcomingHeader.setVisibility(GONE);
+        if (upcomingRecycler != null) upcomingRecycler.setVisibility(GONE);
+
+        if (fullHeader != null) fullHeader.setVisibility(GONE);
+        if (fullRecycler != null) fullRecycler.setVisibility(GONE);
 
         eventStorage.searchEvents(query, fetchedEvents -> {
-            popularEvents.clear();
+            List<HomeFragment.DisplayGridEvent> searchResults = new ArrayList<>();
+
             for (Event event : fetchedEvents) {
-                popularEvents.add(eventToDisplayEvent(event));
+                if (!passesSearchFilters(event)) {
+                    continue;
+                }
+                searchResults.add(eventToDisplayEvent(event));
             }
-            popularAdapter.notifyDataSetChanged();
-        }, error -> error.printStackTrace());
+
+            openEvents.clear();
+            openEvents.addAll(searchResults);
+            openAdapter.notifyDataSetChanged();
+
+            if (openHeader != null) openHeader.setVisibility(VISIBLE);
+            if (openRecycler != null) openRecycler.setVisibility(VISIBLE);
+        }, error -> {
+            Log.e("SearchFragment", "Failed to search events", error);
+
+            openEvents.clear();
+            openAdapter.notifyDataSetChanged();
+
+            if (openHeader != null) openHeader.setVisibility(VISIBLE);
+            if (openRecycler != null) openRecycler.setVisibility(VISIBLE);
+        });
+    }
+
+    private boolean passesSearchFilters(Event event) {
+        if (event == null) {
+            return false;
+        }
+
+        Event.EventStatus status = event.getStatus();
+
+        if (filterDialog.isActive(FULL_EVENTS_FILTER)
+                && (status == Event.EventStatus.REG_FULL
+                || status == Event.EventStatus.EVENT_OPEN
+                || status == Event.EventStatus.EVENT_CLOSED
+                || status == Event.EventStatus.EVENT_FULL)) {
+            return false;
+        }
+
+        if (filterDialog.isActive(OPEN_EVENTS_FILTER)
+                && status == Event.EventStatus.REG_OPEN) {
+            return false;
+        }
+
+        if (filterDialog.isActive(UPCOMING_EVENTS_FILTER)
+                && status == Event.EventStatus.REG_UPCOMING) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -220,25 +285,26 @@ public class SearchFragment extends Fragment {
      */
     private void resetDashboard() {
         isSearchActive = false;
-        View view = getView();
-        if (view != null) {
-            View nearYouTitle = view.findViewById(R.id.near_you_title);
+        suppressNextSearchHideReset = false;
+        currentSearchQuery = "";
 
-            if (nearYouTitle instanceof android.widget.TextView) {
-                ((android.widget.TextView) nearYouTitle).setText("Near you");
-            }
-            if (yourEventsHeader != null) yourEventsHeader.setVisibility(View.VISIBLE);
-
-            if (filterDialog != null) {
-                loadAllEvents();
-            } else {
-                if (recyclerViewSuggested != null) recyclerViewSuggested.setVisibility(View.VISIBLE);
-                if (upcomingHeader != null) upcomingHeader.setVisibility(View.VISIBLE);
-                if (upcomingContent != null) upcomingContent.setVisibility(View.VISIBLE);
-                loadPopularEvents(popularEvents, popularAdapter, 4);
-                loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
-            }
+        if (searchView != null) {
+            searchView.getEditText().setText("");
         }
+
+        if (openHeader != null) {
+            openHeader.setText("Open");
+            openHeader.setVisibility(VISIBLE);
+        }
+        if (openRecycler != null) openRecycler.setVisibility(VISIBLE);
+
+        if (upcomingHeader != null) upcomingHeader.setVisibility(VISIBLE);
+        if (upcomingRecycler != null) upcomingRecycler.setVisibility(VISIBLE);
+
+        if (fullHeader != null) fullHeader.setVisibility(VISIBLE);
+        if (fullRecycler != null) fullRecycler.setVisibility(VISIBLE);
+
+        loadAllEvents();
     }
 
     /**
@@ -248,7 +314,9 @@ public class SearchFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        if (!isSearchActive) {
+        if (isSearchActive && !currentSearchQuery.isEmpty()) {
+            performSearch(currentSearchQuery);
+        } else {
             loadAllEvents();
         }
     }
@@ -263,7 +331,6 @@ public class SearchFragment extends Fragment {
         filtersButton.setOnClickListener(v -> {
             filterDialog.show();
 
-            // Positive & Negative Buttons
             MaterialButton applyButton = filterView.findViewById(R.id.filter_apply_button);
             applyButton.setOnClickListener(_NA -> {
                 Log.d("SearchFragment", "User clicked on the filter apply button");
@@ -272,7 +339,12 @@ public class SearchFragment extends Fragment {
                     return;
                 }
 
-                loadAllEvents();
+                if (isSearchActive && !currentSearchQuery.isEmpty()) {
+                    performSearch(currentSearchQuery);
+                } else {
+                    loadAllEvents();
+                }
+
                 filterDialog.dismiss();
             });
 
@@ -282,7 +354,6 @@ public class SearchFragment extends Fragment {
                 filterDialog.cancel();
             });
         });
-
     }
 
     /**
@@ -337,8 +408,8 @@ public class SearchFragment extends Fragment {
      *      convert Event to DisplayGridEvent
      *      notify change in the list of grid events
      */
-    private void loadPopularEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
-        loadFilteredEvents(displayGridEvents, adapter, Event.EventStatus.REG_OPEN, limit);
+    private void loadOpenEvents(Integer limit) {
+        loadFilteredEvents(openEvents, openAdapter, openHeader, openRecycler, Event.EventStatus.REG_OPEN, limit);
     }
 
     /**
@@ -349,8 +420,12 @@ public class SearchFragment extends Fragment {
      *      convert Event to DisplayGridEvent
      *      notify change in the list of grid events
      */
-    private void loadSuggestedEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
-        loadFilteredEvents(displayGridEvents, adapter, Event.EventStatus.REG_OPEN, limit);
+    private void loadUpcomingEvents(Integer limit) {
+        loadFilteredEvents(upcomingEvents, upcomingAdapter, upcomingHeader, upcomingRecycler, Event.EventStatus.REG_UPCOMING, limit);
+    }
+
+    private void loadFullEvents(Integer limit) {
+        loadFilteredEvents(fullEvents, fullAdapter, fullHeader, fullRecycler, Event.EventStatus.REG_FULL, limit);
     }
 
     /**
@@ -360,12 +435,14 @@ public class SearchFragment extends Fragment {
      * turns on the availability filter in the filter dialog
      */
     private void loadFilteredEvents(
-            List<HomeFragment.DisplayGridEvent> displayGridEvents,
+            List<HomeFragment.DisplayGridEvent> targetList,
             GridEventAdapter adapter,
+            MaterialTextView header,
+            RecyclerView recycler,
             Event.EventStatus status,
             Integer limit
     ) {
-        if (eventStorage == null || userStorage == null || adapter == null || displayGridEvents == null) return;
+        if (eventStorage == null || userStorage == null || adapter == null || targetList == null) return;
 
         Pair<Integer, Integer> capFilterVals = filterDialog.getCapacityFilterValues();
         int minCap = capFilterVals.first;
@@ -373,17 +450,24 @@ public class SearchFragment extends Fragment {
 
         @SuppressLint("NotifyDataSetChanged")
         OnSuccessListener<List<Event>> successListener = fetchedEvents -> {
-            displayGridEvents.clear();
+            targetList.clear();
             for (Event event : fetchedEvents) {
-                displayGridEvents.add(eventToDisplayEvent(event));
+                targetList.add(eventToDisplayEvent(event));
             }
             adapter.notifyDataSetChanged();
+
+            boolean hasEvents = !targetList.isEmpty();
+            if (header != null) header.setVisibility(hasEvents ? VISIBLE : GONE);
+            if (recycler != null) recycler.setVisibility(hasEvents ? VISIBLE : GONE);
         };
 
         OnFailureListener failureListener = e -> {
             Log.e("SearchFragment", "Failed to load events for status " + status, e);
-            displayGridEvents.clear();
+            targetList.clear();
             adapter.notifyDataSetChanged();
+
+            if (header != null) header.setVisibility(GONE);
+            if (recycler != null) recycler.setVisibility(GONE);
         };
 
         if (filterDialog.isActive(AVAILABILITY_FILTER)) {
@@ -409,6 +493,19 @@ public class SearchFragment extends Fragment {
                     failureListener
             );
         }
+    }
+
+    private boolean passesCapacityFilter(Event event, int minCap, int maxCap) {
+        Integer cap = event.getWaitlistCapacity();
+        if (cap == null) {
+            return false;
+        }
+
+        if (cap == UNLIMITED_WAITLIST_SENTINEL) {
+            return maxCap == UNLIMITED_WAITLIST_SENTINEL;
+        }
+
+        return cap >= minCap && cap <= maxCap;
     }
 
     /**
