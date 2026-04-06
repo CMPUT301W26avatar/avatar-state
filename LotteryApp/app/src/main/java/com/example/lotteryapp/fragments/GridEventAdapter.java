@@ -4,11 +4,13 @@ import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.EventDetailsActivity;
 
@@ -53,7 +55,6 @@ public class GridEventAdapter extends RecyclerView.Adapter<GridEventAdapter.Even
      *      view holder representing the event item
      *      position of the event in the dataset
      */
-
     @Override
     public void onBindViewHolder(@NonNull EventViewHolder holder, int position) {
         HomeFragment.DisplayGridEvent event = events.get(position);
@@ -62,12 +63,25 @@ public class GridEventAdapter extends RecyclerView.Adapter<GridEventAdapter.Even
         holder.tvDesc.setText(event.description);
         holder.tvTag.setText(event.tag);
 
-        View.OnClickListener openDetails =v -> {
+        if (event.posterUrl != null && !event.posterUrl.trim().isEmpty()) {
+            holder.ivPoster.setVisibility(View.VISIBLE);
+            holder.ivPlaceholderIcon.setVisibility(View.GONE);
+
+            Glide.with(holder.itemView.getContext())
+                    .load(event.posterUrl)
+                    .centerCrop()
+                    .into(holder.ivPoster);
+        } else {
+            holder.ivPoster.setImageDrawable(null);
+            holder.ivPoster.setVisibility(View.GONE);
+            holder.ivPlaceholderIcon.setVisibility(View.VISIBLE);
+        }
+
+        View.OnClickListener openDetails = v -> {
             Intent intent = new Intent(v.getContext(), EventDetailsActivity.class);
             intent.putExtra(EventDetailsActivity.EXTRA_EVENT_ID, event.eventId);
             v.getContext().startActivity(intent);
         };
-        // clicking on the item opens
         holder.itemView.setOnClickListener(openDetails);
     }
 
@@ -82,6 +96,7 @@ public class GridEventAdapter extends RecyclerView.Adapter<GridEventAdapter.Even
 
     static class EventViewHolder extends RecyclerView.ViewHolder {
         TextView tvTitle, tvSubtitle, tvDesc, tvTag;
+        ImageView ivPoster, ivPlaceholderIcon;
 
         public EventViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -89,6 +104,8 @@ public class GridEventAdapter extends RecyclerView.Adapter<GridEventAdapter.Even
             tvSubtitle = itemView.findViewById(R.id.tv_subtitle);
             tvDesc = itemView.findViewById(R.id.tv_desc);
             tvTag = itemView.findViewById(R.id.tv_tag);
+            ivPoster = itemView.findViewById(R.id.iv_event_poster);
+            ivPlaceholderIcon = itemView.findViewById(R.id.iv_placeholder_icon);
         }
     }
 }

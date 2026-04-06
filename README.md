@@ -1,6 +1,3 @@
-# avatar-state
-The indexes below were added for easy maneuvering around project docs and links
-
 ## Instructions
 
 ### Logging as an Existing User
@@ -26,13 +23,3 @@ Click on the event management screen (4th icon from the left at the bottom). Cli
 ### Editing User Details
 
 Click on the UserDetailsActivity (last icon from the left at the bottom). You can click the Log Out button at the bottom to log out the current user. Click Details to see your user details. Enter input into the textfields (email, password etc.) and click the Save button to save your changes.
-
-## Firestore Database
-
-Firebase Console: https://console.firebase.google.com/u/0/project/lotteryapp-caee8/firestore/databases/-default-/data/~2Fentrants~2Fw23pxH7jMnbAssB2B3Yn05Q6atl1
-
-## Project Development
-
-- [Story Backlog](https://github.com/orgs/CMPUT301W26avatar/projects/1)
-- [Story Status](doc/story_status.md)<br>
-- [Design Choices](doc/adr.md)<br>

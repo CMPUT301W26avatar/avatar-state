@@ -4,6 +4,7 @@ import android.app.Dialog;
 import android.content.Intent;
 import android.location.Address;
 import android.location.Geocoder;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -11,16 +12,21 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.util.Pair;
 import androidx.fragment.app.Fragment;
 
+import com.bumptech.glide.Glide;
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.EventDetailsActivity;
 import com.example.lotteryapp.services.ServiceLocator;
@@ -28,11 +34,13 @@ import com.example.lotteryapp.activities.EnrolledListActivity;
 import com.example.lotteryapp.activities.InvitedListActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
-
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.firebase.storage.StorageReference;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -50,10 +58,30 @@ import java.lang.reflect.Method;
  */
 public class ManageFragment extends Fragment {
 
-    private static final int UNLIMITED_WAITLIST_SENTINEL = 2147483647;
+    public static final int UNLIMITED_WAITLIST_SENTINEL = 2147483647;
 
     private LinearLayout upcomingEventListContainer;
     private EventStorage eventStorage;
+
+    // Image picking state
+    private Uri selectedImageUri;
+    private ImageView currentPreviewImage;
+    private View currentRemovePosterButton;
+
+    private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
+            registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
+                if (uri != null) {
+                    selectedImageUri = uri;
+                    if (currentPreviewImage != null) {
+                        currentPreviewImage.setImageURI(uri);
+                        currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        currentPreviewImage.setImageTintList(null); // Clear placeholder tint
+                    }
+                    if (currentRemovePosterButton != null) {
+                        currentRemovePosterButton.setVisibility(View.VISIBLE);
+                    }
+                }
+            });
 
     /**
      * Inflates the fragment layout and set up UI elements
@@ -67,14 +95,20 @@ public class ManageFragment extends Fragment {
             @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState
     ) {
+        // inflate fragment layout and keep root view for binding
         View view = inflater.inflate(R.layout.fragment_manage, container, false);
 
+        // resolve storage dependency used throughout the fragment
         eventStorage = ServiceLocator.getEventStorage();
+
+        // container that will hold dynamically rendered managed event cards
         upcomingEventListContainer = view.findViewById(R.id.layout_upcoming_event_item);
 
+        // launch create dialog from floating action button
         FloatingActionButton fab = view.findViewById(R.id.fab_add_event);
         fab.setOnClickListener(v -> showCreateEventDialog());
 
+        // load organizer events immediately when view is created
         loadUpcomingEvents();
         return view;
     }
@@ -186,7 +220,9 @@ public class ManageFragment extends Fragment {
         startActivity(intent);
     }
 
-
+    /**
+     * finds a material switch by resource name and returns null if the id does not exist or is not a switch
+     */
     private MaterialSwitch findOptionalSwitch(View root, String idName) {
         int id = requireContext().getResources().getIdentifier(idName, "id", requireContext().getPackageName());
         if (id == 0) {
@@ -196,11 +232,18 @@ public class ManageFragment extends Fragment {
         return found instanceof MaterialSwitch ? (MaterialSwitch) found : null;
     }
 
+    /**
+     * finds an optional view by resource name and returns null when the view is not present in the layout
+     */
     private View findOptionalView(View root, String idName) {
         int id = requireContext().getResources().getIdentifier(idName, "id", requireContext().getPackageName());
         return id == 0 ? null : root.findViewById(id);
     }
 
+    /**
+     * checks whether the given event supports and currently reports a private event flag
+     *      returns true or false for the result
+     */
     private boolean isPrivateEvent(Event event) {
         if (event == null) {
             return false;
@@ -214,6 +257,9 @@ public class ManageFragment extends Fragment {
         }
     }
 
+    /**
+     * applies the private event flag to the given event when the setter exists
+     */
     private void setPrivateEventFlag(Event event, boolean isPrivate) {
         if (event == null) {
             return;
@@ -225,6 +271,11 @@ public class ManageFragment extends Fragment {
         }
     }
 
+    /**
+     * synchronizes create or update dialog controls after the private event toggle changes
+     *      private events may still use waitlist controls but must not allow geolocation restrictions
+     *      this method also updates dependent layouts and clears radius input when geo constraints are disabled
+     */
     private void syncPrivateEventUi(
             boolean isPrivate,
             MaterialSwitch switchWaitlist,
@@ -265,6 +316,9 @@ public class ManageFragment extends Fragment {
         }
     }
 
+    /**
+     * resolves a basic event status from explicit dialog field values
+     */
     private Event.EventStatus resolveStatusForDialog(boolean isPrivateEvent, long now, Long regStartMs, Long regEndMs, Long eventDateMs) {
         if (regStartMs == null || regEndMs == null || eventDateMs == null) {
             return Event.EventStatus.REG_UPCOMING;
@@ -334,7 +388,6 @@ public class ManageFragment extends Fragment {
      *      enter event detail fields
      *      mandatory: event capacity, title, reg start/end and event date
      *      optional: description, location, waitlist capacity, geolocational data
-     *
      *      can also clear all fields
      */
     private void showCreateEventDialog() {
@@ -359,8 +412,25 @@ public class ManageFragment extends Fragment {
         MaterialSwitch switchPrivateEvent = findOptionalSwitch(view, "switch_private_event");
         View layoutPrivateInvites = findOptionalView(view, "layout_private_invites");
 
+        // Poster handling
+        View cardAddMedia = view.findViewById(R.id.card_add_media);
+        currentPreviewImage = view.findViewById(R.id.iv_event_poster_preview);
+        currentRemovePosterButton = view.findViewById(R.id.btn_remove_poster);
+        selectedImageUri = null; // Reset for new dialog
+
+        cardAddMedia.setOnClickListener(v -> pickMedia.launch(new PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                .build()));
+
+        currentRemovePosterButton.setOnClickListener(v -> {
+            selectedImageUri = null;
+            currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
+            currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+            currentRemovePosterButton.setVisibility(View.GONE);
+        });
+
         // use dialog-local holders to keep a fresh state
-        //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
+        //  prevent CreateEventDialog and UpdateEventDialog from leaking into each other
         final Long[] localEventDateMs = {null};
         final Long[] localStartDateMs = {null};
         final Long[] localEndDateMs = {null};
@@ -500,6 +570,16 @@ public class ManageFragment extends Fragment {
                 localEventDateMs[0] = null;
                 localStartDateMs[0] = null;
                 localEndDateMs[0] = null;
+
+                selectedImageUri = null;
+                currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
+                currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+                currentRemovePosterButton.setVisibility(View.GONE);
+
+//                EditText organizers = view.findViewById(R.id.et_organizers);
+//                if (organizers != null) {
+//                    organizers.setText("");
+//                }
             });
         }
 
@@ -682,6 +762,18 @@ public class ManageFragment extends Fragment {
                                 Toast.LENGTH_LONG
                         ).show()
                 );
+
+                if (selectedImageUri != null) {
+                    uploadImage(selectedImageUri, newEvent.getEventId(), url -> {
+                        newEvent.setPosterUrl(url);
+                        performUpsert(newEvent, dialog);
+                    }, e -> {
+                        Toast.makeText(requireContext(), "Failed to upload image", Toast.LENGTH_SHORT).show();
+                        performUpsert(newEvent, dialog);
+                    });
+                } else {
+                    performUpsert(newEvent, dialog);
+                }
             };
 
             if (finalLocationInput.isEmpty()) {
@@ -713,12 +805,39 @@ public class ManageFragment extends Fragment {
     }
 
     /**
+     * performs event upsert followed by address save then refreshes ui on success or shows error feedback on failure
+     */
+    private void performUpsert(Event event, Dialog dialog) {
+        eventStorage.upsertEvent(
+                event,
+                unused -> eventStorage.setEventAddress(
+                        event.getEventId(),
+                        event.getAddress(),
+                        unused2 -> {
+                            Toast.makeText(requireContext(), "Event saved!", Toast.LENGTH_SHORT).show();
+                            dialog.dismiss();
+                            loadUpcomingEvents();
+                        },
+                        e -> Toast.makeText(
+                                requireContext(),
+                                "Failed to save event address: " + e.getMessage(),
+                                Toast.LENGTH_LONG
+                        ).show()
+                ),
+                e -> Toast.makeText(
+                        requireContext(),
+                        "Failed to save event: " + e.getMessage(),
+                        Toast.LENGTH_LONG
+                ).show()
+        );
+    }
+
+    /**
      * Displays a full-screen dialog for updating an existing event
      *      enter event detail fields
      *      mandatory: event capacity, title, reg start/end and event date (saved from create)
      *      optional: description, location, waitlist capacity, geolocational data
      *      unable to: edit event date, or reg start/end
-     *
      *      can also clear all fields
      */
     private void showUpdateEventDialog(Event event) {
@@ -744,8 +863,40 @@ public class ManageFragment extends Fragment {
         MaterialSwitch switchPrivateEvent = findOptionalSwitch(view, "switch_private_event");
         View layoutPrivateInvites = findOptionalView(view, "layout_private_invites");
 
+        // Poster handling
+        View cardAddMedia = view.findViewById(R.id.card_add_media);
+        currentPreviewImage = view.findViewById(R.id.iv_event_poster_preview);
+        currentRemovePosterButton = view.findViewById(R.id.btn_remove_poster);
+        selectedImageUri = null;
+
+        final boolean[] removePoster = {false};
+
+        if (event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
+            Glide.with(this)
+                    .load(event.getPosterUrl())
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .centerCrop()
+                    .into(currentPreviewImage);
+            currentPreviewImage.setImageTintList(null);
+            currentRemovePosterButton.setVisibility(View.VISIBLE);
+        }
+
+        currentRemovePosterButton.setOnClickListener(v -> {
+            removePoster[0] = true;
+            selectedImageUri = null;
+            currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
+            currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+            currentRemovePosterButton.setVisibility(View.GONE);
+        });
+
+        cardAddMedia.setOnClickListener(v -> {
+            pickMedia.launch(new PickVisualMediaRequest.Builder()
+                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                    .build());
+        });
+
         // use dialog-local holders to keep a fresh state
-        //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
+        //  prevent CreateEventDialog and UpdateEventDialog from leaking into each other
         final Long[] localEventDateMs = {event.getEventDateMs()};
         final Long[] localStartDateMs = {event.getRegStartMs()};
         final Long[] localEndDateMs = {event.getRegEndMs()};
@@ -952,122 +1103,150 @@ public class ManageFragment extends Fragment {
                 localEventDateMs[0] = null;
                 localStartDateMs[0] = null;
                 localEndDateMs[0] = null;
+
+                selectedImageUri = null;
+                currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
+                currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+                removePoster[0] = true;
+                currentRemovePosterButton.setVisibility(View.GONE);
+            });
+        }
+
+        View btnDeleteEvent = view.findViewById(R.id.btn_delete_event);
+        if (btnDeleteEvent != null) {
+            btnDeleteEvent.setOnClickListener(v -> {
+                if (event == null || event.getEventId() == null || event.getEventId().trim().isEmpty()) {
+                    Toast.makeText(requireContext(), "Missing event ID", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                        .setTitle("Delete Event")
+                        .setMessage("Are you sure you want to delete this event?")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Delete", (d, which) -> {
+                            eventStorage.deleteEvent(event.getEventId());
+                            Toast.makeText(requireContext(), "Event deleted", Toast.LENGTH_SHORT).show();
+                            dialog.dismiss();
+                            loadUpcomingEvents();
+                        })
+                        .show();
             });
         }
 
         // get values from EditText views
         view.findViewById(R.id.btn_update_event).setOnClickListener(v -> {
-                    String title = etEventName.getText().toString().trim();
-                    String description = etDescription.getText().toString().trim();
-                    String locationInput = etLocation.getText().toString().trim();
-                    String capacityText = etEventCapacity.getText().toString().trim();
-                    String radiusText = etLocationRadiusKm.getText().toString().trim();
-                    boolean isPrivateEvent = switchPrivateEvent != null && switchPrivateEvent.isChecked();
-                    boolean waitlistHasLimit = switchWaitlist.isChecked();
-                    boolean geoConstraint = !isPrivateEvent && switchGeo.isChecked();
+            String title = etEventName.getText().toString().trim();
+            String description = etDescription.getText().toString().trim();
+            String locationInput = etLocation.getText().toString().trim();
+            String capacityText = etEventCapacity.getText().toString().trim();
+            String radiusText = etLocationRadiusKm.getText().toString().trim();
+            boolean isPrivateEvent = switchPrivateEvent != null && switchPrivateEvent.isChecked();
+            boolean waitlistHasLimit = switchWaitlist.isChecked();
+            boolean geoConstraint = !isPrivateEvent && switchGeo.isChecked();
 
-                    // input entry enforcement
+            // input entry enforcement
 
-                    if (title.isEmpty()) {
-                        Toast.makeText(requireContext(), "Title is required", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (title.isEmpty()) {
+                Toast.makeText(requireContext(), "Title is required", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    if (capacityText.isEmpty()) {
-                        Toast.makeText(requireContext(), "Event capacity is required", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (capacityText.isEmpty()) {
+                Toast.makeText(requireContext(), "Event capacity is required", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    final int eventCapacity;
-                    try {
-                        eventCapacity = Integer.parseInt(capacityText);
-                    } catch (NumberFormatException e) {
-                        Toast.makeText(requireContext(), "Capacity must be a valid number", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            final int eventCapacity;
+            try {
+                eventCapacity = Integer.parseInt(capacityText);
+            } catch (NumberFormatException e) {
+                Toast.makeText(requireContext(), "Capacity must be a valid number", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    if (eventCapacity <= 0) {
-                        Toast.makeText(requireContext(), "Capacity must be greater than 0", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (eventCapacity <= 0) {
+                Toast.makeText(requireContext(), "Capacity must be greater than 0", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    int waitlistCapacity = UNLIMITED_WAITLIST_SENTINEL;
-                    if (waitlistHasLimit) {
-                        String waitlistText = etWaitlistCapacity.getText().toString().trim();
+            int waitlistCapacity = UNLIMITED_WAITLIST_SENTINEL;
+            if (waitlistHasLimit) {
+                String waitlistText = etWaitlistCapacity.getText().toString().trim();
 
-                        if (waitlistText.isEmpty()) {
-                            Toast.makeText(requireContext(), "Waitlist capacity is required when waitlist is enabled", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
+                if (waitlistText.isEmpty()) {
+                    Toast.makeText(requireContext(), "Waitlist capacity is required when waitlist is enabled", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                        try {
-                            waitlistCapacity = Integer.parseInt(waitlistText);
-                        } catch (NumberFormatException e) {
-                            Toast.makeText(requireContext(), "Waitlist capacity must be a valid number", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
+                try {
+                    waitlistCapacity = Integer.parseInt(waitlistText);
+                } catch (NumberFormatException e) {
+                    Toast.makeText(requireContext(), "Waitlist capacity must be a valid number", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                        if (waitlistCapacity <= 0) {
-                            Toast.makeText(requireContext(), "Waitlist capacity must be greater than 0", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                    }
+                if (waitlistCapacity <= 0) {
+                    Toast.makeText(requireContext(), "Waitlist capacity must be greater than 0", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            }
 
-                    // when geolocation restriction is enabled, require both a location and a radius
-                    // radius is persisted on EventAddress under /geo/address
-                    final Integer locationRadiusKm;
-                    if (geoConstraint) {
-                        if (locationInput.isEmpty()) {
-                            Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
+            // when geolocation restriction is enabled, require both a location and a radius
+            // radius is persisted on EventAddress under /geo/address
+            final Integer locationRadiusKm;
+            if (geoConstraint) {
+                if (locationInput.isEmpty()) {
+                    Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                        if (radiusText.isEmpty()) {
-                            Toast.makeText(requireContext(), "Location radius is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
+                if (radiusText.isEmpty()) {
+                    Toast.makeText(requireContext(), "Location radius is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                        try {
-                            locationRadiusKm = Integer.parseInt(radiusText);
-                        } catch (NumberFormatException e) {
-                            Toast.makeText(requireContext(), "Location radius must be a valid number", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
+                try {
+                    locationRadiusKm = Integer.parseInt(radiusText);
+                } catch (NumberFormatException e) {
+                    Toast.makeText(requireContext(), "Location radius must be a valid number", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                        if (locationRadiusKm <= 0) {
-                            Toast.makeText(requireContext(), "Location radius must be greater than 0", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                    } else {
-                        etLocationRadiusKm.setText("");
-                        locationRadiusKm = null;
-                    }
+                if (locationRadiusKm <= 0) {
+                    Toast.makeText(requireContext(), "Location radius must be greater than 0", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            } else {
+                etLocationRadiusKm.setText("");
+                locationRadiusKm = null;
+            }
 
-                    if (localEventDateMs[0] == null) {
-                        Toast.makeText(requireContext(), "Event date is required", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (localEventDateMs[0] == null) {
+                Toast.makeText(requireContext(), "Event date is required", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    if (localStartDateMs[0] == null || localEndDateMs[0] == null) {
-                        Toast.makeText(requireContext(), "Registration period is required", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (localStartDateMs[0] == null || localEndDateMs[0] == null) {
+                Toast.makeText(requireContext(), "Registration period is required", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    if (localStartDateMs[0] >= localEndDateMs[0]) {
-                        Toast.makeText(requireContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (localStartDateMs[0] >= localEndDateMs[0]) {
+                Toast.makeText(requireContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    if (localEndDateMs[0] > localEventDateMs[0]) {
-                        Toast.makeText(requireContext(), "End date must be before the event date", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (localEndDateMs[0] > localEventDateMs[0]) {
+                Toast.makeText(requireContext(), "End date must be before the event date", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    final int finalWaitlistCapacity = waitlistCapacity;
-                    final String finalLocationInput = locationInput;
+            final int finalWaitlistCapacity = waitlistCapacity;
+            final String finalLocationInput = locationInput;
 
-                    // run as one atomic transaction
-                    // eventStorage.upsertEvent got refactored to require onSuccess and onFailure listeners
+            // run as one atomic transaction
+            // eventStorage.upsertEvent got refactored to require onSuccess and onFailure listeners
             Runnable saveAction = () -> {
                 event.setTitle(title);
                 event.setEventDateMs(localEventDateMs[0]);
@@ -1136,6 +1315,21 @@ public class ManageFragment extends Fragment {
                                 Toast.LENGTH_LONG
                         ).show()
                 );
+
+                if (selectedImageUri != null) {
+                    uploadImage(selectedImageUri, event.getEventId(), url -> {
+                        event.setPosterUrl(url);
+                        performUpsert(event, dialog);
+                    }, e -> {
+                        Toast.makeText(requireContext(), "Failed to upload image", Toast.LENGTH_SHORT).show();
+                        performUpsert(event, dialog);
+                    });
+                } else {
+                    if (removePoster[0]) {
+                        event.setPosterUrl(null);
+                    }
+                    performUpsert(event, dialog);
+                }
             };
 
             String currentDisplayedLocation = etLocation.getText().toString().trim();
@@ -1171,10 +1365,22 @@ public class ManageFragment extends Fragment {
                         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
                     }
                 });
-                    }
-                });
+            }
+        });
 
         dialog.show();
+    }
+
+    /**
+     * uploads the selected poster image for the given event and returns its download url on success
+     */
+    private void uploadImage(Uri uri, String eventId, OnSuccessListener<String> onSuccess, OnFailureListener onFailure) {
+        StorageReference ref = ServiceLocator.getFirebase().getStorage().getReference()
+                .child("posters/" + eventId + ".jpg");
+
+        ref.putFile(uri)
+                .addOnSuccessListener(taskSnapshot -> ref.getDownloadUrl().addOnSuccessListener(downloadUri -> onSuccess.onSuccess(downloadUri.toString())))
+                .addOnFailureListener(onFailure);
     }
 
     /**
@@ -1328,7 +1534,6 @@ public class ManageFragment extends Fragment {
 
     /**
      * Converts a MaterialDatePicker UTC day selection into a local-noon epoch value.
-     *
      * Why local noon:
      *      storing picker UTC midnight directly can display as the previous day
      *      in time zones behind UTC
@@ -1355,6 +1560,10 @@ public class ManageFragment extends Fragment {
         return localCal.getTimeInMillis();
     }
 
+    /**
+     * converts a stored local event date back into the utc midnight value expected by material date pickers
+     *      if no stored date exists this returns today's utc date selection
+     */
     private long dateSelectionForPicker(@Nullable Long storedLocalMs) {
         if (storedLocalMs == null) {
             return MaterialDatePicker.todayInUtcMilliseconds();

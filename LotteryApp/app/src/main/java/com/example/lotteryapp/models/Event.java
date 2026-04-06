@@ -3,16 +3,11 @@ package com.example.lotteryapp.models;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Model class for an Event.
- * <ul>
- *   <li>Mostly metadata; count attributes ({@code enrolledCount}, {@code waitlistCount},
- *       {@code invitationCount}) are updated in real time via Firestore transactions.</li>
- *   <li>Primary key: {@code eventId}. Foreign key: {@code organizerId} (User UUID).</li>
- *   <li>To create a new Event: pull a new Firestore document reference and assign its ID
- *       via {@link #setEventId(String)}.</li>
- *   <li>Note: {@code posterUrl} is deprecated.</li>
- * </ul>
+/** Model class for an Event
+ * - Mostly metadata, any of the Count attributes are updated in real time
+ * - primary key: event ID, foreign key: user ID (organizerId)
+ * - New Event: Pull Event document from Firebase and set EventID as docID.
+ * - Only getters and setters
  */
 public class Event {
     public String eventId;

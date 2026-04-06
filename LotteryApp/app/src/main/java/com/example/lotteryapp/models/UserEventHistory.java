@@ -13,6 +13,12 @@ import androidx.annotation.Nullable;
  * </p>
  * Stored under: {@code /users/{userId}/event_history/{eventId}}
  */
+
+/*
+ It is important to note that this model is not used in application-side operations.
+ It is a reflection of the UserEventHistory collection in firebase;
+    we created a model for this so we can confirm the correctness of the firebase collection through unit tests
+ */
 public class UserEventHistory {
 
     /** Possible states for a user's involvement in an event's lifecycle. */

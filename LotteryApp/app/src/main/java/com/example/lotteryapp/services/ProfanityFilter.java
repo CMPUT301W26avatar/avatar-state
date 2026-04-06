@@ -33,7 +33,8 @@ import javax.crypto.spec.GCMParameterSpec;
  * Data source: https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/blob/master/en
  *
  * If you want to generate a new encrypted profanity file from a plaintext asset,
- *      uncomment the encryption block and helper method, then add a .txt file list_of_bad_words to app/src/main/assets.
+ *      uncomment the encryption block and helper method (inside init. and the method at the bottom of the file),
+ *      then add a .txt file named list_of_bad_words to app/src/main/assets.
  */
 public final class ProfanityFilter {
     private static final String TAG = "ProfanityFilter";

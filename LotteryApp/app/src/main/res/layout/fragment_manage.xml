@@ -26,20 +26,6 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <com.google.android.material.button.MaterialButton
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Sort"
-                    app:icon="@drawable/ic_filter"
-                    app:iconPadding="4dp" />
-
-                <com.google.android.material.button.MaterialButton
-                    style="@style/Widget.Material3.Button.IconButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:icon="@drawable/ic_sort"
-                    app:iconTint="?attr/colorPrimary" />
             </LinearLayout>
 
         </com.google.android.material.appbar.MaterialToolbar>

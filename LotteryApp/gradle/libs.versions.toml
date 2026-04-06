@@ -19,6 +19,7 @@ firebase-auth = { module = "com.google.firebase:firebase-auth" }
 firebase-bom-v3430 = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
+firebase-storage = { module = "com.google.firebase:firebase-storage" }
 glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
 google-firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBomVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -34,4 +35,3 @@ zxing-android-embedded = { module = "com.journeyapps:zxing-android-embedded", ve
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-

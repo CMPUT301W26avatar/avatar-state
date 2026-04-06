@@ -32,10 +32,10 @@ public class InviteListFragment extends Fragment {
     public static final String ARG_EVENT_ID = "eventId";
     public static final String ARG_TYPE = "type";
 
-    public static final String TYPE_INVITED = "invited";
-    public static final String TYPE_DECLINED = "declined";
-    public static final String TYPE_ACCEPTED = "accepted";
-    public static final String TYPE_CANCELLED = "cancelled";
+    public static final String TYPE_INVITED = "invited"; // lottery selected -> invited to enroll
+    public static final String TYPE_DECLINED = "declined"; // user declined
+    public static final String TYPE_ACCEPTED = "accepted"; // user accepted -> enrolled
+    public static final String TYPE_CANCELLED = "cancelled"; // organizer cancelled
 
     private String eventId;
     private String type;
@@ -43,6 +43,10 @@ public class InviteListFragment extends Fragment {
     private LinearLayout container;
     private TextView tvEmpty;
 
+    /**
+     * creates a new fragment instance configured with an event id and list type
+     *      list types are: INVITED, DECLINED, ACCEPTED, CANCELLED
+     */
     public static InviteListFragment newInstance(String eventId, String type) {
         InviteListFragment fragment = new InviteListFragment();
         Bundle args = new Bundle();
@@ -52,6 +56,9 @@ public class InviteListFragment extends Fragment {
         return fragment;
     }
 
+    /**
+     * initializes fragment state by reading arguments for event id and type
+     */
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -61,6 +68,9 @@ public class InviteListFragment extends Fragment {
         }
     }
 
+    /**
+     * inflates the invite list layout for this fragment
+     */
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -69,6 +79,9 @@ public class InviteListFragment extends Fragment {
         return inflater.inflate(R.layout.fragment_invite_list, parent, false);
     }
 
+    /**
+     * binds views and triggers loading of entrants after view creation
+     */
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         container = view.findViewById(R.id.list_container);
@@ -76,6 +89,9 @@ public class InviteListFragment extends Fragment {
         loadEntrants();
     }
 
+    /**
+     * loads entrants from firebase storage based on the selected invitation type
+     */
     private void loadEntrants() {
         EventPoolStorage storage = ServiceLocator.getEventPoolStorage();
 
@@ -106,29 +122,39 @@ public class InviteListFragment extends Fragment {
         }
     }
 
+    /**
+     * renders entrant rows into the container and handles empty state display
+     */
     private void renderEntrants(List<Entrant> entrants) {
+        // fragment may be detached during async callback
         if (getContext() == null) return;
 
-        container.removeAllViews();
+        container.removeAllViews(); // clear container before populating to remove stale loads
 
+        // show empty state if there are no entrants
         if (entrants == null || entrants.isEmpty()) {
             tvEmpty.setVisibility(View.VISIBLE);
             return;
         }
 
+        // else, we have data to display so we hide the empty textView
         tvEmpty.setVisibility(View.GONE);
 
         LayoutInflater inflater = LayoutInflater.from(getContext());
         EventPoolStorage storage = ServiceLocator.getEventPoolStorage();
 
         for (Entrant entrant : entrants) {
+            // inflate an item View for each entrant
             View row = inflater.inflate(R.layout.item_entrant, container, false);
 
+            // entrant details
             TextView entrantName = row.findViewById(R.id.tv_entrant_name);
             TextView entrantEmail = row.findViewById(R.id.tv_entrant_email);
 
+            // bind cancel button
             View btnCancel = row.findViewById(R.id.btn_cancel_invite);
 
+            // fill entrant details
             ServiceLocator.getUserStorage().getUserProfile(
                     entrant.getEntrantId(),
                     user -> {
@@ -144,36 +170,35 @@ public class InviteListFragment extends Fragment {
                     }
             );
 
+            // enforce cancelling only for pending Invites (INVITED)
             if (TYPE_INVITED.equals(type)) {
                 btnCancel.setVisibility(View.VISIBLE);
 
-                btnCancel.setOnClickListener(v -> {
-                    new androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                            .setTitle("Cancel invitation")
-                            .setMessage("Remove this entrant from invited list?")
-                            .setNegativeButton("No", null)
-                            .setPositiveButton("Yes", (dialog, which) -> {
+                btnCancel.setOnClickListener(v -> new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                        .setTitle("Cancel invitation")
+                        .setMessage("Remove this entrant from invited list?")
+                        .setNegativeButton("No", null)
+                        .setPositiveButton("Yes", (dialog, which) -> {
 
-                                btnCancel.setEnabled(false);
+                            btnCancel.setEnabled(false);
 
-                                storage.cancelInvitation(
-                                        eventId,
-                                        entrant.getEntrantId(),
-                                        unused -> {
-                                            Toast.makeText(requireContext(), "Invitation cancelled", Toast.LENGTH_SHORT).show();
+                            storage.cancelInvitation(
+                                    eventId,
+                                    entrant.getEntrantId(),
+                                    unused -> {
+                                        Toast.makeText(requireContext(), "Invitation cancelled", Toast.LENGTH_SHORT).show();
 
-                                            if (requireActivity() instanceof com.example.lotteryapp.activities.InvitesDashboardActivity) {
-                                                ((com.example.lotteryapp.activities.InvitesDashboardActivity) requireActivity()).refreshDashboard();
-                                            }
-                                        },
-                                        e -> {
-                                            btnCancel.setEnabled(true);
-                                            Toast.makeText(requireContext(), "Failed to cancel invitation", Toast.LENGTH_SHORT).show();
+                                        if (requireActivity() instanceof com.example.lotteryapp.activities.InvitesDashboardActivity) {
+                                            ((com.example.lotteryapp.activities.InvitesDashboardActivity) requireActivity()).refreshDashboard();
                                         }
-                                );
-                            })
-                            .show();
-                });
+                                    },
+                                    e -> {
+                                        btnCancel.setEnabled(true);
+                                        Toast.makeText(requireContext(), "Failed to cancel invitation", Toast.LENGTH_SHORT).show();
+                                    }
+                            );
+                        })
+                        .show());
 
             } else {
                 // hide button for accepted / declined tabs
@@ -184,6 +209,9 @@ public class InviteListFragment extends Fragment {
         }
     }
 
+    /**
+     * logs an error and refreshes the screen to show the container as empty
+     */
     private void handleError(String message, Exception e) {
         Log.e("InviteListFragment", message, e);
         if (tvEmpty != null) {

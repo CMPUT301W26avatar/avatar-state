@@ -55,6 +55,11 @@ public class CommentsActivity extends AppCompatActivity {
     private List<Map<String, Object>> allComments = new ArrayList<>();
     private Set<String> reportedCommentIds = new HashSet<>();
 
+    /**
+     * Initialize UI components and bind views
+     * Check for role-specific actions
+     * Load the comments for the event
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -74,10 +79,12 @@ public class CommentsActivity extends AppCompatActivity {
         btnPost = findViewById(R.id.btn_post_comment);
         btnViewReports = findViewById(R.id.btn_view_reports);
 
+        // comments shown newest first in a vertical list
         rvComments.setLayoutManager(new LinearLayoutManager(this));
         adapter = new CommentAdapter(new ArrayList<>());
         rvComments.setAdapter(adapter);
 
+        // wire comment action buttons
         btnPost.setOnClickListener(v -> submitComment());
         btnViewReports.setOnClickListener(v -> toggleReportsView());
 
@@ -85,6 +92,9 @@ public class CommentsActivity extends AppCompatActivity {
         loadEventAndComments();
     }
 
+    /**
+     * Checks whether the signed-in user has admin privileges so the activity can expose admin controls
+     */
     private void checkAdminStatus() {
         if (currentUserId == null) return;
         ServiceLocator.getAdminStorage().isAdmin(currentUserId,
@@ -96,6 +106,9 @@ public class CommentsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Shows or hides the reports toggle depending on whether the current user is an admin or the organizer of the loaded event.
+     */
     private void updateReportsButtonVisibility() {
         boolean isOrganizer = currentEvent != null && currentUserId != null && currentUserId.equals(currentEvent.getOrganizerId());
         if (isUserAdmin || isOrganizer) {
@@ -106,6 +119,9 @@ public class CommentsActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Loads the event first so organizer UI can be resolved before rendering the comment list
+     */
     private void loadEventAndComments() {
         if (eventId == null) {
             Toast.makeText(this, "Error: Missing event ID", Toast.LENGTH_SHORT).show();
@@ -192,6 +208,8 @@ public class CommentsActivity extends AppCompatActivity {
 
     /**
      * Submits a new comment to the event.
+     *     stored in event/{eventId}/comments
+     *     calls userstorage for the user Profile to add req. details to comment
      */
     private void submitComment() {
         String message = editComment.getText().toString().trim();
@@ -231,6 +249,11 @@ public class CommentsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Show the available options a user can have for a comment on an event
+     *      organizer or comment author: can delete
+     *      everyone else: can report
+     */
     private void showCommentOptions(Map<String, Object> comment) {
         String commentId = (String) comment.get("commentId");
         
@@ -258,6 +281,9 @@ public class CommentsActivity extends AppCompatActivity {
         builder.show();
     }
 
+    /**
+     * Call eventStorage to report the selected comment
+     */
     private void reportComment(String commentId) {
         if (eventId == null || commentId == null || currentUserId == null) {
             Toast.makeText(this, "Failed to report: Missing IDs", Toast.LENGTH_SHORT).show();
@@ -272,6 +298,9 @@ public class CommentsActivity extends AppCompatActivity {
         );
     }
 
+    /**
+     * Deletes a comment from the event comment subcollection
+     */
     private void deleteComment(String commentId) {
         eventStorage.deleteEventComment(eventId, commentId,
                 unused -> {

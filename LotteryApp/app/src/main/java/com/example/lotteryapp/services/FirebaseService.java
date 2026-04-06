@@ -2,22 +2,26 @@ package com.example.lotteryapp.services;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.storage.FirebaseStorage;
 
 
 /** Firebase Wrapper: centralized db access class
  * - Initialize db and pass onto "Storage" classes
  * - Prevent calling FirebaseFirestore.getInstance() inside of every Service method that requires it
- *
  */
 
 public final class FirebaseService {
     private final FirebaseFirestore db;
     private final FirebaseAuth auth;
+    private final FirebaseStorage storage;
 
-    /// return either an instance of FirebaseFirestore for db operations, or FirebaseAuth for authentication
+    /**
+     * return either an instance of FirebaseFirestore for db operations, or FirebaseAuth for authentication
+     */
     public FirebaseService() {
         db = FirebaseFirestore.getInstance();
         auth = FirebaseAuth.getInstance();
+        storage = FirebaseStorage.getInstance();
     }
 
     public FirebaseAuth getAuth() {
@@ -25,5 +29,8 @@ public final class FirebaseService {
     }
     public FirebaseFirestore getDb() {
         return db;
+    }
+    public FirebaseStorage getStorage() {
+        return storage;
     }
 }

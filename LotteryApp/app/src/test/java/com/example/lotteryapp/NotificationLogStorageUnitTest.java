@@ -1,8 +1,8 @@
 package com.example.lotteryapp;
 
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.PENDING;
-import static com.example.lotteryapp.models.NotificationLog.NotificationType.INVITATION;
-import static com.example.lotteryapp.models.NotificationLog.NotificationType.LOTTERY_RESULT;
+import static com.example.lotteryapp.models.NotificationLog.NotificationType.WON_LOTTERY;
+import static com.example.lotteryapp.models.NotificationLog.NotificationType.LOST_LOTTERY;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
@@ -84,7 +84,7 @@ public class NotificationLogStorageUnitTest {
                 "user-1",
                 "Title",
                 "Message",
-                INVITATION,
+                WON_LOTTERY,
                 result::set,
                 e -> {}
         );
@@ -104,7 +104,7 @@ public class NotificationLogStorageUnitTest {
                 "u1",
                 "Invited!",
                 "Congrats",
-                NotificationLog.NotificationType.INVITATION,
+                NotificationLog.NotificationType.WON_LOTTERY,
                 PENDING,
                 Timestamp.now()
         );
@@ -114,7 +114,7 @@ public class NotificationLogStorageUnitTest {
                 "u2",
                 "Result",
                 "Better luck",
-                NotificationLog.NotificationType.LOTTERY_RESULT,
+                LOST_LOTTERY,
                 PENDING,
                 Timestamp.now()
         );        List<NotificationLog> fakeLogs = Arrays.asList(log1, log2);

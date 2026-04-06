@@ -63,6 +63,7 @@ public final class ServiceLocator {
         return getUIDProvider().getUid();
     }
 
+
     // ---- Storage repos ----
 
     public static EventStorage getEventStorage() {

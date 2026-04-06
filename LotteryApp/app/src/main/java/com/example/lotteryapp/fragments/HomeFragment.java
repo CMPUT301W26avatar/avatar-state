@@ -1,16 +1,22 @@
 package com.example.lotteryapp.fragments;
 
+import static android.view.View.GONE;
+import static android.view.View.VISIBLE;
+import static com.example.lotteryapp.fragments.ManageFragment.UNLIMITED_WAITLIST_SENTINEL;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.ACCEPTED;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.DECLINED;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.READ;
 
-import android.graphics.drawable.GradientDrawable;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -26,17 +32,20 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.activities.TermsOfServiceActivity;
+import com.example.lotteryapp.activities.UserLocationSettingsActivity;
 import com.example.lotteryapp.models.Entrant;
+import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.NotificationLog;
+import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.models.UserAddress;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.NotificationLogStorage;
-import com.example.lotteryapp.activities.TermsOfServiceActivity;
-import com.example.lotteryapp.models.Event;
-import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.textview.MaterialTextView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,15 +63,17 @@ import java.util.List;
  */
 public class HomeFragment extends Fragment {
 
-    private EventStorage estore = ServiceLocator.getEventStorage();
-    private EventPoolStorage eventPoolStorage = ServiceLocator.getEventPoolStorage();
-    private UserStorage ustore = ServiceLocator.getUserStorage();
-    private GridEventAdapter openAdapter;
-    private GridEventAdapter upcomingAdapter;
-    private GridEventAdapter fullAdapter;
-    private List<HomeFragment.DisplayGridEvent> displayOpenGridEvents;
-    private List<HomeFragment.DisplayGridEvent> displayUpcomingGridEvents;
-    private List<HomeFragment.DisplayGridEvent> displayFullGridEvents;
+    private static final String HOME_PREFS = "home_fragment_prefs";
+    private static final String KEY_ACTIVE_NEARBY_RADIUS_KM = "active_nearby_radius_km";
+    private static final int DEFAULT_NEARBY_RADIUS_KM = 20;
+    private static final String PREFS_NAME = "privacy_prefs";
+    private static final String KEY_LOCATION_MODE = "location_mode";
+
+    private final EventStorage eventStorage = ServiceLocator.getEventStorage();
+    private final EventPoolStorage eventPoolStorage = ServiceLocator.getEventPoolStorage();
+    private final UserStorage userStorage = ServiceLocator.getUserStorage();
+    private final NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
+
     private boolean isCheckingTOS = false;
     private boolean isTOSActivityOpen = false;
 
@@ -75,14 +86,48 @@ public class HomeFragment extends Fragment {
                     }
             );
 
-
-
     private ViewPager2 notificationsPager;
-    private NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
-
     private NotificationPagerAdapter notificationPagerAdapter;
     private final List<NotificationLog> notifications = new ArrayList<>();
     private View invitationCard;
+    private View notificationsEmptyState;
+
+    private MaterialTextView popularText;
+    private RecyclerView recyclerViewPopular;
+
+    private MaterialTextView nearbyText;
+    private View nearbyHeaderRow;
+    private RecyclerView recyclerViewNearby;
+    private View nearbyLocationYield;
+    private View nearbyEmptyRadiusYield;
+    private MaterialTextView nearbyEmptyRadiusTitle;
+    private ImageView homeLocationStatusIcon;
+    private View nearbyRadiusButton;
+
+    private LinearLayout loadingIndicator;
+    private LinearLayout emptyIndicator;
+
+    private GridEventAdapter popularAdapter;
+    private List<DisplayGridEvent> displayPopularGridEvents;
+
+    private GridEventAdapter nearbyAdapter;
+    private List<DisplayGridEvent> displayNearbyGridEvents;
+
+    private boolean popularLoaded = false;
+    private boolean nearbyLoaded = false;
+    private boolean hasResolvedNearbyLocation = false;
+    private List<DisplayGridEvent> pendingPopularGridEvents = new ArrayList<>();
+    private List<DisplayGridEvent> pendingNearbyGridEvents = new ArrayList<>();
+    private int activeNearbyRadiusKm = DEFAULT_NEARBY_RADIUS_KM;
+
+    /**
+     * Restores the last selected nearby search radius for this app session.
+     */
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        activeNearbyRadiusKm = getSavedNearbyRadiusKm();
+    }
 
     /**
      * Inflates the HomeFragment layout and initializes UI components.
@@ -92,8 +137,22 @@ public class HomeFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
+        homeLocationStatusIcon = view.findViewById(R.id.iv_home_location_status);
+        nearbyHeaderRow = view.findViewById(R.id.nearby_header_row);
+        nearbyRadiusButton = view.findViewById(R.id.btn_nearby_radius);
+
+        homeLocationStatusIcon.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), UserLocationSettingsActivity.class);
+            startActivity(intent);
+        });
+
+        if (nearbyRadiusButton != null) {
+            nearbyRadiusButton.setOnClickListener(v -> showNearbyRadiusDialog());
+        }
+
         invitationCard = view.findViewById(R.id.invitation_card);
         notificationsPager = view.findViewById(R.id.notifications_pager);
+        notificationsEmptyState = view.findViewById(R.id.notifications_empty_state);
 
         notificationPagerAdapter = new NotificationPagerAdapter(
                 notifications,
@@ -102,38 +161,116 @@ public class HomeFragment extends Fragment {
         );
         notificationsPager.setAdapter(notificationPagerAdapter);
 
-        if (invitationCard != null) {
-            invitationCard.setVisibility(View.GONE);
+        recyclerViewPopular = view.findViewById(R.id.recycler_view_popular);
+        popularText = view.findViewById(R.id.popular_text);
+
+        recyclerViewNearby = view.findViewById(R.id.recycler_view_nearby);
+        nearbyText = view.findViewById(R.id.nearby_text);
+        nearbyLocationYield = view.findViewById(R.id.nearby_location_yield);
+        nearbyEmptyRadiusYield = view.findViewById(R.id.nearby_empty_radius_yield);
+        nearbyEmptyRadiusTitle = view.findViewById(R.id.nearby_empty_radius_title);
+
+        if (nearbyLocationYield != null) {
+            nearbyLocationYield.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), UserLocationSettingsActivity.class);
+                startActivity(intent);
+            });
         }
-        notificationsPager.setVisibility(View.GONE);
 
-        RecyclerView recyclerViewOpen = view.findViewById(R.id.recycler_view_open);
-        recyclerViewOpen.setLayoutManager(new GridLayoutManager(getContext(), 2));
-        RecyclerView recyclerViewUpcoming = view.findViewById(R.id.recycler_view_upcoming);
-        recyclerViewUpcoming.setLayoutManager(new GridLayoutManager(getContext(), 2));
-        RecyclerView recyclerViewFull = view.findViewById(R.id.recycler_view_full);
-        recyclerViewFull.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        if (nearbyEmptyRadiusYield != null) {
+            nearbyEmptyRadiusYield.setOnClickListener(v -> showNearbyRadiusDialog());
+        }
 
-        displayOpenGridEvents = new ArrayList<>();
-        displayUpcomingGridEvents = new ArrayList<>();
-        displayFullGridEvents = new ArrayList<>();
+        loadingIndicator = view.findViewById(R.id.loading_indicator);
+        emptyIndicator = view.findViewById(R.id.empty_indicator);
 
-        openAdapter = new GridEventAdapter(displayOpenGridEvents);
-        upcomingAdapter = new GridEventAdapter(displayUpcomingGridEvents);
-        fullAdapter = new GridEventAdapter(displayFullGridEvents);
+        recyclerViewPopular.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        recyclerViewNearby.setLayoutManager(new GridLayoutManager(getContext(), 2));
 
-        recyclerViewOpen.setAdapter(openAdapter);
-        recyclerViewUpcoming.setAdapter(upcomingAdapter);
-        recyclerViewFull.setAdapter(fullAdapter);
+        displayPopularGridEvents = new ArrayList<>();
+        popularAdapter = new GridEventAdapter(displayPopularGridEvents);
+        recyclerViewPopular.setAdapter(popularAdapter);
 
-        checkAndLaunchTOSIfNeeded();
-        loadEventsRegOpen();
-        loadEventsRegUpcoming();
-        loadEventsRegFull();
-        loadNotifications();
+        displayNearbyGridEvents = new ArrayList<>();
+        nearbyAdapter = new GridEventAdapter(displayNearbyGridEvents);
+        recyclerViewNearby.setAdapter(nearbyAdapter);
 
+        updateNearbyRadiusMessage();
         return view;
     }
+
+    /**
+     * Shows or hides the central loading indicator while home data is being fetched.
+     */
+    private void toggleLoadingIndicator(boolean isVisible) {
+        if (loadingIndicator == null) return;
+        loadingIndicator.setVisibility(isVisible ? VISIBLE : GONE);
+    }
+
+    /**
+     * Updates the top-right home header icon based on whether the user has a resolved location.
+     */
+    private void updateHomeLocationStatusIcon(boolean hasResolvedLocation) {
+        hasResolvedNearbyLocation = hasResolvedLocation;
+
+        if (homeLocationStatusIcon != null) {
+            homeLocationStatusIcon.setImageResource(
+                    hasResolvedLocation ? R.drawable.ic_nearme : R.drawable.ic_nearmeoff
+            );
+        }
+    }
+
+    /**
+     * Reads the last selected nearby radius from shared preferences.
+     */
+    private int getSavedNearbyRadiusKm() {
+        if (getContext() == null) {
+            return DEFAULT_NEARBY_RADIUS_KM;
+        }
+
+        SharedPreferences prefs = requireContext().getSharedPreferences(HOME_PREFS, 0);
+        return prefs.getInt(KEY_ACTIVE_NEARBY_RADIUS_KM, DEFAULT_NEARBY_RADIUS_KM);
+    }
+
+    /**
+     * Saves the selected nearby radius so it survives fragment switches.
+     */
+    private void saveNearbyRadiusKm(int radiusKm) {
+        activeNearbyRadiusKm = radiusKm;
+
+        if (getContext() == null) {
+            return;
+        }
+
+        SharedPreferences prefs = requireContext().getSharedPreferences(HOME_PREFS, 0);
+        prefs.edit().putInt(KEY_ACTIVE_NEARBY_RADIUS_KM, radiusKm).apply();
+    }
+
+    /**
+     * Updates the empty nearby result message to reflect the active radius.
+     */
+    private void updateNearbyRadiusMessage() {
+        if (nearbyEmptyRadiusTitle != null) {
+            nearbyEmptyRadiusTitle.setText(
+                    "No events found within a " + activeNearbyRadiusKm + " km radius"
+            );
+        }
+    }
+
+    /**
+     * initializes fragment view
+     *      check tos acceptance
+     *      set up filters
+     *      data loads
+     */
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        checkAndLaunchTOSIfNeeded();
+        loadHomeSections();
+        loadNotifications();
+    }
+
     /**
      * Reloads event lists whenever the fragment comes into view again.
      *      ensures the dashboard reflects the most recent event(s)
@@ -141,86 +278,384 @@ public class HomeFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        activeNearbyRadiusKm = getSavedNearbyRadiusKm();
+        updateNearbyRadiusMessage();
         checkAndLaunchTOSIfNeeded();
-        loadEventsRegOpen();
-        loadEventsRegUpcoming();
-        loadEventsRegFull();
+        loadHomeSections();
         loadNotifications();
     }
 
     /**
-     * Populate the grid event adapters with the most recent events with open registration window.
-     *      (regStart < time.now < regEnd && waitlistCapacity > waitlistCount)
-     *      call EventStorage.listEventsRegOpen query to fill events list
-     *      convert Event to DisplayGridEvent
-     *      notify change in the list of grid events
+     * loads all visible event sections and only resolves the empty state after all section queries finish
      */
-    private void loadEventsRegOpen() {
-        if (estore == null || openAdapter == null) return;
+    private void loadHomeSections() {
+        if (eventStorage == null) {
+            return;
+        }
 
-        estore.listEventsRegOpen(
+        popularLoaded = false;
+        nearbyLoaded = false;
+        updateHomeLocationStatusIcon(false);
+        updateNearbyRadiusMessage();
+
+        pendingPopularGridEvents.clear();
+        pendingNearbyGridEvents.clear();
+
+        displayPopularGridEvents.clear();
+        popularAdapter.notifyDataSetChanged();
+
+        displayNearbyGridEvents.clear();
+        nearbyAdapter.notifyDataSetChanged();
+
+        if (popularText != null) popularText.setVisibility(GONE);
+        if (recyclerViewPopular != null) recyclerViewPopular.setVisibility(GONE);
+
+        if (nearbyHeaderRow != null) nearbyHeaderRow.setVisibility(GONE);
+        if (nearbyLocationYield != null) nearbyLocationYield.setVisibility(GONE);
+        if (nearbyEmptyRadiusYield != null) nearbyEmptyRadiusYield.setVisibility(GONE);
+        if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(GONE);
+        updateHomeLocationStatusIcon(false);
+
+        if (emptyIndicator != null) {
+            emptyIndicator.setVisibility(GONE);
+        }
+
+        toggleLoadingIndicator(true);
+
+        loadPopularEvents();
+        loadNearbyEvents();
+    }
+
+    /**
+     * resolves the final UI state after both popular and nearby queries finish.
+     *      populates adapters, toggles visibility of sections, and determines empty state behavior
+     */
+    private void resolveHomeEmptyState() {
+        if (!popularLoaded || !nearbyLoaded) {
+            return;
+        }
+
+        toggleLoadingIndicator(false);
+
+        displayPopularGridEvents.clear();
+        displayPopularGridEvents.addAll(pendingPopularGridEvents);
+        popularAdapter.notifyDataSetChanged();
+
+        displayNearbyGridEvents.clear();
+        displayNearbyGridEvents.addAll(pendingNearbyGridEvents);
+        nearbyAdapter.notifyDataSetChanged();
+
+        boolean hasPopular = !displayPopularGridEvents.isEmpty();
+        boolean hasNearby = !displayNearbyGridEvents.isEmpty();
+
+        if (popularText != null) popularText.setVisibility(hasPopular ? VISIBLE : GONE);
+        if (recyclerViewPopular != null) recyclerViewPopular.setVisibility(hasPopular ? VISIBLE : GONE);
+
+        if (hasResolvedNearbyLocation) {
+            if (nearbyHeaderRow != null) nearbyHeaderRow.setVisibility(VISIBLE);
+            if (nearbyLocationYield != null) nearbyLocationYield.setVisibility(GONE);
+
+            if (hasNearby) {
+                if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(VISIBLE);
+                if (nearbyEmptyRadiusYield != null) nearbyEmptyRadiusYield.setVisibility(GONE);
+            } else {
+                if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(GONE);
+                if (nearbyEmptyRadiusYield != null) nearbyEmptyRadiusYield.setVisibility(VISIBLE);
+            }
+
+            updateHomeLocationStatusIcon(true);
+        } else {
+            if (nearbyHeaderRow != null) nearbyHeaderRow.setVisibility(GONE);
+            if (nearbyLocationYield != null) nearbyLocationYield.setVisibility(VISIBLE);
+            if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(GONE);
+            if (nearbyEmptyRadiusYield != null) nearbyEmptyRadiusYield.setVisibility(GONE);
+            updateHomeLocationStatusIcon(false);
+        }
+
+        if (emptyIndicator != null) {
+            emptyIndicator.setVisibility(hasPopular || hasNearby || !hasResolvedNearbyLocation ? GONE : VISIBLE);
+        }
+    }
+
+    /**
+     * loads events sorted by the highest comment count and prepares them for grid display
+     */
+    private void loadPopularEvents() {
+        if (eventStorage == null || popularAdapter == null || displayPopularGridEvents == null) {
+            popularLoaded = true;
+            resolveHomeEmptyState();
+            return;
+        }
+
+        eventStorage.listEventsByMostComments(
                 4,
                 fetchedEvents -> {
-                    displayOpenGridEvents.clear();
-                    for (Event e : fetchedEvents) {
-                        displayOpenGridEvents.add(eventToDisplayEvent(e));
+                    pendingPopularGridEvents.clear();
+
+                    if (fetchedEvents != null) {
+                        for (Event event : fetchedEvents) {
+                            pendingPopularGridEvents.add(eventToDisplayEvent(event));
+                        }
                     }
-                    openAdapter.notifyDataSetChanged();
+
+                    popularLoaded = true;
+                    resolveHomeEmptyState();
                 },
                 e -> {
-                    android.util.Log.e("HomeFragment", "Failed to load open events", e);
+                    Log.e("HomeFragment", "Failed to load popular events by comments", e);
+                    pendingPopularGridEvents.clear();
+                    popularLoaded = true;
+                    resolveHomeEmptyState();
                 }
         );
     }
 
     /**
-     * Populate the grid event adapters with the most recent events with upcoming registration window.
-     *      (time.now < regStart)
-     *      call EventStorage.listEventsRegOpen query to fill events list
-     *      convert Event to DisplayGridEvent
-     *      notify change in the list of grid events
+     * Shows a radius selection dialog for widening the nearby search.
      */
-    private void loadEventsRegUpcoming() {
-        if (estore == null || upcomingAdapter == null) return;
+    private void showNearbyRadiusDialog() {
+        if (getContext() == null) return;
 
-        estore.listEventsRegUpcoming(
+        final String[] radiusOptions = {"20 km", "50 km", "100 km", "200 km"};
+        final int[] radiusValues = {20, 50, 100, 200};
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Widen nearby search")
+                .setItems(radiusOptions, (dialog, which) -> {
+                    saveNearbyRadiusKm(radiusValues[which]);
+                    updateNearbyRadiusMessage();
+                    reloadNearbyEventsForSelectedRadius();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /**
+     * Reloads the nearby section using the currently selected radius.
+     */
+    private void reloadNearbyEventsForSelectedRadius() {
+        String uid = ServiceLocator.uid();
+        if (uid == null || uid.trim().isEmpty()) {
+            return;
+        }
+
+        nearbyLoaded = false;
+        pendingNearbyGridEvents.clear();
+
+        if (nearbyEmptyRadiusYield != null) nearbyEmptyRadiusYield.setVisibility(GONE);
+        if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(GONE);
+
+        toggleLoadingIndicator(true);
+
+        User.UserAddressMode selectedMode = getSavedNearbyMode();
+
+        if (selectedMode == User.UserAddressMode.CURRENT) {
+            userStorage.getCurrentUserAddress(
+                    uid,
+                    currentAddress -> {
+                        if (isResolvedAddress(currentAddress)) {
+                            loadNearbyEventsWithMode(
+                                    uid,
+                                    User.UserAddressMode.CURRENT,
+                                    false,
+                                    activeNearbyRadiusKm
+                            );
+                        } else {
+                            pendingNearbyGridEvents.clear();
+                            updateHomeLocationStatusIcon(false);
+                            nearbyLoaded = true;
+                            resolveHomeEmptyState();
+                        }
+                    },
+                    e -> {
+                        Log.e("HomeFragment", "Failed to reload current user address", e);
+                        pendingNearbyGridEvents.clear();
+                        updateHomeLocationStatusIcon(false);
+                        nearbyLoaded = true;
+                        resolveHomeEmptyState();
+                    }
+            );
+        } else {
+            userStorage.getDefaultUserAddress(
+                    uid,
+                    defaultAddress -> {
+                        if (isResolvedAddress(defaultAddress)) {
+                            loadNearbyEventsWithMode(
+                                    uid,
+                                    User.UserAddressMode.DEFAULT,
+                                    false,
+                                    activeNearbyRadiusKm
+                            );
+                        } else {
+                            pendingNearbyGridEvents.clear();
+                            updateHomeLocationStatusIcon(false);
+                            nearbyLoaded = true;
+                            resolveHomeEmptyState();
+                        }
+                    },
+                    e -> {
+                        Log.e("HomeFragment", "Failed to reload default user address", e);
+                        pendingNearbyGridEvents.clear();
+                        updateHomeLocationStatusIcon(false);
+                        nearbyLoaded = true;
+                        resolveHomeEmptyState();
+                    }
+            );
+        }
+    }
+
+    /**
+     * loads events sorted by proximity to the user's location
+     *      resolves user address -> if not enabled, prompts user to set location
+     *      if enabled, shows events within the active radius by calling the helper
+     */
+    private void loadNearbyEvents() {
+        String uid = ServiceLocator.uid();
+        if (uid == null || uid.trim().isEmpty()) {
+            pendingNearbyGridEvents.clear();
+            updateHomeLocationStatusIcon(false);
+            nearbyLoaded = true;
+            resolveHomeEmptyState();
+            return;
+        }
+
+        User.UserAddressMode selectedMode = getSavedNearbyMode();
+
+        if (selectedMode == User.UserAddressMode.CURRENT) {
+            userStorage.getCurrentUserAddress(
+                    uid,
+                    currentAddress -> {
+                        if (isResolvedAddress(currentAddress)) {
+                            loadNearbyEventsWithMode(
+                                    uid,
+                                    User.UserAddressMode.CURRENT,
+                                    false,
+                                    activeNearbyRadiusKm
+                            );
+                        } else {
+                            pendingNearbyGridEvents.clear();
+                            updateHomeLocationStatusIcon(false);
+                            nearbyLoaded = true;
+                            resolveHomeEmptyState();
+                        }
+                    },
+                    e -> {
+                        Log.e("HomeFragment", "Failed to load current user address", e);
+                        pendingNearbyGridEvents.clear();
+                        updateHomeLocationStatusIcon(false);
+                        nearbyLoaded = true;
+                        resolveHomeEmptyState();
+                    }
+            );
+        } else {
+            userStorage.getDefaultUserAddress(
+                    uid,
+                    defaultAddress -> {
+                        if (isResolvedAddress(defaultAddress)) {
+                            loadNearbyEventsWithMode(
+                                    uid,
+                                    User.UserAddressMode.DEFAULT,
+                                    false,
+                                    activeNearbyRadiusKm
+                            );
+                        } else {
+                            pendingNearbyGridEvents.clear();
+                            updateHomeLocationStatusIcon(false);
+                            nearbyLoaded = true;
+                            resolveHomeEmptyState();
+                        }
+                    },
+                    e -> {
+                        Log.e("HomeFragment", "Failed to load default user address", e);
+                        pendingNearbyGridEvents.clear();
+                        updateHomeLocationStatusIcon(false);
+                        nearbyLoaded = true;
+                        resolveHomeEmptyState();
+                    }
+            );
+        }
+    }
+
+    /**
+     * asynchronously get all events within the active radius using either the current or default location mode
+     */
+    private void loadNearbyEventsWithMode(
+            String uid,
+            User.UserAddressMode mode,
+            boolean allowFallbackToDefault,
+            int radiusKm
+    ) {
+        eventStorage.listUpcomingEventsNearUser(
+                uid,
+                mode,
+                radiusKm,
                 4,
                 fetchedEvents -> {
-                    displayUpcomingGridEvents.clear();
-                    for (Event e : fetchedEvents) {
-                        displayUpcomingGridEvents.add(eventToDisplayEvent(e));
+                    if ((fetchedEvents == null || fetchedEvents.isEmpty()) && allowFallbackToDefault
+                            && mode == User.UserAddressMode.CURRENT) {
+                        loadNearbyEventsWithMode(uid, User.UserAddressMode.DEFAULT, false, radiusKm);
+                        return;
                     }
-                    upcomingAdapter.notifyDataSetChanged();
+
+                    pendingNearbyGridEvents.clear();
+                    updateHomeLocationStatusIcon(true);
+
+                    if (fetchedEvents != null) {
+                        for (Event event : fetchedEvents) {
+                            pendingNearbyGridEvents.add(eventToDisplayEvent(event));
+                        }
+                    }
+
+                    nearbyLoaded = true;
+                    resolveHomeEmptyState();
                 },
                 e -> {
-                    android.util.Log.e("HomeFragment", "Failed to load upcoming events", e);
+                    Log.e("HomeFragment", "Failed to load nearby upcoming events for mode " + mode, e);
+
+                    if (allowFallbackToDefault && mode == User.UserAddressMode.CURRENT) {
+                        loadNearbyEventsWithMode(uid, User.UserAddressMode.DEFAULT, false, radiusKm);
+                        return;
+                    }
+
+                    pendingNearbyGridEvents.clear();
+                    updateHomeLocationStatusIcon(true);
+                    nearbyLoaded = true;
+                    resolveHomeEmptyState();
                 }
         );
     }
 
     /**
-     * Populate the grid event adapters with the most recent events that are full.
-     *      (waitlistCapacity = waitlistCount)
-     *      call EventStorage.listEventsRegOpen query to fill events list
-     *      convert Event to DisplayGridEvent
-     *      notify change in the list of grid events
-     *      ** later: Popular Events should return events ordered by descending (waitlistCount/waitlistCapacity)**
+     * load events with mode helper
+     *      persists the user address mode state from location activity into HomeFragment
      */
-    private void loadEventsRegFull() {
-        if (estore == null || fullAdapter == null) return;
+    private User.UserAddressMode getSavedNearbyMode() {
+        if (getContext() == null) {
+            return User.UserAddressMode.DEFAULT;
+        }
 
-        estore.listEventsRegFull(
-                4,
-                fetchedEvents -> {
-                    displayFullGridEvents.clear();
-                    for (Event e : fetchedEvents) {
-                        displayFullGridEvents.add(eventToDisplayEvent(e));
-                    }
-                    fullAdapter.notifyDataSetChanged();
-                },
-                e -> android.util.Log.e("HomeFragment", "Failed to load full events", e)
-        );
+        String savedMode = requireContext()
+                .getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+                .getString(KEY_LOCATION_MODE, User.UserAddressMode.DEFAULT.name());
+
+        try {
+            return User.UserAddressMode.valueOf(savedMode);
+        } catch (Exception ignored) {
+            return User.UserAddressMode.DEFAULT;
+        }
     }
+
+    /**
+     * Returns true when the user has a saved location that can be used for nearby event queries
+     */
+    private boolean isResolvedAddress(@Nullable UserAddress address) {
+        return address != null
+                && address.getLatitude() != null
+                && address.getLongitude() != null
+                && address.getLocation() != null
+                && !address.getLocation().trim().isEmpty();
+    }
+
 
     /**
      * Load the pending notifications for the current user
@@ -230,15 +665,13 @@ public class HomeFragment extends Fragment {
     private void loadNotifications() {
         String uid = ServiceLocator.uid();
         if (uid == null || uid.trim().isEmpty()) {
-            if (invitationCard != null) invitationCard.setVisibility(View.GONE);
-            notificationsPager.setVisibility(View.GONE);
+            updateNotificationBannerVisibility();
             return;
         }
 
         if (notificationLogStorage == null) {
             Log.e("HomeFragment", "NotificationLogStorage is null");
-            if (invitationCard != null) invitationCard.setVisibility(View.GONE);
-            notificationsPager.setVisibility(View.GONE);
+            updateNotificationBannerVisibility();
             return;
         }
 
@@ -251,8 +684,8 @@ public class HomeFragment extends Fragment {
                 },
                 e -> {
                     Log.e("HomeFragment", "Failed to load notifications", e);
-                    if (invitationCard != null) invitationCard.setVisibility(View.GONE);
-                    notificationsPager.setVisibility(View.GONE);
+                    notifications.clear();
+                    updateNotificationBannerVisibility();
                 }
         );
     }
@@ -261,16 +694,20 @@ public class HomeFragment extends Fragment {
      * Helper for setting the notification banner to show (has pending noti.s) or hide (no pending)
      */
     private void updateNotificationBannerVisibility() {
+        if (invitationCard != null) invitationCard.setVisibility(VISIBLE);
+
         if (notifications.isEmpty()) {
-            if (invitationCard != null) invitationCard.setVisibility(View.GONE);
-            notificationsPager.setVisibility(View.GONE);
+            if (notificationsPager != null) notificationsPager.setVisibility(GONE);
+            if (notificationsEmptyState != null) notificationsEmptyState.setVisibility(VISIBLE);
             return;
         }
 
-        if (invitationCard != null) invitationCard.setVisibility(View.VISIBLE);
-        notificationsPager.setVisibility(View.VISIBLE);
-        notificationPagerAdapter.notifyDataSetChanged();
-        notificationsPager.setCurrentItem(0, false);
+        if (notificationsEmptyState != null) notificationsEmptyState.setVisibility(GONE);
+        if (notificationsPager != null) {
+            notificationsPager.setVisibility(VISIBLE);
+            notificationPagerAdapter.notifyDataSetChanged();
+            notificationsPager.setCurrentItem(0, false);
+        }
     }
 
     /**
@@ -289,43 +726,31 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        if (notification.getType() != NotificationLog.NotificationType.PRIVATE_INVITATION
-                && notification.getType() != NotificationLog.NotificationType.COORGANIZER_INVITATION) {
-            if (notification.getId() == null || notification.getId().trim().isEmpty()) {
-                Toast.makeText(requireContext(), "Missing notification", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            notificationLogStorage.updateNotificationStatus(
-                    notification.getId(),
-                    READ.name(),
-                    unused -> {
-                        notifications.remove(position);
-                        updateNotificationBannerVisibility();
-
-                        if (!notifications.isEmpty()) {
-                            int nextIndex = Math.min(position, notifications.size() - 1);
-                            notificationsPager.setCurrentItem(nextIndex, false);
-                        }
-
-                        Toast.makeText(requireContext(), "Notification dismissed", Toast.LENGTH_SHORT).show();
-                    },
-                    e -> Toast.makeText(
-                            requireContext(),
-                            e.getMessage() == null ? "Failed to dismiss notification" : e.getMessage(),
-                            Toast.LENGTH_SHORT
-                    ).show()
-            );
+        if (notification.getId() == null || notification.getId().trim().isEmpty()) {
+            Toast.makeText(requireContext(), "Missing notification", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        notifications.remove(position);
-        updateNotificationBannerVisibility();
+        notificationLogStorage.updateNotificationStatus(
+                notification.getId(),
+                READ.name(),
+                unused -> {
+                    notifications.remove(position);
+                    updateNotificationBannerVisibility();
 
-        if (!notifications.isEmpty()) {
-            int nextIndex = Math.min(position, notifications.size() - 1);
-            notificationsPager.setCurrentItem(nextIndex, false);
-        }
+                    if (!notifications.isEmpty()) {
+                        int nextIndex = Math.min(position, notifications.size() - 1);
+                        notificationsPager.setCurrentItem(nextIndex, false);
+                    }
+
+                    Toast.makeText(requireContext(), "Notification dismissed", Toast.LENGTH_SHORT).show();
+                },
+                e -> Toast.makeText(
+                        requireContext(),
+                        e.getMessage() == null ? "Failed to dismiss notification" : e.getMessage(),
+                        Toast.LENGTH_SHORT
+                ).show()
+        );
     }
 
     /**
@@ -339,7 +764,8 @@ public class HomeFragment extends Fragment {
         }
 
         return notification.getType() == NotificationLog.NotificationType.PRIVATE_INVITATION
-                || notification.getType() == NotificationLog.NotificationType.COORGANIZER_INVITATION;
+                || notification.getType() == NotificationLog.NotificationType.COORGANIZER_INVITATION
+                || notification.getType() == NotificationLog.NotificationType.WON_LOTTERY;
     }
 
     /**
@@ -360,6 +786,8 @@ public class HomeFragment extends Fragment {
             showPrivateInviteDialog(position, notification);
         } else if (notification.getType() == NotificationLog.NotificationType.COORGANIZER_INVITATION) {
             showCoorganizerInviteDialog(position, notification);
+        } else if (notification.getType() == NotificationLog.NotificationType.WON_LOTTERY) {
+            showLotteryInviteDialog(position, notification);
         }
     }
 
@@ -388,6 +816,22 @@ public class HomeFragment extends Fragment {
                 .setMessage("Would you like to accept this co-organizer invitation?")
                 .setNegativeButton("Decline", (dialog, which) -> declineCoorganizerInvite(position, notification))
                 .setPositiveButton("Accept", (dialog, which) -> acceptCoorganizerInvite(position, notification))
+                .show();
+    }
+
+    /**
+     * Show the dialog for a user accepting or declining an invite to be enrolled for an event
+     */
+    private void showLotteryInviteDialog(int position, NotificationLog notification) {
+        if (getContext() == null) return;
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Lottery Selection")
+                .setMessage("You have been selected! Would you like to accept your spot?")
+                .setNegativeButton("Decline", (dialog, which) ->
+                        declineLotteryInvite(position, notification))
+                .setPositiveButton("Accept", (dialog, which) ->
+                        acceptLotteryInvite(position, notification))
                 .show();
     }
 
@@ -435,7 +879,6 @@ public class HomeFragment extends Fragment {
      *          removes their entry from the invited subcollection and nothing else
      *          sets notification as DECLINED
      */
-
     private void declinePrivateInvite(int position, NotificationLog notification) {
         String uid = ServiceLocator.uid();
 
@@ -477,7 +920,7 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        estore.acceptInviteToBeCoorganizer(
+        eventStorage.acceptInviteToBeCoorganizer(
                 notification.getEventId(),
                 uid,
                 unused -> resolveNotification(
@@ -512,7 +955,7 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        estore.declineInviteToBeCoorganizer(
+        eventStorage.declineInviteToBeCoorganizer(
                 notification.getEventId(),
                 uid,
                 unused -> resolveNotification(
@@ -526,6 +969,70 @@ public class HomeFragment extends Fragment {
                         e.getMessage() == null ? "Failed to decline co-organizer invite" : e.getMessage(),
                         Toast.LENGTH_SHORT
                 ).show()
+        );
+    }
+
+    /**
+     * Runs on the user clicking accept in the lottery invite dialog
+     *          removes their entry from the invited subcollection and adds them to the enrolled subcollection
+     *          sets notification as ACCEPTED
+     */
+    private void acceptLotteryInvite(int position, NotificationLog notification) {
+        String uid = ServiceLocator.uid();
+
+        if (notification == null || notification.getEventId() == null) {
+            Toast.makeText(requireContext(), "Missing event", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (uid == null) {
+            Toast.makeText(requireContext(), "User not signed in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        eventPoolStorage.enrollInEvent(
+                notification.getEventId(),
+                uid,
+                unused -> resolveNotification(
+                        position,
+                        notification,
+                        ACCEPTED.name(),
+                        "You are now enrolled!"
+                ),
+                e -> Toast.makeText(requireContext(),
+                        "Failed to accept invite", Toast.LENGTH_SHORT).show()
+        );
+    }
+
+    /**
+     * Runs on the user clicking decline in the lottery invite dialog
+     *      removes their entry from the invited subcollection without enrolling them
+     *      sets notification as DECLINED
+     */
+    private void declineLotteryInvite(int position, NotificationLog notification) {
+        String uid = ServiceLocator.uid();
+
+        if (notification == null || notification.getEventId() == null) {
+            Toast.makeText(requireContext(), "Missing event", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (uid == null) {
+            Toast.makeText(requireContext(), "User not signed in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        eventPoolStorage.removeFromInvited(
+                notification.getEventId(),
+                uid,
+                unused -> resolveNotification(
+                        position,
+                        notification,
+                        DECLINED.name(),
+                        "Invite declined"
+                ),
+                e -> Toast.makeText(requireContext(),
+                        "Failed to decline invite", Toast.LENGTH_SHORT).show()
         );
     }
 
@@ -559,24 +1066,21 @@ public class HomeFragment extends Fragment {
         );
     }
 
-
     /**
      * Notification Pager Adapter for setting actionable notifications (launches dialogs)
      */
     private static final class NotificationPagerAdapter
             extends RecyclerView.Adapter<NotificationPagerAdapter.NotificationViewHolder> {
 
-        // call back interface for when a user clicks the notification dismissal button
         interface OnDismissClickListener {
             void onDismissClicked(int position);
         }
 
-        // callback interface for when a user clicks the item
         interface OnNotificationClickListener {
             void onNotificationClicked(int position);
         }
 
-        private final List<NotificationLog> notifications; // notifications to show
+        private final List<NotificationLog> notifications;
         private final OnDismissClickListener dismissClickListener;
         private final OnNotificationClickListener notificationClickListener;
 
@@ -624,7 +1128,6 @@ public class HomeFragment extends Fragment {
             holder.message.setText(message);
             bindDots(holder.dotsInline, position);
 
-            // The root card click is used for actionable notifications (launch dialogs)
             holder.root.setOnClickListener(v -> {
                 if (notificationClickListener != null) {
                     int adapterPosition = holder.getBindingAdapterPosition();
@@ -634,9 +1137,6 @@ public class HomeFragment extends Fragment {
                 }
             });
 
-            // dismiss button:
-                // - EVENT_ANNOUNCEMENT notifications are marked ACCEPTED so they do not reappear
-                // - other notifications are only removed from the current in-memory page load
             holder.closeButton.setOnClickListener(v -> {
                 if (dismissClickListener != null) {
                     int adapterPosition = holder.getBindingAdapterPosition();
@@ -647,7 +1147,6 @@ public class HomeFragment extends Fragment {
             });
         }
 
-        // number of notifications
         @Override
         public int getItemCount() {
             return notifications.size();
@@ -663,7 +1162,9 @@ public class HomeFragment extends Fragment {
             MaterialButton closeButton;
             LinearLayout dotsInline;
 
-            // creates a view holder and binds all child views
+            /**
+             * Binds views for a single notification card within the pager.
+             */
             NotificationViewHolder(@NonNull View itemView) {
                 super(itemView);
                 root = itemView.findViewById(R.id.notification_root);
@@ -680,34 +1181,28 @@ public class HomeFragment extends Fragment {
         private void bindDots(LinearLayout container, int selectedIndex) {
             container.removeAllViews();
 
-            // do pending notifications exist for this user?
             if (container.getContext() == null || notifications.size() <= 1) {
-                container.setVisibility(View.GONE);
+                container.setVisibility(GONE);
                 return;
             }
 
-            // notifications exist, so the pager indicator should be visible
-            container.setVisibility(View.VISIBLE);
+            container.setVisibility(VISIBLE);
 
-            // one dot per notification currently shown in the banner list
             int sizePx = dpToPx(container, 8);
             int marginPx = dpToPx(container, 3);
 
             for (int i = 0; i < notifications.size(); i++) {
                 View dot = new View(container.getContext());
 
-                // set a fixed circular size for each dot
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(sizePx, sizePx);
                 params.setMargins(marginPx, 0, marginPx, 0);
                 dot.setLayoutParams(params);
 
-                // gradient drawable so each entry appears as a dot
                 GradientDrawable drawable = new GradientDrawable();
                 drawable.setShape(GradientDrawable.OVAL);
                 drawable.setColor(resolveDotColor(container));
                 dot.setBackground(drawable);
 
-                // highlight selected dot, dim not-selected dots
                 dot.setAlpha(i == selectedIndex ? 1f : 0.35f);
 
                 container.addView(dot);
@@ -726,7 +1221,7 @@ public class HomeFragment extends Fragment {
          * Resolves the themed color used for notification pager dots
          */
         private int resolveDotColor(View view) {
-            android.util.TypedValue typedValue = new android.util.TypedValue();
+            TypedValue typedValue = new TypedValue();
             view.getContext().getTheme().resolveAttribute(
                     com.google.android.material.R.attr.colorOnTertiaryContainer,
                     typedValue,
@@ -736,7 +1231,7 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /*
+    /**
      * Checks the current user's TOS acceptance state in Firestore.
      * If the user has not accepted, launch the full TermsOfServiceActivity.
      */
@@ -749,7 +1244,7 @@ public class HomeFragment extends Fragment {
 
         isCheckingTOS = true;
 
-        ustore.getHasAcceptedTOS(
+        userStorage.getHasAcceptedTOS(
                 uid,
                 hasAccepted -> {
                     isCheckingTOS = false;
@@ -764,7 +1259,7 @@ public class HomeFragment extends Fragment {
                 },
                 e -> {
                     isCheckingTOS = false;
-                    android.util.Log.e("HomeFragment", "Failed to check Terms of Service acceptance", e);
+                    Log.e("HomeFragment", "Failed to check Terms of Service acceptance", e);
                 }
         );
     }
@@ -779,27 +1274,29 @@ public class HomeFragment extends Fragment {
      *       for an event
      */
     public static class DisplayGridEvent {
-        public String eventId, title, subtitle, description, tag;
+        public String eventId, title, subtitle, description, tag, posterUrl;
 
-        public DisplayGridEvent(String eventId, String title, String subtitle, String description, String tag) {
+        public DisplayGridEvent(String eventId, String title, String subtitle, String description, String tag, String posterUrl) {
             this.eventId = eventId;
             this.title = title;
             this.subtitle = subtitle;
             this.description = description;
-            this.tag = "Home fragment";
+            this.tag = tag;
+            this.posterUrl = posterUrl;
         }
     }
 
     /**
      * Converts an Event parameter into a DisplayGridEvent
      */
-    private HomeFragment.DisplayGridEvent eventToDisplayEvent(Event event) {
-        return new HomeFragment.DisplayGridEvent(
+    private DisplayGridEvent eventToDisplayEvent(Event event) {
+        return new DisplayGridEvent(
                 event.getEventId(),
                 event.getTitle(),
                 buildSubtitle(event),
                 event.getDescription(),
-                event.getTag()
+                event.getTag(),
+                event.getPosterUrl()
         );
     }
 
@@ -813,13 +1310,13 @@ public class HomeFragment extends Fragment {
         StringBuilder sb = new StringBuilder(statusString(status));
 
         Integer waitlistCap = event.getWaitlistCapacity();
-        if (waitlistCap == -1) {
+        if (waitlistCap != null && waitlistCap == UNLIMITED_WAITLIST_SENTINEL) {
             sb.append("\nWaitlist: ")
                     .append(event.getWaitlistCount())
                     .append("/")
                     .append("∞");
 
-        } else if (waitlistCap > 0){
+        } else if (waitlistCap != null && waitlistCap > 0){
             sb.append("\nWaitlist: ")
                     .append(event.getWaitlistCount())
                     .append("/")
@@ -833,6 +1330,7 @@ public class HomeFragment extends Fragment {
      * Subtitle builder helper for status logic
      */
     private String statusString(Event.EventStatus status) {
+        if (status == null) return "Unknown";
         switch (status) {
             case REG_OPEN:
                 return "Open for registration";
@@ -849,6 +1347,6 @@ public class HomeFragment extends Fragment {
             case EVENT_FULL:
                 return "Event is full";
         }
-        return null;
+        return "Unknown";
     }
 }

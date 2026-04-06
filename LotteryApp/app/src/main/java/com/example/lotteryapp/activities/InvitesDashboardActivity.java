@@ -31,6 +31,9 @@ public class InvitesDashboardActivity extends AppCompatActivity {
     private ViewPager2 viewPager;
     private TabLayoutMediator tabMediator;
 
+    /**
+     * Initializes the dashboard, validates the event id, and wires the pager
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -61,6 +64,7 @@ public class InvitesDashboardActivity extends AppCompatActivity {
             return;
         }
 
+        // Preserve the active tab so refreshes do not jump the user elsewhere
         int currentItem = viewPager.getCurrentItem();
 
         if (tabMediator != null) {
@@ -76,11 +80,15 @@ public class InvitesDashboardActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Creates the pager adapter and attaches tab labels for the four invitation states
+     */
     private void setupPager() {
         viewPager.setAdapter(new FragmentStateAdapter(this) {
             @NonNull
             @Override
             public Fragment createFragment(int position) {
+                // each tab is a new instance of an invited fragment
                 switch (position) {
                     case 0:
                         return InviteListFragment.newInstance(
@@ -111,6 +119,7 @@ public class InvitesDashboardActivity extends AppCompatActivity {
             }
         });
 
+        // UI labels for the tabs
         tabMediator = new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             switch (position) {
                 case 0:

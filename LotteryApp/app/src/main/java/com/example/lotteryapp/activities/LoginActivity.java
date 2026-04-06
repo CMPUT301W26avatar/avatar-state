@@ -14,10 +14,27 @@ import com.google.android.material.button.MaterialButton;
 
 /**
  * Manages login functionality
- * sets up three buttons for logging in, logging in as a guest or registeration.
+ * sets up three buttons for logging in, logging in as a guest or registration.
  *
  */
 public class LoginActivity extends AppCompatActivity {
+
+    /**
+     * Initialize the UI components for the Login Activity, sets all listeners and authenticates the User
+     *  launches main for authenticated users
+     */
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_login);
+
+        AuthService auth = ServiceLocator.getAuthService();
+        setupListeners(auth);
+        if (auth.signInPrevSession()) {
+            gotoMain();
+        }
+
+    }
 
     /**
      * Set up login button and obtains user input for login authentication
@@ -29,11 +46,29 @@ public class LoginActivity extends AppCompatActivity {
             EditText etEmail = findViewById(R.id.et_email);
             EditText etPassword = findViewById(R.id.et_password);
 
-            final String email = etEmail.getText().toString();
+            final String email = etEmail.getText().toString().trim();
             final String password = etPassword.getText().toString();
 
-            auth.userSignInCred(email, password, getBaseContext()); // on open
-            gotoMain();
+            if (email.isEmpty() || password.isEmpty()) {
+                android.widget.Toast.makeText(
+                        LoginActivity.this,
+                        "Email and password cannot be empty.",
+                        android.widget.Toast.LENGTH_LONG
+                ).show();
+                return;
+            }
+
+            auth.userSignInCred(
+                    email,
+                    password,
+                    getBaseContext(),
+                    this::gotoMain,
+                    errorMessage -> android.widget.Toast.makeText(
+                            LoginActivity.this,
+                            errorMessage == null ? "Login failed." : errorMessage,
+                            android.widget.Toast.LENGTH_LONG
+                    ).show()
+            );
         });
     }
 
@@ -70,18 +105,5 @@ public class LoginActivity extends AppCompatActivity {
     private void gotoMain() {
         startActivity(new Intent(LoginActivity.this, MainActivity.class));
         finish();
-    }
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login);
-
-        AuthService auth = ServiceLocator.getAuthService();
-        setupListeners(auth);
-        if (auth.signInPrevSession()) {
-            gotoMain();
-        }
-
     }
 }
