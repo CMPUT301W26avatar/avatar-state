@@ -1,8 +1,11 @@
 package com.example.lotteryapp.services.storage;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.example.lotteryapp.dialogs.FilterDialog;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
 import com.example.lotteryapp.models.EventJoinedMap;
@@ -984,18 +987,31 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
-    /** firebase retrieval
-     * Returns all REG_OPEN events in the database
-     *      REG_OPEN: registration window open
-     * Asynchronous: requires OnSuccess and OnFailure listeners
-     */
-    public void listEventsRegOpen(
+    public void getEventsByStatus(
+            Integer minCap,
+            Integer maxCap,
+            List<Long> availabilityRequirements,
+            Event.EventStatus eventStatus,
             Integer limit,
             OnSuccessListener<List<Event>> onSuccess,
-            OnFailureListener onFailure
-    ) {
+            OnFailureListener onFailure) {
+
+        int MIN_VAL = 1;
+        if (minCap != FilterDialog.NOT_SET) {
+            MIN_VAL = minCap;
+        }
+
+        int MAX_VAL = Integer.MAX_VALUE;
+        if (maxCap != FilterDialog.NOT_SET) {
+            MAX_VAL = maxCap;
+        }
+
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_OPEN.name()).whereEqualTo("privateEvent", false);
+                .whereEqualTo("status", eventStatus.name())
+                .whereEqualTo("privateEvent", false)
+                .whereLessThanOrEqualTo("eventCapacity", MAX_VAL)
+                .whereGreaterThanOrEqualTo("eventCapacity", MIN_VAL)
+                .whereIn("eventDateMs", availabilityRequirements);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);
@@ -1004,58 +1020,31 @@ public class EventStorage {
         queryEventsWithAddresses(query, onSuccess, onFailure);
     }
 
-    /** firebase retrieval
-     * Returns all REG_CLOSED events in the database
-     *      REG_CLOSED: registration end date passed
-     * Asynchronous: requires OnSuccess and OnFailure listeners
-     */
-    public void listEventsRegClosed(
+    public void getEventsByStatus(
+            Integer minCap,
+            Integer maxCap,
+            Event.EventStatus eventStatus,
             Integer limit,
             OnSuccessListener<List<Event>> onSuccess,
-            OnFailureListener onFailure
-    ) {
-        Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_CLOSED.name()).whereEqualTo("privateEvent", false);
+            OnFailureListener onFailure) {
 
-        if (limit != null && limit > 0) {
-            query = query.limit(limit);
+        int MIN_VAL = 1;
+        if (minCap != FilterDialog.NOT_SET) {
+            MIN_VAL = minCap;
         }
 
-        queryEventsWithAddresses(query, onSuccess, onFailure);
-    }
-
-    /** firebase retrieval
-     * Returns all REG_FULL events in the database
-     *      REG_FULL: registration window open, but waitlist is full
-     * Asynchronous: requires OnSuccess and OnFailure listeners
-     */
-    public void listEventsRegFull(
-            Integer limit,
-            OnSuccessListener<List<Event>> onSuccess,
-            OnFailureListener onFailure
-    ) {
-        Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.EVENT_OPEN.name()).whereEqualTo("privateEvent", false);
-
-        if (limit != null && limit > 0) {
-            query = query.limit(limit);
+        int MAX_VAL = Integer.MAX_VALUE;
+        if (maxCap != FilterDialog.NOT_SET) {
+            MAX_VAL = maxCap;
         }
 
-        queryEventsWithAddresses(query, onSuccess, onFailure);
-    }
+        Log.d("EventStorage", String.format("Min: %d, Max: %d", MIN_VAL, MAX_VAL));
 
-    /** firebase retrieval
-     * Returns all REG_UPCOMING events in the database
-     *      REG_UPCOMING: registration start date upcoming
-     * Asynchronous: requires OnSuccess and OnFailure listeners
-     */
-    public void listEventsRegUpcoming(
-            Integer limit,
-            OnSuccessListener<List<Event>> onSuccess,
-            OnFailureListener onFailure
-    ) {
         Query query = db.collection("events")
-                .whereEqualTo("status", Event.EventStatus.REG_UPCOMING.name()).whereEqualTo("privateEvent", false);
+                .whereEqualTo("status", eventStatus.name())
+                .whereEqualTo("privateEvent", false)
+                .whereLessThanOrEqualTo("eventCapacity", MAX_VAL)
+                .whereGreaterThanOrEqualTo("eventCapacity", MIN_VAL);
 
         if (limit != null && limit > 0) {
             query = query.limit(limit);
