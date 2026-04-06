@@ -46,11 +46,29 @@ public class LoginActivity extends AppCompatActivity {
             EditText etEmail = findViewById(R.id.et_email);
             EditText etPassword = findViewById(R.id.et_password);
 
-            final String email = etEmail.getText().toString();
+            final String email = etEmail.getText().toString().trim();
             final String password = etPassword.getText().toString();
 
-            auth.userSignInCred(email, password, getBaseContext()); // on open
-            gotoMain();
+            if (email.isEmpty() || password.isEmpty()) {
+                android.widget.Toast.makeText(
+                        LoginActivity.this,
+                        "Email and password cannot be empty.",
+                        android.widget.Toast.LENGTH_LONG
+                ).show();
+                return;
+            }
+
+            auth.userSignInCred(
+                    email,
+                    password,
+                    getBaseContext(),
+                    this::gotoMain,
+                    errorMessage -> android.widget.Toast.makeText(
+                            LoginActivity.this,
+                            errorMessage == null ? "Login failed." : errorMessage,
+                            android.widget.Toast.LENGTH_LONG
+                    ).show()
+            );
         });
     }
 
