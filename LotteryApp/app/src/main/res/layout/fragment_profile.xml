@@ -130,6 +130,8 @@
                     <include layout="@layout/item_settings" android:id="@+id/item_location" />
                     <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" />
                     <include layout="@layout/item_settings" android:id="@+id/item_storage" />
+                    <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" />
+                    <include layout="@layout/item_settings" android:id="@+id/item_tos" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

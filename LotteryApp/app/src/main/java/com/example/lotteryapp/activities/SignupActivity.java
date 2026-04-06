@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -42,6 +43,15 @@ public class SignupActivity extends AppCompatActivity {
         EditText etPassword = findViewById(R.id.et_password);
         EditText etConfirmPassword = findViewById(R.id.et_confirm_password);
         android.widget.CheckBox cbAcceptTOS = findViewById(R.id.cb_terms);
+        TextView tvTermsLink = findViewById(R.id.tv_terms_link);
+
+        if (tvTermsLink != null) {
+            tvTermsLink.setOnClickListener(v -> {
+                Intent intent = new Intent(SignupActivity.this, TermsOfServiceActivity.class);
+                intent.putExtra(TermsOfServiceActivity.EXTRA_READ_ONLY, true);
+                startActivity(intent);
+            });
+        }
 
         MaterialButton btnBackToLogin = findViewById(R.id.btn_back_to_login);
         btnBackToLogin.setOnClickListener(v -> finish());
