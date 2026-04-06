@@ -989,6 +989,11 @@ public class EventStorage {
                 .addOnFailureListener(onFailure);
     }
 
+    /**firebase retrieval
+     * Queries events by status with capacity and availability filters applied.
+     *      filters by event status, public visibility, capacity range, and matching availability dates
+     *      optionally limits results and resolves event addresses before returning
+     */
     public void getEventsByStatus(
             Integer minCap,
             Integer maxCap,
@@ -1022,6 +1027,11 @@ public class EventStorage {
         queryEventsWithAddresses(query, onSuccess, onFailure);
     }
 
+    /**firebase retrieval
+     * Queries events by status with capacity filters applied.
+     *      filters by event status, public visibility, and capacity range
+     *      optionally limits results and resolves event addresses before returning
+     */
     public void getEventsByStatus(
             Integer minCap,
             Integer maxCap,
@@ -1107,13 +1117,14 @@ public class EventStorage {
 
                     final int[] remaining = {allEvents.size()};
 
+                    // get comment count for every event with a comments subcollection
                     for (Event event : allEvents) {
                         eventCommentsCollection(event.getEventId())
                                 .get()
                                 .addOnSuccessListener(commentsSnapshot -> {
                                     int count = commentsSnapshot.size();
 
-                                    // 🔥 Filter here
+                                    // only show events with more than 5 comments
                                     if (count >= 5) {
                                         rankedEvents.add(new Pair<>(event, count));
                                     }
@@ -1137,7 +1148,7 @@ public class EventStorage {
     }
 
     /**
-     * Sorts and trims the ranked events list, then returns results.
+     * Sorts and trims the ranked events list, then returns results
      */
     private void finalizeResults(
             List<Pair<Event, Integer>> rankedEvents,

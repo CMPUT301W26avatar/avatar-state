@@ -127,7 +127,7 @@
                     <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" />
                     <include layout="@layout/item_settings" android:id="@+id/item_language" />
                     <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" />
-                    <include layout="@layout/item_settings" android:id="@+id/item_privacy" />
+                    <include layout="@layout/item_settings" android:id="@+id/item_location" />
                     <com.google.android.material.divider.MaterialDivider android:layout_width="match_parent" android:layout_height="wrap_content" />
                     <include layout="@layout/item_settings" android:id="@+id/item_storage" />
 

@@ -130,10 +130,12 @@ public class SearchFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_search, container, false);
 
+        // top taskbar
         searchBar = view.findViewById(R.id.search_bar);
         searchView = view.findViewById(R.id.search_view);
         filtersButton = view.findViewById(R.id.event_filters_button);
 
+        // event sections
         openHeader = view.findViewById(R.id.open_header);
         upcomingHeader = view.findViewById(R.id.upcoming_header);
         fullHeader = view.findViewById(R.id.full_header);
@@ -154,9 +156,11 @@ public class SearchFragment extends Fragment {
         upcomingRecycler.setAdapter(upcomingAdapter);
         fullRecycler.setAdapter(fullAdapter);
 
+        // filter button dialog
         filterDialog = new FilterDialog(view.getContext());
         userAvailability = Arrays.asList(1123L, 80L, 67L);
 
+        // init search query dialogs
         if (searchView != null) {
             searchView.getEditText().setOnEditorActionListener((v, actionId, event) -> {
                 String query = searchView.getEditText().getText().toString().trim();
@@ -211,76 +215,17 @@ public class SearchFragment extends Fragment {
     }
 
     /**
-     * Executes the search query and updates the popular section with results.
+     * Reloads event lists whenever the fragment comes into view again.
+     *      ensures the dashboard reflects the most recent event(s)
      */
-    private void performSearch(String query) {
-        currentSearchQuery = query;
-
-        if (openHeader != null) {
-            openHeader.setText("Search Results");
-            openHeader.setVisibility(VISIBLE);
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (isSearchActive && !currentSearchQuery.isEmpty()) {
+            performSearch(currentSearchQuery);
+        } else {
+            loadAllEvents();
         }
-        if (openRecycler != null) openRecycler.setVisibility(VISIBLE);
-
-        if (upcomingHeader != null) upcomingHeader.setVisibility(GONE);
-        if (upcomingRecycler != null) upcomingRecycler.setVisibility(GONE);
-
-        if (fullHeader != null) fullHeader.setVisibility(GONE);
-        if (fullRecycler != null) fullRecycler.setVisibility(GONE);
-
-        eventStorage.searchEvents(query, fetchedEvents -> {
-            List<HomeFragment.DisplayGridEvent> searchResults = new ArrayList<>();
-
-            for (Event event : fetchedEvents) {
-                if (!passesSearchFilters(event)) {
-                    continue;
-                }
-                searchResults.add(eventToDisplayEvent(event));
-            }
-
-            openEvents.clear();
-            openEvents.addAll(searchResults);
-            openAdapter.notifyDataSetChanged();
-
-            if (openHeader != null) openHeader.setVisibility(VISIBLE);
-            if (openRecycler != null) openRecycler.setVisibility(VISIBLE);
-        }, error -> {
-            Log.e("SearchFragment", "Failed to search events", error);
-
-            openEvents.clear();
-            openAdapter.notifyDataSetChanged();
-
-            if (openHeader != null) openHeader.setVisibility(VISIBLE);
-            if (openRecycler != null) openRecycler.setVisibility(VISIBLE);
-        });
-    }
-
-    private boolean passesSearchFilters(Event event) {
-        if (event == null) {
-            return false;
-        }
-
-        Event.EventStatus status = event.getStatus();
-
-        if (filterDialog.isActive(FULL_EVENTS_FILTER)
-                && (status == Event.EventStatus.REG_FULL
-                || status == Event.EventStatus.EVENT_OPEN
-                || status == Event.EventStatus.EVENT_CLOSED
-                || status == Event.EventStatus.EVENT_FULL)) {
-            return false;
-        }
-
-        if (filterDialog.isActive(OPEN_EVENTS_FILTER)
-                && status == Event.EventStatus.REG_OPEN) {
-            return false;
-        }
-
-        if (filterDialog.isActive(UPCOMING_EVENTS_FILTER)
-                && status == Event.EventStatus.REG_UPCOMING) {
-            return false;
-        }
-
-        return true;
     }
 
     /**
@@ -310,25 +255,10 @@ public class SearchFragment extends Fragment {
         loadAllEvents();
     }
 
-    /**
-     * Reloads event lists whenever the fragment comes into view again.
-     *      ensures the dashboard reflects the most recent event(s)
-     */
-    @Override
-    public void onResume() {
-        super.onResume();
-        if (isSearchActive && !currentSearchQuery.isEmpty()) {
-            performSearch(currentSearchQuery);
-        } else {
-            loadAllEvents();
-        }
-    }
 
     /**
      * Adds an onClickListener to "filtersButton" that
-     * opens up the FilterDialog dialog.
-     * @param filterView the view representing the FilterDialog.
-     * @param filterDialog the FilterDialog obj.
+     *      opens up the FilterDialog dialog.
      */
     private void setupFilterButton(@NonNull View filterView, @NonNull FilterDialog filterDialog) {
         filtersButton.setOnClickListener(v -> {
@@ -374,8 +304,7 @@ public class SearchFragment extends Fragment {
 
     /**
      * Helper function that loads events into their respective lists
-     * <br>
-     * Will automatically account for the FilterDialog availability filter
+     *      Will automatically account for the FilterDialog availability filter
      */
     private void loadAllEvents() {
         if (filterDialog == null) return;
@@ -404,38 +333,110 @@ public class SearchFragment extends Fragment {
     }
 
     /**
-     * only queries open events despite the naming convention -> for later implementation
-     * Populate the grid event adapters with the most recent events with open registration window.
-     *      (regStart < time.now < regEnd && waitlistCapacity > waitlistCount)
-     *      call EventStorage.listEventsRegOpen query to fill events list
-     *      convert Event to DisplayGridEvent
-     *      notify change in the list of grid events
+     * Executes the search query and updates the popular section with results.
+     */
+    private void performSearch(String query) {
+        currentSearchQuery = query;
+
+        if (openHeader != null) {
+            openHeader.setText("Search Results");
+            openHeader.setVisibility(VISIBLE);
+        }
+        if (openRecycler != null) openRecycler.setVisibility(VISIBLE);
+
+        if (upcomingHeader != null) upcomingHeader.setVisibility(GONE);
+        if (upcomingRecycler != null) upcomingRecycler.setVisibility(GONE);
+
+        if (fullHeader != null) fullHeader.setVisibility(GONE);
+        if (fullRecycler != null) fullRecycler.setVisibility(GONE);
+
+        eventStorage.searchEvents(query, fetchedEvents -> {
+            List<HomeFragment.DisplayGridEvent> searchResults = new ArrayList<>();
+
+            for (Event event : fetchedEvents) {
+                if (!passesSearchFilters(event)) {
+                    continue;
+                }
+                searchResults.add(eventToDisplayEvent(event));
+            }
+
+            openEvents.clear();
+            openEvents.addAll(searchResults);
+            openAdapter.notifyDataSetChanged();
+
+            if (openHeader != null) openHeader.setVisibility(VISIBLE);
+            if (openRecycler != null) openRecycler.setVisibility(VISIBLE);
+        }, error -> {
+            Log.e("SearchFragment", "Failed to search events", error);
+
+            openEvents.clear();
+            openAdapter.notifyDataSetChanged();
+
+            if (openHeader != null) openHeader.setVisibility(VISIBLE);
+            if (openRecycler != null) openRecycler.setVisibility(VISIBLE);
+        });
+    }
+
+    /**
+     * Evaluates whether an event passes the currently active search filters.
+     *      excludes events based on selected status filters such as full, open, or upcoming
+     */
+    private boolean passesSearchFilters(Event event) {
+        if (event == null) {
+            return false;
+        }
+
+        Event.EventStatus status = event.getStatus();
+
+        if (filterDialog.isActive(FULL_EVENTS_FILTER)
+                && (status == Event.EventStatus.REG_FULL
+                || status == Event.EventStatus.EVENT_OPEN
+                || status == Event.EventStatus.EVENT_CLOSED
+                || status == Event.EventStatus.EVENT_FULL)) {
+            return false;
+        }
+
+        if (filterDialog.isActive(OPEN_EVENTS_FILTER)
+                && status == Event.EventStatus.REG_OPEN) {
+            return false;
+        }
+
+        if (filterDialog.isActive(UPCOMING_EVENTS_FILTER)
+                && status == Event.EventStatus.REG_UPCOMING) {
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /**
+     * Loads events with an open registration window into the grid section.
+     *      queries events with REG_OPEN status, converts them to DisplayGridEvent, and updates the adapter
      */
     private void loadOpenEvents(Integer limit) {
         loadFilteredEvents(openEvents, openAdapter, openHeader, openRecycler, Event.EventStatus.REG_OPEN, limit);
     }
 
     /**
-     * only queries open events despite the naming convention -> for later implementation
-     * Populate the grid event adapters with the most recent events with open registration window.
-     *      (regStart < time.now < regEnd && waitlistCapacity > waitlistCount)
-     *      call EventStorage.listEventsRegOpen query to fill events list
-     *      convert Event to DisplayGridEvent
-     *      notify change in the list of grid events
+     * Loads events with an upcoming registration window into the grid section.
+     *      queries events with REG_UPCOMING status, converts them to DisplayGridEvent, and updates the adapter
      */
     private void loadUpcomingEvents(Integer limit) {
         loadFilteredEvents(upcomingEvents, upcomingAdapter, upcomingHeader, upcomingRecycler, Event.EventStatus.REG_UPCOMING, limit);
     }
 
+    /**
+     * Loads events with a full waitlist  into the grid section.
+     *      queries events with REG_FULL status, converts them to DisplayGridEvent, and updates the adapter
+     */
     private void loadFullEvents(Integer limit) {
         loadFilteredEvents(fullEvents, fullAdapter, fullHeader, fullRecycler, Event.EventStatus.REG_FULL, limit);
     }
 
     /**
      * loads the events tagged with the given status
-     * <br>
-     * will automatically filter out events if the user
-     * turns on the availability filter in the filter dialog
+     *      will automatically filter out events if the user turns on a filter in the filter dialog
      */
     private void loadFilteredEvents(
             List<HomeFragment.DisplayGridEvent> targetList,
@@ -445,20 +446,23 @@ public class SearchFragment extends Fragment {
             Event.EventStatus status,
             Integer limit
     ) {
+        // guard against missing dependencies or UI references
         if (eventStorage == null || userStorage == null || adapter == null || targetList == null) return;
 
+        // retrieve capacity filter bounds (min/max waitlist or event capacity)
         Pair<Integer, Integer> capFilterVals = filterDialog.getCapacityFilterValues();
         int minCap = capFilterVals.first;
         int maxCap = capFilterVals.second;
 
         @SuppressLint("NotifyDataSetChanged")
         OnSuccessListener<List<Event>> successListener = fetchedEvents -> {
-            targetList.clear();
+            targetList.clear(); // clear previous results before populating
             for (Event event : fetchedEvents) {
                 targetList.add(eventToDisplayEvent(event));
             }
             adapter.notifyDataSetChanged();
 
+            // show or hide the section depending on whether any events were returned
             boolean hasEvents = !targetList.isEmpty();
             if (header != null) header.setVisibility(hasEvents ? VISIBLE : GONE);
             if (recycler != null) recycler.setVisibility(hasEvents ? VISIBLE : GONE);
@@ -473,10 +477,14 @@ public class SearchFragment extends Fragment {
             if (recycler != null) recycler.setVisibility(GONE);
         };
 
+        // if availability filter is active, include user availability constraints in query
         if (filterDialog.isActive(AVAILABILITY_FILTER)) {
+            // fallback availability (placeholder values) if none is set
             if (userAvailability == null || userAvailability.isEmpty()) {
                 userAvailability = Arrays.asList(67L, 301L);
             }
+
+            // query events with capacity + availability + status filters
             eventStorage.getEventsByStatus(
                     minCap,
                     maxCap,
@@ -487,6 +495,7 @@ public class SearchFragment extends Fragment {
                     failureListener
             );
         } else {
+            // query events with capacity + status filters only
             eventStorage.getEventsByStatus(
                     minCap,
                     maxCap,
@@ -496,19 +505,6 @@ public class SearchFragment extends Fragment {
                     failureListener
             );
         }
-    }
-
-    private boolean passesCapacityFilter(Event event, int minCap, int maxCap) {
-        Integer cap = event.getWaitlistCapacity();
-        if (cap == null) {
-            return false;
-        }
-
-        if (cap == UNLIMITED_WAITLIST_SENTINEL) {
-            return maxCap == UNLIMITED_WAITLIST_SENTINEL;
-        }
-
-        return cap >= minCap && cap <= maxCap;
     }
 
     /**

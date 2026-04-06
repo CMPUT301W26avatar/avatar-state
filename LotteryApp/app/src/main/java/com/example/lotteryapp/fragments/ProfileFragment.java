@@ -18,7 +18,7 @@ import com.example.lotteryapp.activities.LoginActivity;
 import com.example.lotteryapp.activities.NotificationSettingsActivity;
 import com.example.lotteryapp.activities.UserAvailabilityActivity;
 import com.example.lotteryapp.activities.UserDetailsActivity;
-import com.example.lotteryapp.activities.UserPrivacyActivity;
+import com.example.lotteryapp.activities.UserLocationSettingsActivity;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.AdminStorage;
 /**
@@ -49,7 +49,7 @@ public class ProfileFragment extends Fragment {
         setupSettingItem(view.findViewById(R.id.item_notifications), "Notifications");
         setupSettingItem(view.findViewById(R.id.item_appearance), "Appearance");
         setupSettingItem(view.findViewById(R.id.item_language), "Language");
-        setupSettingItem(view.findViewById(R.id.item_privacy), "Privacy & Security");
+        setupSettingItem(view.findViewById(R.id.item_location), "Location Preferences");
         setupSettingItem(view.findViewById(R.id.item_storage), "Storage");
 
         setupListeners(view);
@@ -109,10 +109,10 @@ public class ProfileFragment extends Fragment {
             });
         }
 
-        View privacyItem = view.findViewById(R.id.item_privacy);
-        if (privacyItem != null) {
-            privacyItem.setOnClickListener(v -> {
-                Intent intent = new Intent(requireContext(), UserPrivacyActivity.class);
+        View locationItem = view.findViewById(R.id.item_location);
+        if (locationItem != null) {
+            locationItem.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), UserLocationSettingsActivity.class);
                 startActivity(intent);
             });
         }
