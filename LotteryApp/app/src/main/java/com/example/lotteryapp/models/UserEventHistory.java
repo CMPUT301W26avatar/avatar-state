@@ -12,6 +12,12 @@ import androidx.annotation.Nullable;
  *      event collection for every possible event to determine the event history of a User.
  * This is also two-way assoc. rel. b/w Event and User but is User-centric in firebase, so we can grab the history all from one subcollection.
  */
+
+/*
+ It is important to note that this model is not used in application-side operations.
+ It is a reflection of the UserEventHistory collection in firebase;
+    we created a model for this so we can confirm the correctness of the firebase collection through unit tests
+ */
 public class UserEventHistory {
 
     public enum HistoryStatus {
@@ -29,10 +35,12 @@ public class UserEventHistory {
     private String status;
     private Long updatedAtMs;
 
+    // testing
     public UserEventHistory() {
         // empty constructor for Firestore
     }
 
+    // No application-side use.
     public UserEventHistory(@NonNull String userId, @NonNull String eventId, @NonNull HistoryStatus status, @Nullable Long updatedAtMs) {
         this.userId = userId;
         this.eventId = eventId;

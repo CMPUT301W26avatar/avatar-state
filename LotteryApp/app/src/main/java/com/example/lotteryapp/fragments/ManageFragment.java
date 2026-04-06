@@ -8,7 +8,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,9 +34,7 @@ import com.example.lotteryapp.activities.EnrolledListActivity;
 import com.example.lotteryapp.activities.InvitedListActivity;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.EventAddress;
-import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
-import com.example.lotteryapp.services.storage.UserStorage;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.datepicker.MaterialDatePicker;
@@ -94,14 +91,20 @@ public class ManageFragment extends Fragment {
             @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState
     ) {
+        // inflate fragment layout and keep root view for binding
         View view = inflater.inflate(R.layout.fragment_manage, container, false);
 
+        // resolve storage dependency used throughout the fragment
         eventStorage = ServiceLocator.getEventStorage();
+
+        // container that will hold dynamically rendered managed event cards
         upcomingEventListContainer = view.findViewById(R.id.layout_upcoming_event_item);
 
+        // launch create dialog from floating action button
         FloatingActionButton fab = view.findViewById(R.id.fab_add_event);
         fab.setOnClickListener(v -> showCreateEventDialog());
 
+        // load organizer events immediately when view is created
         loadUpcomingEvents();
         return view;
     }
@@ -213,7 +216,9 @@ public class ManageFragment extends Fragment {
         startActivity(intent);
     }
 
-
+    /**
+     * finds a material switch by resource name and returns null if the id does not exist or is not a switch
+     */
     private MaterialSwitch findOptionalSwitch(View root, String idName) {
         int id = requireContext().getResources().getIdentifier(idName, "id", requireContext().getPackageName());
         if (id == 0) {
@@ -223,11 +228,18 @@ public class ManageFragment extends Fragment {
         return found instanceof MaterialSwitch ? (MaterialSwitch) found : null;
     }
 
+    /**
+     * finds an optional view by resource name and returns null when the view is not present in the layout
+     */
     private View findOptionalView(View root, String idName) {
         int id = requireContext().getResources().getIdentifier(idName, "id", requireContext().getPackageName());
         return id == 0 ? null : root.findViewById(id);
     }
 
+    /**
+     * checks whether the given event supports and currently reports a private event flag
+     *      returns true or false for the result
+     */
     private boolean isPrivateEvent(Event event) {
         if (event == null) {
             return false;
@@ -241,6 +253,9 @@ public class ManageFragment extends Fragment {
         }
     }
 
+    /**
+     * applies the private event flag to the given event when the setter exists
+     */
     private void setPrivateEventFlag(Event event, boolean isPrivate) {
         if (event == null) {
             return;
@@ -252,6 +267,11 @@ public class ManageFragment extends Fragment {
         }
     }
 
+    /**
+     * synchronizes create or update dialog controls after the private event toggle changes
+     *      private events may still use waitlist controls but must not allow geolocation restrictions
+     *      this method also updates dependent layouts and clears radius input when geo constraints are disabled
+     */
     private void syncPrivateEventUi(
             boolean isPrivate,
             MaterialSwitch switchWaitlist,
@@ -292,6 +312,9 @@ public class ManageFragment extends Fragment {
         }
     }
 
+    /**
+     * resolves a basic event status from explicit dialog field values
+     */
     private Event.EventStatus resolveStatusForDialog(boolean isPrivateEvent, long now, Long regStartMs, Long regEndMs, Long eventDateMs) {
         if (regStartMs == null || regEndMs == null || eventDateMs == null) {
             return Event.EventStatus.REG_UPCOMING;
@@ -361,7 +384,6 @@ public class ManageFragment extends Fragment {
      *      enter event detail fields
      *      mandatory: event capacity, title, reg start/end and event date
      *      optional: description, location, waitlist capacity, geolocational data
-     *
      *      can also clear all fields
      */
     private void showCreateEventDialog() {
@@ -391,14 +413,12 @@ public class ManageFragment extends Fragment {
         currentPreviewImage = view.findViewById(R.id.iv_event_poster_preview);
         selectedImageUri = null; // Reset for new dialog
 
-        cardAddMedia.setOnClickListener(v -> {
-            pickMedia.launch(new PickVisualMediaRequest.Builder()
-                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
-                    .build());
-        });
+        cardAddMedia.setOnClickListener(v -> pickMedia.launch(new PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                .build()));
 
         // use dialog-local holders to keep a fresh state
-        //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
+        //  prevent CreateEventDialog and UpdateEventDialog from leaking into each other
         final Long[] localEventDateMs = {null};
         final Long[] localStartDateMs = {null};
         final Long[] localEndDateMs = {null};
@@ -542,11 +562,6 @@ public class ManageFragment extends Fragment {
                 selectedImageUri = null;
                 currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
                 currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
-
-//                EditText organizers = view.findViewById(R.id.et_organizers);
-//                if (organizers != null) {
-//                    organizers.setText("");
-//                }
             });
         }
 
@@ -771,6 +786,9 @@ public class ManageFragment extends Fragment {
         dialog.show();
     }
 
+    /**
+     * performs event upsert followed by address save then refreshes ui on success or shows error feedback on failure
+     */
     private void performUpsert(Event event, Dialog dialog) {
         eventStorage.upsertEvent(
                 event,
@@ -802,7 +820,6 @@ public class ManageFragment extends Fragment {
      *      mandatory: event capacity, title, reg start/end and event date (saved from create)
      *      optional: description, location, waitlist capacity, geolocational data
      *      unable to: edit event date, or reg start/end
-     *
      *      can also clear all fields
      */
     private void showUpdateEventDialog(Event event) {
@@ -842,14 +859,12 @@ public class ManageFragment extends Fragment {
             currentPreviewImage.setImageTintList(null);
         }
 
-        cardAddMedia.setOnClickListener(v -> {
-            pickMedia.launch(new PickVisualMediaRequest.Builder()
-                    .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
-                    .build());
-        });
+        cardAddMedia.setOnClickListener(v -> pickMedia.launch(new PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                .build()));
 
         // use dialog-local holders to keep a fresh state
-        //  prevent CreateEventDialog and UpdateEventDialog from leaking into eachother
+        //  prevent CreateEventDialog and UpdateEventDialog from leaking into each other
         final Long[] localEventDateMs = {event.getEventDateMs()};
         final Long[] localStartDateMs = {event.getRegStartMs()};
         final Long[] localEndDateMs = {event.getRegEndMs()};
@@ -1297,14 +1312,15 @@ public class ManageFragment extends Fragment {
         dialog.show();
     }
 
+    /**
+     * uploads the selected poster image for the given event and returns its download url on success
+     */
     private void uploadImage(Uri uri, String eventId, OnSuccessListener<String> onSuccess, OnFailureListener onFailure) {
         StorageReference ref = ServiceLocator.getFirebase().getStorage().getReference()
                 .child("posters/" + eventId + ".jpg");
 
         ref.putFile(uri)
-                .addOnSuccessListener(taskSnapshot -> ref.getDownloadUrl().addOnSuccessListener(downloadUri -> {
-                    onSuccess.onSuccess(downloadUri.toString());
-                }))
+                .addOnSuccessListener(taskSnapshot -> ref.getDownloadUrl().addOnSuccessListener(downloadUri -> onSuccess.onSuccess(downloadUri.toString())))
                 .addOnFailureListener(onFailure);
     }
 
@@ -1459,7 +1475,6 @@ public class ManageFragment extends Fragment {
 
     /**
      * Converts a MaterialDatePicker UTC day selection into a local-noon epoch value.
-     *
      * Why local noon:
      *      storing picker UTC midnight directly can display as the previous day
      *      in time zones behind UTC
@@ -1486,6 +1501,10 @@ public class ManageFragment extends Fragment {
         return localCal.getTimeInMillis();
     }
 
+    /**
+     * converts a stored local event date back into the utc midnight value expected by material date pickers
+     *      if no stored date exists this returns today's utc date selection
+     */
     private long dateSelectionForPicker(@Nullable Long storedLocalMs) {
         if (storedLocalMs == null) {
             return MaterialDatePicker.todayInUtcMilliseconds();

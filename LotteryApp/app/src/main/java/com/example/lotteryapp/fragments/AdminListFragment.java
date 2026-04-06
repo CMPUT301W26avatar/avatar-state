@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 /**
  * fragment for displaying admin lists inside of AdminActivity
- *      shows events profiles, images or requested admins
+ *      shows events profiles, images, events, notifications and requested admins
  */
 public class AdminListFragment extends Fragment {
 
@@ -118,6 +118,9 @@ public class AdminListFragment extends Fragment {
         return view;
     }
 
+    /**
+     * updates the storage path label and back button state for image navigation
+     */
     private void updatePathUI() {
         if (tvCurrentPath != null && currentStorageFolder != null) {
             String path = currentStorageFolder.getPath();
@@ -127,6 +130,10 @@ public class AdminListFragment extends Fragment {
         }
     }
 
+
+    /**
+     * navigates to the parent storage folder when not already at the root
+     */
     private void navigateUp() {
         if (currentStorageFolder != null && !currentStorageFolder.getPath().equals("/")) {
             currentStorageFolder = currentStorageFolder.getParent();
@@ -135,6 +142,10 @@ public class AdminListFragment extends Fragment {
         }
     }
 
+
+    /**
+     * switches the storage view to the selected folder and reloads its contents
+     */
     private void navigateToFolder(StorageReference folder) {
         currentStorageFolder = folder;
         updatePathUI();
@@ -171,7 +182,7 @@ public class AdminListFragment extends Fragment {
      *      calls EventStorage.getAllUsers() for users
      */
     private void loadData() {
-        // TODO: Implement loading all user profiles from Firestore "users" collection
+        // profiles mode loads every user document and displays them through the shared adapter pipeline
         if (TYPE_PROFILES.equals(type)) {
             progressBar.setVisibility(View.VISIBLE);
             ServiceLocator.getUserStorage().getAllUsers(users -> {
@@ -205,7 +216,7 @@ public class AdminListFragment extends Fragment {
             return;
         }
 
-        // Load events from Firestore
+        // events mode loads all events for admin review
         if (TYPE_EVENTS.equals(type)) {
             progressBar.setVisibility(View.VISIBLE);
             ServiceLocator.getEventStorage().getAllEvents(events -> {
@@ -215,6 +226,7 @@ public class AdminListFragment extends Fragment {
             }, e -> progressBar.setVisibility(View.GONE));
         }
 
+        // notification logs mode loads every saved log entry for inspection
         if (TYPE_NOTIFICATION_LOGS.equals(type)) {
             progressBar.setVisibility(View.VISIBLE);
             ServiceLocator.getNotificationLogStorage().getAllNotificationLogs(logs -> {
@@ -227,19 +239,18 @@ public class AdminListFragment extends Fragment {
             });
         }
 
+        // requested admins mode first fetches the requested admin ids then resolves them for user details
         if (TYPE_REQUESTED_ADMINS.equals(type)) {
             progressBar.setVisibility(View.VISIBLE);
-            ServiceLocator.getAdminStorage().getRequestedAdmins(requestIds -> {
-                ServiceLocator.getUserStorage().getAllUsers(users -> {
-                    allItems.clear();
-                    for (User user : users) {
-                        if (requestIds.contains(user.getUUID())) {
-                            allItems.add(user);
-                        }
+            ServiceLocator.getAdminStorage().getRequestedAdmins(requestIds -> ServiceLocator.getUserStorage().getAllUsers(users -> {
+                allItems.clear();
+                for (User user : users) {
+                    if (requestIds.contains(user.getUUID())) {
+                        allItems.add(user);
                     }
-                    applyFilterAndSort();
-                }, e -> progressBar.setVisibility(View.GONE));
-            }, e -> progressBar.setVisibility(View.GONE));
+                }
+                applyFilterAndSort();
+            }, e -> progressBar.setVisibility(View.GONE)), e -> progressBar.setVisibility(View.GONE));
         }
     }
 
@@ -273,6 +284,9 @@ public class AdminListFragment extends Fragment {
         tvEmpty.setVisibility(filtered.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
+    /**
+     * determines whether a storage reference should be treated as a folder in the current list
+     */
     private boolean isStorageFolder(Object item) {
         if (!(item instanceof StorageReference)) return false;
         // StorageReference.listAll() prefixes are folders, items are files.
@@ -287,6 +301,9 @@ public class AdminListFragment extends Fragment {
                 .anyMatch(it -> it == item);
     }
 
+    /**
+     * returns the display label used for filtering sorting and row text across all supported item types
+     */
     private String getItemDisplayName(Object item) {
         if (item instanceof Event) {
             String title = ((Event) item).getTitle();
@@ -336,6 +353,9 @@ public class AdminListFragment extends Fragment {
         return typeStr + " • " + title;
     }
 
+    /**
+     * maps notification types to user facing labels for the admin list
+     */
     private String formatNotificationType(NotificationLog.NotificationType type) {
         if (type == null) {
             return "Notification";
@@ -344,15 +364,19 @@ public class AdminListFragment extends Fragment {
         switch (type) {
             case WON_LOTTERY:
                 typeStr = "Invitation";
+                break;
             case LOST_LOTTERY:
                 typeStr = "Lottery Result";
                 break;
             case MESSAGE:
                 typeStr = "Message";
+                break;
             case PRIVATE_INVITATION:
                 typeStr = "Private Event Invitation";
+                break;
             case EVENT_ANNOUNCEMENT:
                 typeStr = "Event Announcement";
+                break;
             default:
                 typeStr = "Notification";
                 break;
@@ -390,14 +414,23 @@ public class AdminListFragment extends Fragment {
             notifyDataSetChanged();
         }
 
+        /**
+         * determines whether a storage reference belongs to the folder prefix portion of the storage result
+         */
         private boolean isStorageFolderReference(StorageReference ref) {
             return allItems.indexOf(ref) < getPrefixCount();
         }
 
+        /**
+         * returns how many items should be treated as folders
+         */
         private int getPrefixCount() {
             return 0; // fallback
         }
 
+        /**
+         * chooses the row view type for the item at the given position
+         */
         @Override
         public int getItemViewType(int position) {
             if (TYPE_IMAGES.equals(type)) {
@@ -418,7 +451,9 @@ public class AdminListFragment extends Fragment {
             return VIEW_TYPE_DEFAULT;
         }
 
-        ///  create new view holder
+        /**
+         * inflates the correct row layout for each supported view type
+         */
         @NonNull
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -434,7 +469,9 @@ public class AdminListFragment extends Fragment {
             return new ViewHolder(view);
         }
 
-        /// bind data to new view holder
+        /**
+         * binds each row according to whether the item is an image folder or default admin list entry
+         */
         @Override
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
             Object item = displayItems.get(position);
@@ -453,9 +490,7 @@ public class AdminListFragment extends Fragment {
                                 .error(R.drawable.ic_image_placeholder)
                                 .into(imgHolder.poster);
                     }
-                }).addOnFailureListener(e -> {
-                    imgHolder.poster.setImageResource(R.drawable.ic_image_placeholder);
-                });
+                }).addOnFailureListener(e -> imgHolder.poster.setImageResource(R.drawable.ic_image_placeholder));
 
                 imgHolder.btnDelete.setOnClickListener(v -> deleteStorageFile(fileRef));
             }
@@ -481,18 +516,17 @@ public class AdminListFragment extends Fragment {
             }
         }
 
+        /**
+         * shows a confirmation dialog and deletes the given storage file from firebase then refreshes data on success
+         */
         private void deleteStorageFile(StorageReference fileRef) {
             new AlertDialog.Builder(requireContext())
                     .setTitle("Delete Image")
                     .setMessage("Are you sure you want to delete " + fileRef.getName() + " from Firebase Storage?")
-                    .setPositiveButton("Delete", (dialog, which) -> {
-                        fileRef.delete().addOnSuccessListener(unused -> {
-                            Toast.makeText(requireContext(), "File deleted", Toast.LENGTH_SHORT).show();
-                            loadData();
-                        }).addOnFailureListener(e -> {
-                            Toast.makeText(requireContext(), "Failed to delete file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                        });
-                    })
+                    .setPositiveButton("Delete", (dialog, which) -> fileRef.delete().addOnSuccessListener(unused -> {
+                        Toast.makeText(requireContext(), "File deleted", Toast.LENGTH_SHORT).show();
+                        loadData();
+                    }).addOnFailureListener(e -> Toast.makeText(requireContext(), "Failed to delete file: " + e.getMessage(), Toast.LENGTH_SHORT).show()))
                     .setNegativeButton("Cancel", null)
                     .show();
         }
@@ -517,7 +551,7 @@ public class AdminListFragment extends Fragment {
         }
         /**
          * Shows the promote admin dialog for a requested admin
-         *      get requested admins from firbase via AdminStorage
+         *      get requested admins from firebase via AdminStorage
          */
         private void showPromoteNewAdminDialog(User user) {
             View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_promote_admin, null);
@@ -538,30 +572,26 @@ public class AdminListFragment extends Fragment {
                 btnClose.setOnClickListener(v -> dialog.dismiss());
             }
             if (btnCancelRequest != null) {
-                btnCancelRequest.setOnClickListener(v -> {
-                    astore.removeRequestedAdmin(user.getUUID(), unused -> {
-                        Toast.makeText(requireContext(), user.getName() + "'s request was cancelled", Toast.LENGTH_LONG).show();
-                        dialog.dismiss();
-                        loadData();
-                        }, e -> {
-                            Toast.makeText(requireContext(), "Failed to cancel request", Toast.LENGTH_LONG).show();
-                            e.printStackTrace();
-                        }
-                    );
-                });
+                btnCancelRequest.setOnClickListener(v -> astore.removeRequestedAdmin(user.getUUID(), unused -> {
+                    Toast.makeText(requireContext(), user.getName() + "'s request was cancelled", Toast.LENGTH_LONG).show();
+                    dialog.dismiss();
+                    loadData();
+                    }, e -> {
+                        Toast.makeText(requireContext(), "Failed to cancel request", Toast.LENGTH_LONG).show();
+                        e.printStackTrace();
+                    }
+                ));
             }
             if (btnAcceptRequest != null) {
-                btnAcceptRequest.setOnClickListener(v -> {
-                    astore.promoteToAdmin(user.getUUID(), unused -> {
-                        Toast.makeText(requireContext(), user.getName() + " is now an admin", Toast.LENGTH_LONG).show();
-                        dialog.dismiss();
-                        loadData();
+                btnAcceptRequest.setOnClickListener(v -> astore.promoteToAdmin(user.getUUID(), unused -> {
+                    Toast.makeText(requireContext(), user.getName() + " is now an admin", Toast.LENGTH_LONG).show();
+                    dialog.dismiss();
+                    loadData();
 
-                    }, e -> {
-                        Toast.makeText(requireContext(), "Failed to promote new admin", Toast.LENGTH_LONG).show();
-                        e.printStackTrace();
-                    });
-                });
+                }, e -> {
+                    Toast.makeText(requireContext(), "Failed to promote new admin", Toast.LENGTH_LONG).show();
+                    e.printStackTrace();
+                }));
             }
             dialog.show();
         }
@@ -570,18 +600,17 @@ public class AdminListFragment extends Fragment {
          * Shows a full dialog for a notification log entry.
          */
         private void showNotificationLogDialog(NotificationLog log) {
-            StringBuilder sb = new StringBuilder();
 
-            sb.append("Type: ").append(safeText(formatNotificationType(log.getType()), "N/A")).append("\n\n");
-            sb.append("Title: ").append(safeText(log.getTitle(), "N/A")).append("\n\n");
-            sb.append("Message: ").append(safeText(log.getMessage(), "N/A")).append("\n\n");
-            sb.append("Organizer ID: ").append(safeText(log.getOrganizerId(), "N/A")).append("\n");
-            sb.append("Event ID: ").append(safeText(log.getEventId(), "N/A")).append("\n");
-            sb.append("Time: ").append(log.getTimestamp());
+            String sb = "Type: " + safeText(formatNotificationType(log.getType()), "N/A") + "\n\n" +
+                    "Title: " + safeText(log.getTitle(), "N/A") + "\n\n" +
+                    "Message: " + safeText(log.getMessage(), "N/A") + "\n\n" +
+                    "Organizer ID: " + safeText(log.getOrganizerId(), "N/A") + "\n" +
+                    "Event ID: " + safeText(log.getEventId(), "N/A") + "\n" +
+                    "Time: " + log.getTimestamp();
 
             new AlertDialog.Builder(requireContext())
                     .setTitle("Notification Log")
-                    .setMessage(sb.toString())
+                    .setMessage(sb)
                     .setPositiveButton("Close", null)
                     .show();
         }
@@ -594,6 +623,9 @@ public class AdminListFragment extends Fragment {
             return displayItems.size();
         }
 
+        /**
+         * view holder for simple text based items in the list
+         */
         class ViewHolder extends RecyclerView.ViewHolder {
             TextView title;
             ViewHolder(View view) {
@@ -602,6 +634,9 @@ public class AdminListFragment extends Fragment {
             }
         }
 
+        /**
+         * view holder for items that include an image preview
+         */
         class ImageViewHolder extends RecyclerView.ViewHolder {
             ImageView poster;
             TextView title;
@@ -615,6 +650,9 @@ public class AdminListFragment extends Fragment {
             }
         }
 
+        /**
+         * view holder for folder style items used for navigation or grouping
+         */
         class FolderViewHolder extends RecyclerView.ViewHolder {
             TextView title;
             ImageView icon;
