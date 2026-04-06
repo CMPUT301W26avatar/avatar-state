@@ -25,14 +25,12 @@ public class NotificationLog {
 
     /** Categorises the reason an organizer sent a notification. */
     public enum NotificationType {
-        /** Standard lottery invitation to join an event. */
-        INVITATION,
-        /** Result of the lottery draw (selected or not). */
-        LOTTERY_RESULT,
+        /** Entrant was selected (won) in the lottery draw; actionable — accept or decline. */
+        WON_LOTTERY,
+        /** Entrant was not selected (lost) in the lottery draw. */
+        LOST_LOTTERY,
         /** Generic organizer message to an entrant. */
         MESSAGE,
-        /** Comment-related notification. */
-        COMMENT,
         /** Direct (private) invitation to an event. */
         PRIVATE_INVITATION,
         /** Invitation to become a co-organizer of an event. */
