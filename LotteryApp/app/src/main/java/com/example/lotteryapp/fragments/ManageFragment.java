@@ -58,7 +58,7 @@ import java.lang.reflect.Method;
  */
 public class ManageFragment extends Fragment {
 
-    private static final int UNLIMITED_WAITLIST_SENTINEL = 2147483647;
+    public static final int UNLIMITED_WAITLIST_SENTINEL = 2147483647;
 
     private LinearLayout upcomingEventListContainer;
     private EventStorage eventStorage;
@@ -1109,6 +1109,28 @@ public class ManageFragment extends Fragment {
                 currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
                 removePoster[0] = true;
                 currentRemovePosterButton.setVisibility(View.GONE);
+            });
+        }
+
+        View btnDeleteEvent = view.findViewById(R.id.btn_delete_event);
+        if (btnDeleteEvent != null) {
+            btnDeleteEvent.setOnClickListener(v -> {
+                if (event == null || event.getEventId() == null || event.getEventId().trim().isEmpty()) {
+                    Toast.makeText(requireContext(), "Missing event ID", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                        .setTitle("Delete Event")
+                        .setMessage("Are you sure you want to delete this event?")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Delete", (d, which) -> {
+                            eventStorage.deleteEvent(event.getEventId());
+                            Toast.makeText(requireContext(), "Event deleted", Toast.LENGTH_SHORT).show();
+                            dialog.dismiss();
+                            loadUpcomingEvents();
+                        })
+                        .show();
             });
         }
 

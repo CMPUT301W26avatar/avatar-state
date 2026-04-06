@@ -20,15 +20,29 @@
 
             <ImageView
                 android:id="@+id/iv_event_poster"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
                 android:scaleType="centerCrop"
-                android:src="@drawable/ic_image_placeholder"
-                app:tint="?attr/colorOnTertiaryContainer"
+                android:visibility="gone"
+                app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <!-- Centered placeholder icon -->
+            <ImageView
+                android:id="@+id/iv_placeholder_icon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_image_placeholder"
+                android:scaleType="fitXY"
+                android:alpha="0.7"
+                app:tint="?attr/colorOnTertiaryContainer"
+
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/tv_tag"
