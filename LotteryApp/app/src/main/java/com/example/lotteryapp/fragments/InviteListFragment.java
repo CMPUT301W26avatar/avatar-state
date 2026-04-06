@@ -21,6 +21,12 @@ import com.example.lotteryapp.services.storage.EventPoolStorage;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Fragment that displays a filterable list of entrants for a given event.
+ * Supports four views — invited (pending), declined, cancelled, and accepted — via
+ * the {@code type} argument. Used as a tab page inside {@link com.example.lotteryapp.activities.InvitesDashboardActivity}.
+ * Organizers can cancel a pending invitation directly from the invited tab.
+ */
 public class InviteListFragment extends Fragment {
 
     public static final String ARG_EVENT_ID = "eventId";

@@ -14,6 +14,14 @@ import com.example.lotteryapp.fragments.InviteListFragment;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
+/**
+ * Activity that hosts a tabbed dashboard for an organizer to view and manage entrant
+ * invitations for a specific event.
+ * Uses {@link androidx.viewpager2.widget.ViewPager2} with four tabs — Pending, Cancelled,
+ * Declined, and Accepted — each backed by an {@link com.example.lotteryapp.fragments.InviteListFragment}.
+ * The event ID must be passed via the {@link #EXTRA_EVENT_ID} intent extra; the activity
+ * finishes immediately if the extra is absent or blank.
+ */
 public class InvitesDashboardActivity extends AppCompatActivity {
 
     public static final String EXTRA_EVENT_ID = "eventId";
@@ -43,6 +51,11 @@ public class InvitesDashboardActivity extends AppCompatActivity {
         setupPager();
     }
 
+    /**
+     * Rebuilds the ViewPager adapter and re-attaches the tab mediator, preserving the
+     * currently selected tab. Called by {@link com.example.lotteryapp.fragments.InviteListFragment}
+     * after an invitation is cancelled so all tabs reflect the updated data.
+     */
     public void refreshDashboard() {
         if (viewPager == null || tabLayout == null || eventId == null || eventId.trim().isEmpty()) {
             return;
