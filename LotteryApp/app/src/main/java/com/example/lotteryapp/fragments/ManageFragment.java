@@ -69,6 +69,7 @@ public class ManageFragment extends Fragment {
     // Image picking state
     private Uri selectedImageUri;
     private ImageView currentPreviewImage;
+    private View currentRemovePosterButton;
 
     private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
             registerForActivityResult(new ActivityResultContracts.PickVisualMedia(), uri -> {
@@ -78,6 +79,9 @@ public class ManageFragment extends Fragment {
                         currentPreviewImage.setImageURI(uri);
                         currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
                         currentPreviewImage.setImageTintList(null); // Clear placeholder tint
+                    }
+                    if (currentRemovePosterButton != null) {
+                        currentRemovePosterButton.setVisibility(View.VISIBLE);
                     }
                 }
             });
@@ -389,12 +393,20 @@ public class ManageFragment extends Fragment {
         // Poster handling
         View cardAddMedia = view.findViewById(R.id.card_add_media);
         currentPreviewImage = view.findViewById(R.id.iv_event_poster_preview);
+        currentRemovePosterButton = view.findViewById(R.id.btn_remove_poster);
         selectedImageUri = null; // Reset for new dialog
 
         cardAddMedia.setOnClickListener(v -> {
             pickMedia.launch(new PickVisualMediaRequest.Builder()
                     .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
                     .build());
+        });
+
+        currentRemovePosterButton.setOnClickListener(v -> {
+            selectedImageUri = null;
+            currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
+            currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+            currentRemovePosterButton.setVisibility(View.GONE);
         });
 
         // use dialog-local holders to keep a fresh state
@@ -542,6 +554,7 @@ public class ManageFragment extends Fragment {
                 selectedImageUri = null;
                 currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
                 currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+                currentRemovePosterButton.setVisibility(View.GONE);
 
 //                EditText organizers = view.findViewById(R.id.et_organizers);
 //                if (organizers != null) {
@@ -831,7 +844,10 @@ public class ManageFragment extends Fragment {
         // Poster handling
         View cardAddMedia = view.findViewById(R.id.card_add_media);
         currentPreviewImage = view.findViewById(R.id.iv_event_poster_preview);
+        currentRemovePosterButton = view.findViewById(R.id.btn_remove_poster);
         selectedImageUri = null;
+
+        final boolean[] removePoster = {false};
 
         if (event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
             Glide.with(this)
@@ -840,7 +856,16 @@ public class ManageFragment extends Fragment {
                     .centerCrop()
                     .into(currentPreviewImage);
             currentPreviewImage.setImageTintList(null);
+            currentRemovePosterButton.setVisibility(View.VISIBLE);
         }
+
+        currentRemovePosterButton.setOnClickListener(v -> {
+            removePoster[0] = true;
+            selectedImageUri = null;
+            currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
+            currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+            currentRemovePosterButton.setVisibility(View.GONE);
+        });
 
         cardAddMedia.setOnClickListener(v -> {
             pickMedia.launch(new PickVisualMediaRequest.Builder()
@@ -1060,122 +1085,124 @@ public class ManageFragment extends Fragment {
                 selectedImageUri = null;
                 currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
                 currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+                removePoster[0] = true;
+                currentRemovePosterButton.setVisibility(View.GONE);
             });
         }
 
         // get values from EditText views
         view.findViewById(R.id.btn_update_event).setOnClickListener(v -> {
-                    String title = etEventName.getText().toString().trim();
-                    String description = etDescription.getText().toString().trim();
-                    String locationInput = etLocation.getText().toString().trim();
-                    String capacityText = etEventCapacity.getText().toString().trim();
-                    String radiusText = etLocationRadiusKm.getText().toString().trim();
-                    boolean isPrivateEvent = switchPrivateEvent != null && switchPrivateEvent.isChecked();
-                    boolean waitlistHasLimit = switchWaitlist.isChecked();
-                    boolean geoConstraint = !isPrivateEvent && switchGeo.isChecked();
+            String title = etEventName.getText().toString().trim();
+            String description = etDescription.getText().toString().trim();
+            String locationInput = etLocation.getText().toString().trim();
+            String capacityText = etEventCapacity.getText().toString().trim();
+            String radiusText = etLocationRadiusKm.getText().toString().trim();
+            boolean isPrivateEvent = switchPrivateEvent != null && switchPrivateEvent.isChecked();
+            boolean waitlistHasLimit = switchWaitlist.isChecked();
+            boolean geoConstraint = !isPrivateEvent && switchGeo.isChecked();
 
-                    // input entry enforcement
+            // input entry enforcement
 
-                    if (title.isEmpty()) {
-                        Toast.makeText(requireContext(), "Title is required", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (title.isEmpty()) {
+                Toast.makeText(requireContext(), "Title is required", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    if (capacityText.isEmpty()) {
-                        Toast.makeText(requireContext(), "Event capacity is required", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (capacityText.isEmpty()) {
+                Toast.makeText(requireContext(), "Event capacity is required", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    final int eventCapacity;
-                    try {
-                        eventCapacity = Integer.parseInt(capacityText);
-                    } catch (NumberFormatException e) {
-                        Toast.makeText(requireContext(), "Capacity must be a valid number", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            final int eventCapacity;
+            try {
+                eventCapacity = Integer.parseInt(capacityText);
+            } catch (NumberFormatException e) {
+                Toast.makeText(requireContext(), "Capacity must be a valid number", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    if (eventCapacity <= 0) {
-                        Toast.makeText(requireContext(), "Capacity must be greater than 0", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (eventCapacity <= 0) {
+                Toast.makeText(requireContext(), "Capacity must be greater than 0", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    int waitlistCapacity = UNLIMITED_WAITLIST_SENTINEL;
-                    if (waitlistHasLimit) {
-                        String waitlistText = etWaitlistCapacity.getText().toString().trim();
+            int waitlistCapacity = UNLIMITED_WAITLIST_SENTINEL;
+            if (waitlistHasLimit) {
+                String waitlistText = etWaitlistCapacity.getText().toString().trim();
 
-                        if (waitlistText.isEmpty()) {
-                            Toast.makeText(requireContext(), "Waitlist capacity is required when waitlist is enabled", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
+                if (waitlistText.isEmpty()) {
+                    Toast.makeText(requireContext(), "Waitlist capacity is required when waitlist is enabled", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                        try {
-                            waitlistCapacity = Integer.parseInt(waitlistText);
-                        } catch (NumberFormatException e) {
-                            Toast.makeText(requireContext(), "Waitlist capacity must be a valid number", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
+                try {
+                    waitlistCapacity = Integer.parseInt(waitlistText);
+                } catch (NumberFormatException e) {
+                    Toast.makeText(requireContext(), "Waitlist capacity must be a valid number", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                        if (waitlistCapacity <= 0) {
-                            Toast.makeText(requireContext(), "Waitlist capacity must be greater than 0", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                    }
+                if (waitlistCapacity <= 0) {
+                    Toast.makeText(requireContext(), "Waitlist capacity must be greater than 0", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            }
 
-                    // when geolocation restriction is enabled, require both a location and a radius
-                    // radius is persisted on EventAddress under /geo/address
-                    final Integer locationRadiusKm;
-                    if (geoConstraint) {
-                        if (locationInput.isEmpty()) {
-                            Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
+            // when geolocation restriction is enabled, require both a location and a radius
+            // radius is persisted on EventAddress under /geo/address
+            final Integer locationRadiusKm;
+            if (geoConstraint) {
+                if (locationInput.isEmpty()) {
+                    Toast.makeText(requireContext(), "Location is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                        if (radiusText.isEmpty()) {
-                            Toast.makeText(requireContext(), "Location radius is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
+                if (radiusText.isEmpty()) {
+                    Toast.makeText(requireContext(), "Location radius is required when geolocation is enabled", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                        try {
-                            locationRadiusKm = Integer.parseInt(radiusText);
-                        } catch (NumberFormatException e) {
-                            Toast.makeText(requireContext(), "Location radius must be a valid number", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
+                try {
+                    locationRadiusKm = Integer.parseInt(radiusText);
+                } catch (NumberFormatException e) {
+                    Toast.makeText(requireContext(), "Location radius must be a valid number", Toast.LENGTH_SHORT).show();
+                    return;
+                }
 
-                        if (locationRadiusKm <= 0) {
-                            Toast.makeText(requireContext(), "Location radius must be greater than 0", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                    } else {
-                        etLocationRadiusKm.setText("");
-                        locationRadiusKm = null;
-                    }
+                if (locationRadiusKm <= 0) {
+                    Toast.makeText(requireContext(), "Location radius must be greater than 0", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            } else {
+                etLocationRadiusKm.setText("");
+                locationRadiusKm = null;
+            }
 
-                    if (localEventDateMs[0] == null) {
-                        Toast.makeText(requireContext(), "Event date is required", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (localEventDateMs[0] == null) {
+                Toast.makeText(requireContext(), "Event date is required", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    if (localStartDateMs[0] == null || localEndDateMs[0] == null) {
-                        Toast.makeText(requireContext(), "Registration period is required", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (localStartDateMs[0] == null || localEndDateMs[0] == null) {
+                Toast.makeText(requireContext(), "Registration period is required", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    if (localStartDateMs[0] >= localEndDateMs[0]) {
-                        Toast.makeText(requireContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (localStartDateMs[0] >= localEndDateMs[0]) {
+                Toast.makeText(requireContext(), "End date must be after start date", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    if (localEndDateMs[0] > localEventDateMs[0]) {
-                        Toast.makeText(requireContext(), "End date must be before the event date", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
+            if (localEndDateMs[0] > localEventDateMs[0]) {
+                Toast.makeText(requireContext(), "End date must be before the event date", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                    final int finalWaitlistCapacity = waitlistCapacity;
-                    final String finalLocationInput = locationInput;
+            final int finalWaitlistCapacity = waitlistCapacity;
+            final String finalLocationInput = locationInput;
 
-                    // run as one atomic transaction
-                    // eventStorage.upsertEvent got refactored to require onSuccess and onFailure listeners
+            // run as one atomic transaction
+            // eventStorage.upsertEvent got refactored to require onSuccess and onFailure listeners
             Runnable saveAction = () -> {
                 event.setTitle(title);
                 event.setEventDateMs(localEventDateMs[0]);
@@ -1245,17 +1272,20 @@ public class ManageFragment extends Fragment {
                         ).show()
                 );
 
-                        if (selectedImageUri != null) {
-                            uploadImage(selectedImageUri, event.getEventId(), url -> {
-                                event.setPosterUrl(url);
-                                performUpsert(event, dialog);
-                            }, e -> {
-                                Toast.makeText(requireContext(), "Failed to upload image", Toast.LENGTH_SHORT).show();
-                                performUpsert(event, dialog);
-                            });
-                        } else {
-                            performUpsert(event, dialog);
-                        }
+                if (selectedImageUri != null) {
+                    uploadImage(selectedImageUri, event.getEventId(), url -> {
+                        event.setPosterUrl(url);
+                        performUpsert(event, dialog);
+                    }, e -> {
+                        Toast.makeText(requireContext(), "Failed to upload image", Toast.LENGTH_SHORT).show();
+                        performUpsert(event, dialog);
+                    });
+                } else {
+                    if (removePoster[0]) {
+                        event.setPosterUrl(null);
+                    }
+                    performUpsert(event, dialog);
+                }
             };
 
             String currentDisplayedLocation = etLocation.getText().toString().trim();
@@ -1291,8 +1321,8 @@ public class ManageFragment extends Fragment {
                         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
                     }
                 });
-                    }
-                });
+            }
+        });
 
         dialog.show();
     }
