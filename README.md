@@ -1,6 +1,3 @@
-# avatar-state
-The indexes below were added for easy maneuvering around project docs and links
-
 ## Instructions
 
 ### Logging as an Existing User
