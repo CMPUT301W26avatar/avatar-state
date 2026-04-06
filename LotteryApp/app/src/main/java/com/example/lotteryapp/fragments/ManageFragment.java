@@ -1063,6 +1063,28 @@ public class ManageFragment extends Fragment {
             });
         }
 
+        View btnDeleteEvent = view.findViewById(R.id.btn_delete_event);
+        if (btnDeleteEvent != null) {
+            btnDeleteEvent.setOnClickListener(v -> {
+                if (event == null || event.getEventId() == null || event.getEventId().trim().isEmpty()) {
+                    Toast.makeText(requireContext(), "Missing event ID", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                        .setTitle("Delete Event")
+                        .setMessage("Are you sure you want to delete this event?")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Delete", (d, which) -> {
+                            eventStorage.deleteEvent(event.getEventId());
+                            Toast.makeText(requireContext(), "Event deleted", Toast.LENGTH_SHORT).show();
+                            dialog.dismiss();
+                            loadUpcomingEvents();
+                        })
+                        .show();
+            });
+        }
+
         // get values from EditText views
         view.findViewById(R.id.btn_update_event).setOnClickListener(v -> {
                     String title = etEventName.getText().toString().trim();

@@ -219,7 +219,7 @@
                 <com.google.android.material.textview.MaterialTextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Invite-only (skips waitlist)"
+                    android:text="Invite-only"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tv_private_label" />
@@ -298,7 +298,7 @@
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp">
+                android:layout_marginTop="24dp">
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/tv_waitlist_label"
@@ -366,6 +366,20 @@
                 android:text="Update Event"
                 android:textAllCaps="false"
                 app:cornerRadius="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_delete_event"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Delete Event"
+                android:textAllCaps="false"
+                app:iconTint="?attr/colorError"
+                android:textColor="?attr/colorError"
+                app:strokeColor="?attr/colorError"
+                app:cornerRadius="12dp" />
+
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
