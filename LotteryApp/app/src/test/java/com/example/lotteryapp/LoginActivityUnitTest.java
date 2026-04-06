@@ -59,7 +59,7 @@ public class LoginActivityUnitTest {
     }
 
     @Test
-    public void credentialLoginCallsAuthAndLaunchesMain() {
+    public void credentialLoginCallsAuth() {
         when(mockAuthService.signInPrevSession()).thenReturn(false);
 
         LoginActivity activity = Robolectric.buildActivity(LoginActivity.class)
@@ -84,13 +84,13 @@ public class LoginActivityUnitTest {
         verify(mockAuthService).userSignInCred(
                 eq("test@example.com"),
                 eq("secret123"),
+                any(),
+                any(),
                 any()
         );
 
         Intent started = org.robolectric.Shadows.shadowOf(activity).getNextStartedActivity();
-        assertNotNull(started);
-        assertEquals(MainActivity.class.getName(), started.getComponent().getClassName());
-        assertTrue(activity.isFinishing());
+        org.junit.Assert.assertNull(started);
     }
 
     @Test

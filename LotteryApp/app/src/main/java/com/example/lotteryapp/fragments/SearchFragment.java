@@ -196,6 +196,9 @@ public class SearchFragment extends Fragment {
         return view;
     }
 
+    /**
+     * initializes fragment view state after creation and triggers a one time migration to backfill event keywords
+     */
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);

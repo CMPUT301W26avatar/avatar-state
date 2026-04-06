@@ -150,6 +150,12 @@ public class HomeFragment extends Fragment {
         loadingIndicator.setVisibility(isVisible ? VISIBLE : GONE);
     }
 
+    /**
+     * initializes fragment view
+     *      check tos acceptance
+     *      set up filters
+     *      data loads
+     */
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -628,6 +634,11 @@ public class HomeFragment extends Fragment {
         );
     }
 
+    /**
+     * Runs on the user clicking accept in the lottery invite dialog
+     *          removes their entry from the invited subcollection and adds them to the enrolled subcollection
+     *          sets notification as ACCEPTED
+     */
     private void acceptLotteryInvite(int position, NotificationLog notification) {
         String uid = ServiceLocator.uid();
 
@@ -655,6 +666,11 @@ public class HomeFragment extends Fragment {
         );
     }
 
+    /**
+     * Runs on the user clicking accept in the lottery invite dialog
+     *          removes their entry from the invited subcollection and adds them to the enrolled subcollection
+     *          sets notification as
+     */
     private void declineLotteryInvite(int position, NotificationLog notification) {
         String uid = ServiceLocator.uid();
 
@@ -874,7 +890,7 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    /*
+    /**
      * Checks the current user's TOS acceptance state in Firestore.
      * If the user has not accepted, launch the full TermsOfServiceActivity.
      */

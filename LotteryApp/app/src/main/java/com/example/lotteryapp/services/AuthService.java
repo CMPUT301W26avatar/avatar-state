@@ -36,17 +36,34 @@ public class AuthService {
     /**
      * Authenticate a user anonymously by device Id using FirebaseAuth
      */
-    public void userSignUp(String name, String email, String password, Context context) {
-         auth.createUserWithEmailAndPassword(email, password).addOnCompleteListener(task ->  {
-             if (task.isSuccessful() && auth.getCurrentUser() != null) {
-                 final String UUID = auth.getCurrentUser().getUid();
-                 userStore.setNewUser(UUID, name, email);
-                 Log.d("SignUp", "Successfully created user!");
-             } else {
-                 Toast.makeText(context, "Failed to Sign Up. Try Again.", Toast.LENGTH_SHORT).show();
-                 Log.w("SignUp", task.getException());
-             }
-         });
+    public void userSignUp(
+            String name,
+            String email,
+            String password,
+            Context context,
+            Runnable onSuccess,
+            java.util.function.Consumer<String> onFailure
+    ) {
+        auth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && auth.getCurrentUser() != null) {
+                        final String UUID = auth.getCurrentUser().getUid();
+                        userStore.setNewUser(UUID, name, email);
+                        Log.d("SignUp", "Successfully created user!");
+
+                        if (onSuccess != null) onSuccess.run();
+                    } else {
+                        String error = "Failed to Sign Up. Try Again.";
+                        if (task.getException() != null) {
+                            error = task.getException().getMessage();
+                        }
+
+                        Toast.makeText(context, error, Toast.LENGTH_SHORT).show();
+                        Log.w("SignUp", task.getException());
+
+                        if (onFailure != null) onFailure.accept(error);
+                    }
+                });
     }
 
     /**
@@ -74,21 +91,35 @@ public class AuthService {
     /**
      * Set secondary sign-in credentials for the user
      */
-    public void userSignInCred(String email, String password, Context context) {
+    public void userSignInCred(
+            String email,
+            String password,
+            Context context,
+            Runnable onSuccess,
+            java.util.function.Consumer<String> onFailure
+    ) {
         if (!email.contains("@")) {
             Toast.makeText(context, "Please use a valid email", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        auth.signInWithEmailAndPassword(email, password).addOnCompleteListener(task -> {
-            if (task.isSuccessful() && auth.getCurrentUser() != null) {
-                final String UUID = auth.getCurrentUser().getUid();
-                userStore.setNewUser(UUID);
-            } else {
-               Log.e( "Login", "Sign in w/ Email & Password failed.");
-               Log.w("Login", task.getException());
-            }
-        });
+        auth.signInWithEmailAndPassword(email, password)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful() && auth.getCurrentUser() != null) {
+                        final String UUID = auth.getCurrentUser().getUid();
+                        userStore.setNewUser(UUID);
+
+                        if (onSuccess != null) onSuccess.run();
+                    } else {
+                        String error = "Login failed.";
+                        if (task.getException() != null) {
+                            error = task.getException().getMessage();
+                        }
+
+                        Log.e("Login", error);
+                        if (onFailure != null) onFailure.accept(error);
+                    }
+                });
     }
 
     /**
