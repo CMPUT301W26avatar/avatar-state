@@ -79,7 +79,7 @@
         <activity android:name=".activities.InvitesDashboardActivity" />
         <activity android:name=".activities.PromoteNewAdminActivity" />
         <activity android:name=".activities.EventAnnouncementActivity" />
-        <activity android:name=".activities.UserPrivacyActivity" />
+        <activity android:name=".activities.UserLocationSettingsActivity" />
         <activity android:name=".activities.NotificationSettingsActivity" />
         <activity android:name=".activities.EventMapActivity" />
         <activity android:name=".activities.UserEventHistoryActivity" />

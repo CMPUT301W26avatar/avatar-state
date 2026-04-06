@@ -49,7 +49,9 @@ import java.util.Locale;
  *                  but you will get "S
  */
 
-public class UserPrivacyActivity extends AppCompatActivity {
+public class UserLocationSettingsActivity extends AppCompatActivity {
+    private static final String PREFS_NAME = "privacy_prefs";
+    private static final String KEY_LOCATION_MODE = "location_mode";
     private RadioGroup rgLocationMode;
     private EditText etDefaultLocation;
     private TextView tvResolvedLocation;
@@ -155,15 +157,14 @@ public class UserPrivacyActivity extends AppCompatActivity {
 
                 @Override
                 public void onError(@NonNull String message) {
-                    Toast.makeText(UserPrivacyActivity.this, message, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(UserLocationSettingsActivity.this, message, Toast.LENGTH_SHORT).show();
                 }
             });
         });
 
         findViewById(R.id.btn_save_privacy).setOnClickListener(v -> savePrivacySettings());
 
-        ((android.widget.RadioButton) findViewById(R.id.rb_use_default_location)).setChecked(true);
-        setModeDefaultUi();
+        restoreSavedLocationModeUi();
     }
 
     /**
@@ -277,6 +278,37 @@ public class UserPrivacyActivity extends AppCompatActivity {
     }
 
     /**
+     * Returns the last saved location mode for the user privacy screen.
+     */
+    @NonNull
+    private User.UserAddressMode getSavedLocationMode() {
+        String savedMode = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getString(KEY_LOCATION_MODE, DEFAULT.name());
+
+        try {
+            return User.UserAddressMode.valueOf(savedMode);
+        } catch (Exception ignored) {
+            return DEFAULT;
+        }
+    }
+
+    /**
+     * Restores the saved location mode into the radio group and matching UI state.
+     */
+    private void restoreSavedLocationModeUi() {
+        selectedMode = getSavedLocationMode();
+
+        if (selectedMode == CURRENT) {
+            rgLocationMode.check(R.id.rb_use_current_location);
+            setModeCurrentUi();
+            fetchWithPermission();
+        } else {
+            rgLocationMode.check(R.id.rb_use_default_location);
+            setModeDefaultUi();
+        }
+    }
+
+    /**
      * Applies a newly fetched current location to the screen and resolves it to a readable address
      * - needs a non-null android location
      */
@@ -365,6 +397,11 @@ public class UserPrivacyActivity extends AppCompatActivity {
             return;
         }
 
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putString(KEY_LOCATION_MODE, selectedMode.name())
+                .apply();
+
         UserStorage ustore = ServiceLocator.getUserStorage();
         UserAddress userAddress = new UserAddress(
                 uid,
@@ -400,11 +437,16 @@ public class UserPrivacyActivity extends AppCompatActivity {
      * Callback for resolving a text address into a displayable address and coordinates.
      */
     private interface ResolveLocationCallback {
-        ///  handles a succesful address resolution
+        /**
+         * handles a successful address resolution
+         */
         void onResolved(@NonNull String resolvedLocation,
                         @Nullable Double latitude,
                         @Nullable Double longitude);
-        ///  handles a failed resolution
+
+        /**
+         * handles a failed resolution
+         */
         void onError(@NonNull String message);
     }
 
@@ -412,10 +454,14 @@ public class UserPrivacyActivity extends AppCompatActivity {
      * Callback for resolving a text address into a displayable address and coordinates.
      */
     private interface ReverseGeocodeCallback {
-        ///  handles a succesful reverse-geocode
+        /**
+         * handles a successful reverse geocode
+         */
         void onResolved(@NonNull String resolvedLocation);
 
-        ///  handles a failed reverse-geocode
+        /**
+         * handles a failed reverse geocode
+         */
         void onError(@NonNull String message);
     }
 

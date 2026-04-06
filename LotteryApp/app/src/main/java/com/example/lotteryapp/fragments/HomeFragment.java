@@ -8,6 +8,7 @@ import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.D
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.READ;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.util.Log;
@@ -15,6 +16,7 @@ import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -31,10 +33,12 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.activities.TermsOfServiceActivity;
+import com.example.lotteryapp.activities.UserLocationSettingsActivity;
 import com.example.lotteryapp.models.Entrant;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.NotificationLog;
 import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.models.UserAddress;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
@@ -58,6 +62,12 @@ import java.util.List;
  *      HomeFragment loads recyclerViews
  */
 public class HomeFragment extends Fragment {
+
+    private static final String HOME_PREFS = "home_fragment_prefs";
+    private static final String KEY_ACTIVE_NEARBY_RADIUS_KM = "active_nearby_radius_km";
+    private static final int DEFAULT_NEARBY_RADIUS_KM = 20;
+    private static final String PREFS_NAME = "privacy_prefs";
+    private static final String KEY_LOCATION_MODE = "location_mode";
 
     private final EventStorage eventStorage = ServiceLocator.getEventStorage();
     private final EventPoolStorage eventPoolStorage = ServiceLocator.getEventPoolStorage();
@@ -86,7 +96,13 @@ public class HomeFragment extends Fragment {
     private RecyclerView recyclerViewPopular;
 
     private MaterialTextView nearbyText;
+    private View nearbyHeaderRow;
     private RecyclerView recyclerViewNearby;
+    private View nearbyLocationYield;
+    private View nearbyEmptyRadiusYield;
+    private MaterialTextView nearbyEmptyRadiusTitle;
+    private ImageView homeLocationStatusIcon;
+    private View nearbyRadiusButton;
 
     private LinearLayout loadingIndicator;
     private LinearLayout emptyIndicator;
@@ -99,9 +115,19 @@ public class HomeFragment extends Fragment {
 
     private boolean popularLoaded = false;
     private boolean nearbyLoaded = false;
+    private boolean hasResolvedNearbyLocation = false;
     private List<DisplayGridEvent> pendingPopularGridEvents = new ArrayList<>();
     private List<DisplayGridEvent> pendingNearbyGridEvents = new ArrayList<>();
+    private int activeNearbyRadiusKm = DEFAULT_NEARBY_RADIUS_KM;
 
+    /**
+     * Restores the last selected nearby search radius for this app session.
+     */
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        activeNearbyRadiusKm = getSavedNearbyRadiusKm();
+    }
 
     /**
      * Inflates the HomeFragment layout and initializes UI components.
@@ -110,6 +136,19 @@ public class HomeFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
+
+        homeLocationStatusIcon = view.findViewById(R.id.iv_home_location_status);
+        nearbyHeaderRow = view.findViewById(R.id.nearby_header_row);
+        nearbyRadiusButton = view.findViewById(R.id.btn_nearby_radius);
+
+        homeLocationStatusIcon.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), UserLocationSettingsActivity.class);
+            startActivity(intent);
+        });
+
+        if (nearbyRadiusButton != null) {
+            nearbyRadiusButton.setOnClickListener(v -> showNearbyRadiusDialog());
+        }
 
         invitationCard = view.findViewById(R.id.invitation_card);
         notificationsPager = view.findViewById(R.id.notifications_pager);
@@ -127,6 +166,20 @@ public class HomeFragment extends Fragment {
 
         recyclerViewNearby = view.findViewById(R.id.recycler_view_nearby);
         nearbyText = view.findViewById(R.id.nearby_text);
+        nearbyLocationYield = view.findViewById(R.id.nearby_location_yield);
+        nearbyEmptyRadiusYield = view.findViewById(R.id.nearby_empty_radius_yield);
+        nearbyEmptyRadiusTitle = view.findViewById(R.id.nearby_empty_radius_title);
+
+        if (nearbyLocationYield != null) {
+            nearbyLocationYield.setOnClickListener(v -> {
+                Intent intent = new Intent(requireContext(), UserLocationSettingsActivity.class);
+                startActivity(intent);
+            });
+        }
+
+        if (nearbyEmptyRadiusYield != null) {
+            nearbyEmptyRadiusYield.setOnClickListener(v -> showNearbyRadiusDialog());
+        }
 
         loadingIndicator = view.findViewById(R.id.loading_indicator);
         emptyIndicator = view.findViewById(R.id.empty_indicator);
@@ -142,12 +195,66 @@ public class HomeFragment extends Fragment {
         nearbyAdapter = new GridEventAdapter(displayNearbyGridEvents);
         recyclerViewNearby.setAdapter(nearbyAdapter);
 
+        updateNearbyRadiusMessage();
         return view;
     }
 
+    /**
+     * Shows or hides the central loading indicator while home data is being fetched.
+     */
     private void toggleLoadingIndicator(boolean isVisible) {
         if (loadingIndicator == null) return;
         loadingIndicator.setVisibility(isVisible ? VISIBLE : GONE);
+    }
+
+    /**
+     * Updates the top-right home header icon based on whether the user has a resolved location.
+     */
+    private void updateHomeLocationStatusIcon(boolean hasResolvedLocation) {
+        hasResolvedNearbyLocation = hasResolvedLocation;
+
+        if (homeLocationStatusIcon != null) {
+            homeLocationStatusIcon.setImageResource(
+                    hasResolvedLocation ? R.drawable.ic_nearme : R.drawable.ic_nearmeoff
+            );
+        }
+    }
+
+    /**
+     * Reads the last selected nearby radius from shared preferences.
+     */
+    private int getSavedNearbyRadiusKm() {
+        if (getContext() == null) {
+            return DEFAULT_NEARBY_RADIUS_KM;
+        }
+
+        SharedPreferences prefs = requireContext().getSharedPreferences(HOME_PREFS, 0);
+        return prefs.getInt(KEY_ACTIVE_NEARBY_RADIUS_KM, DEFAULT_NEARBY_RADIUS_KM);
+    }
+
+    /**
+     * Saves the selected nearby radius so it survives fragment switches.
+     */
+    private void saveNearbyRadiusKm(int radiusKm) {
+        activeNearbyRadiusKm = radiusKm;
+
+        if (getContext() == null) {
+            return;
+        }
+
+        SharedPreferences prefs = requireContext().getSharedPreferences(HOME_PREFS, 0);
+        prefs.edit().putInt(KEY_ACTIVE_NEARBY_RADIUS_KM, radiusKm).apply();
+    }
+
+    /**
+     * Updates the empty nearby result message to reflect the active radius.
+     */
+    private void updateNearbyRadiusMessage() {
+        if (nearbyEmptyRadiusTitle != null) {
+            nearbyEmptyRadiusTitle.setText(
+                    "No events found within a " + activeNearbyRadiusKm + " km radius"
+            );
+        }
     }
 
     /**
@@ -171,6 +278,8 @@ public class HomeFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        activeNearbyRadiusKm = getSavedNearbyRadiusKm();
+        updateNearbyRadiusMessage();
         checkAndLaunchTOSIfNeeded();
         loadHomeSections();
         loadNotifications();
@@ -186,6 +295,8 @@ public class HomeFragment extends Fragment {
 
         popularLoaded = false;
         nearbyLoaded = false;
+        updateHomeLocationStatusIcon(false);
+        updateNearbyRadiusMessage();
 
         pendingPopularGridEvents.clear();
         pendingNearbyGridEvents.clear();
@@ -199,8 +310,11 @@ public class HomeFragment extends Fragment {
         if (popularText != null) popularText.setVisibility(GONE);
         if (recyclerViewPopular != null) recyclerViewPopular.setVisibility(GONE);
 
-        if (nearbyText != null) nearbyText.setVisibility(GONE);
+        if (nearbyHeaderRow != null) nearbyHeaderRow.setVisibility(GONE);
+        if (nearbyLocationYield != null) nearbyLocationYield.setVisibility(GONE);
+        if (nearbyEmptyRadiusYield != null) nearbyEmptyRadiusYield.setVisibility(GONE);
         if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(GONE);
+        updateHomeLocationStatusIcon(false);
 
         if (emptyIndicator != null) {
             emptyIndicator.setVisibility(GONE);
@@ -212,6 +326,10 @@ public class HomeFragment extends Fragment {
         loadNearbyEvents();
     }
 
+    /**
+     * resolves the final UI state after both popular and nearby queries finish.
+     *      populates adapters, toggles visibility of sections, and determines empty state behavior
+     */
     private void resolveHomeEmptyState() {
         if (!popularLoaded || !nearbyLoaded) {
             return;
@@ -233,14 +351,35 @@ public class HomeFragment extends Fragment {
         if (popularText != null) popularText.setVisibility(hasPopular ? VISIBLE : GONE);
         if (recyclerViewPopular != null) recyclerViewPopular.setVisibility(hasPopular ? VISIBLE : GONE);
 
-        if (nearbyText != null) nearbyText.setVisibility(hasNearby ? VISIBLE : GONE);
-        if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(hasNearby ? VISIBLE : GONE);
+        if (hasResolvedNearbyLocation) {
+            if (nearbyHeaderRow != null) nearbyHeaderRow.setVisibility(VISIBLE);
+            if (nearbyLocationYield != null) nearbyLocationYield.setVisibility(GONE);
+
+            if (hasNearby) {
+                if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(VISIBLE);
+                if (nearbyEmptyRadiusYield != null) nearbyEmptyRadiusYield.setVisibility(GONE);
+            } else {
+                if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(GONE);
+                if (nearbyEmptyRadiusYield != null) nearbyEmptyRadiusYield.setVisibility(VISIBLE);
+            }
+
+            updateHomeLocationStatusIcon(true);
+        } else {
+            if (nearbyHeaderRow != null) nearbyHeaderRow.setVisibility(GONE);
+            if (nearbyLocationYield != null) nearbyLocationYield.setVisibility(VISIBLE);
+            if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(GONE);
+            if (nearbyEmptyRadiusYield != null) nearbyEmptyRadiusYield.setVisibility(GONE);
+            updateHomeLocationStatusIcon(false);
+        }
 
         if (emptyIndicator != null) {
-            emptyIndicator.setVisibility(hasPopular || hasNearby ? GONE : VISIBLE);
+            emptyIndicator.setVisibility(hasPopular || hasNearby || !hasResolvedNearbyLocation ? GONE : VISIBLE);
         }
     }
 
+    /**
+     * loads events sorted by the highest comment count and prepares them for grid display
+     */
     private void loadPopularEvents() {
         if (eventStorage == null || popularAdapter == null || displayPopularGridEvents == null) {
             popularLoaded = true;
@@ -271,31 +410,195 @@ public class HomeFragment extends Fragment {
         );
     }
 
+    /**
+     * Shows a radius selection dialog for widening the nearby search.
+     */
+    private void showNearbyRadiusDialog() {
+        if (getContext() == null) return;
+
+        final String[] radiusOptions = {"20 km", "50 km", "100 km", "200 km"};
+        final int[] radiusValues = {20, 50, 100, 200};
+
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Widen nearby search")
+                .setItems(radiusOptions, (dialog, which) -> {
+                    saveNearbyRadiusKm(radiusValues[which]);
+                    updateNearbyRadiusMessage();
+                    reloadNearbyEventsForSelectedRadius();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /**
+     * Reloads the nearby section using the currently selected radius.
+     */
+    private void reloadNearbyEventsForSelectedRadius() {
+        String uid = ServiceLocator.uid();
+        if (uid == null || uid.trim().isEmpty()) {
+            return;
+        }
+
+        nearbyLoaded = false;
+        pendingNearbyGridEvents.clear();
+
+        if (nearbyEmptyRadiusYield != null) nearbyEmptyRadiusYield.setVisibility(GONE);
+        if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(GONE);
+
+        toggleLoadingIndicator(true);
+
+        User.UserAddressMode selectedMode = getSavedNearbyMode();
+
+        if (selectedMode == User.UserAddressMode.CURRENT) {
+            userStorage.getCurrentUserAddress(
+                    uid,
+                    currentAddress -> {
+                        if (isResolvedAddress(currentAddress)) {
+                            loadNearbyEventsWithMode(
+                                    uid,
+                                    User.UserAddressMode.CURRENT,
+                                    false,
+                                    activeNearbyRadiusKm
+                            );
+                        } else {
+                            pendingNearbyGridEvents.clear();
+                            updateHomeLocationStatusIcon(false);
+                            nearbyLoaded = true;
+                            resolveHomeEmptyState();
+                        }
+                    },
+                    e -> {
+                        Log.e("HomeFragment", "Failed to reload current user address", e);
+                        pendingNearbyGridEvents.clear();
+                        updateHomeLocationStatusIcon(false);
+                        nearbyLoaded = true;
+                        resolveHomeEmptyState();
+                    }
+            );
+        } else {
+            userStorage.getDefaultUserAddress(
+                    uid,
+                    defaultAddress -> {
+                        if (isResolvedAddress(defaultAddress)) {
+                            loadNearbyEventsWithMode(
+                                    uid,
+                                    User.UserAddressMode.DEFAULT,
+                                    false,
+                                    activeNearbyRadiusKm
+                            );
+                        } else {
+                            pendingNearbyGridEvents.clear();
+                            updateHomeLocationStatusIcon(false);
+                            nearbyLoaded = true;
+                            resolveHomeEmptyState();
+                        }
+                    },
+                    e -> {
+                        Log.e("HomeFragment", "Failed to reload default user address", e);
+                        pendingNearbyGridEvents.clear();
+                        updateHomeLocationStatusIcon(false);
+                        nearbyLoaded = true;
+                        resolveHomeEmptyState();
+                    }
+            );
+        }
+    }
+
+    /**
+     * loads events sorted by proximity to the user's location
+     *      resolves user address -> if not enabled, prompts user to set location
+     *      if enabled, shows events within the active radius by calling the helper
+     */
     private void loadNearbyEvents() {
         String uid = ServiceLocator.uid();
         if (uid == null || uid.trim().isEmpty()) {
+            pendingNearbyGridEvents.clear();
+            updateHomeLocationStatusIcon(false);
             nearbyLoaded = true;
             resolveHomeEmptyState();
             return;
         }
 
-        loadNearbyEventsWithMode(uid, User.UserAddressMode.CURRENT, true);
+        User.UserAddressMode selectedMode = getSavedNearbyMode();
+
+        if (selectedMode == User.UserAddressMode.CURRENT) {
+            userStorage.getCurrentUserAddress(
+                    uid,
+                    currentAddress -> {
+                        if (isResolvedAddress(currentAddress)) {
+                            loadNearbyEventsWithMode(
+                                    uid,
+                                    User.UserAddressMode.CURRENT,
+                                    false,
+                                    activeNearbyRadiusKm
+                            );
+                        } else {
+                            pendingNearbyGridEvents.clear();
+                            updateHomeLocationStatusIcon(false);
+                            nearbyLoaded = true;
+                            resolveHomeEmptyState();
+                        }
+                    },
+                    e -> {
+                        Log.e("HomeFragment", "Failed to load current user address", e);
+                        pendingNearbyGridEvents.clear();
+                        updateHomeLocationStatusIcon(false);
+                        nearbyLoaded = true;
+                        resolveHomeEmptyState();
+                    }
+            );
+        } else {
+            userStorage.getDefaultUserAddress(
+                    uid,
+                    defaultAddress -> {
+                        if (isResolvedAddress(defaultAddress)) {
+                            loadNearbyEventsWithMode(
+                                    uid,
+                                    User.UserAddressMode.DEFAULT,
+                                    false,
+                                    activeNearbyRadiusKm
+                            );
+                        } else {
+                            pendingNearbyGridEvents.clear();
+                            updateHomeLocationStatusIcon(false);
+                            nearbyLoaded = true;
+                            resolveHomeEmptyState();
+                        }
+                    },
+                    e -> {
+                        Log.e("HomeFragment", "Failed to load default user address", e);
+                        pendingNearbyGridEvents.clear();
+                        updateHomeLocationStatusIcon(false);
+                        nearbyLoaded = true;
+                        resolveHomeEmptyState();
+                    }
+            );
+        }
     }
 
-    private void loadNearbyEventsWithMode(String uid, User.UserAddressMode mode, boolean allowFallbackToDefault) {
+    /**
+     * asynchronously get all events within the active radius using either the current or default location mode
+     */
+    private void loadNearbyEventsWithMode(
+            String uid,
+            User.UserAddressMode mode,
+            boolean allowFallbackToDefault,
+            int radiusKm
+    ) {
         eventStorage.listUpcomingEventsNearUser(
                 uid,
                 mode,
-                20,
+                radiusKm,
                 4,
                 fetchedEvents -> {
                     if ((fetchedEvents == null || fetchedEvents.isEmpty()) && allowFallbackToDefault
                             && mode == User.UserAddressMode.CURRENT) {
-                        loadNearbyEventsWithMode(uid, User.UserAddressMode.DEFAULT, false);
+                        loadNearbyEventsWithMode(uid, User.UserAddressMode.DEFAULT, false, radiusKm);
                         return;
                     }
 
                     pendingNearbyGridEvents.clear();
+                    updateHomeLocationStatusIcon(true);
 
                     if (fetchedEvents != null) {
                         for (Event event : fetchedEvents) {
@@ -310,16 +613,49 @@ public class HomeFragment extends Fragment {
                     Log.e("HomeFragment", "Failed to load nearby upcoming events for mode " + mode, e);
 
                     if (allowFallbackToDefault && mode == User.UserAddressMode.CURRENT) {
-                        loadNearbyEventsWithMode(uid, User.UserAddressMode.DEFAULT, false);
+                        loadNearbyEventsWithMode(uid, User.UserAddressMode.DEFAULT, false, radiusKm);
                         return;
                     }
 
                     pendingNearbyGridEvents.clear();
+                    updateHomeLocationStatusIcon(true);
                     nearbyLoaded = true;
                     resolveHomeEmptyState();
                 }
         );
     }
+
+    /**
+     * load events with mode helper
+     *      persists the user address mode state from location activity into HomeFragment
+     */
+    private User.UserAddressMode getSavedNearbyMode() {
+        if (getContext() == null) {
+            return User.UserAddressMode.DEFAULT;
+        }
+
+        String savedMode = requireContext()
+                .getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
+                .getString(KEY_LOCATION_MODE, User.UserAddressMode.DEFAULT.name());
+
+        try {
+            return User.UserAddressMode.valueOf(savedMode);
+        } catch (Exception ignored) {
+            return User.UserAddressMode.DEFAULT;
+        }
+    }
+
+    /**
+     * Returns true when the user has a saved location that can be used for nearby event queries
+     */
+    private boolean isResolvedAddress(@Nullable UserAddress address) {
+        return address != null
+                && address.getLatitude() != null
+                && address.getLongitude() != null
+                && address.getLocation() != null
+                && !address.getLocation().trim().isEmpty();
+    }
+
 
     /**
      * Load the pending notifications for the current user
@@ -483,6 +819,9 @@ public class HomeFragment extends Fragment {
                 .show();
     }
 
+    /**
+     * Show the dialog for a user accepting or declining an invite to be enrolled for an event
+     */
     private void showLotteryInviteDialog(int position, NotificationLog notification) {
         if (getContext() == null) return;
 
@@ -540,7 +879,6 @@ public class HomeFragment extends Fragment {
      *          removes their entry from the invited subcollection and nothing else
      *          sets notification as DECLINED
      */
-
     private void declinePrivateInvite(int position, NotificationLog notification) {
         String uid = ServiceLocator.uid();
 
@@ -667,9 +1005,9 @@ public class HomeFragment extends Fragment {
     }
 
     /**
-     * Runs on the user clicking accept in the lottery invite dialog
-     *          removes their entry from the invited subcollection and adds them to the enrolled subcollection
-     *          sets notification as
+     * Runs on the user clicking decline in the lottery invite dialog
+     *      removes their entry from the invited subcollection without enrolling them
+     *      sets notification as DECLINED
      */
     private void declineLotteryInvite(int position, NotificationLog notification) {
         String uid = ServiceLocator.uid();
@@ -824,6 +1162,9 @@ public class HomeFragment extends Fragment {
             MaterialButton closeButton;
             LinearLayout dotsInline;
 
+            /**
+             * Binds views for a single notification card within the pager.
+             */
             NotificationViewHolder(@NonNull View itemView) {
                 super(itemView);
                 root = itemView.findViewById(R.id.notification_root);
