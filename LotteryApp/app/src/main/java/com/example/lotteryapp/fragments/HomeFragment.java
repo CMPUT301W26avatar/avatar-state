@@ -269,6 +269,12 @@ public class HomeFragment extends Fragment {
         setupFilterButton(filterView, filterDialog);
     }
 
+    /**
+     * initializes fragment view
+     *      check tos acceptance
+     *      set up filters
+     *      data loads
+     */
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -278,11 +284,6 @@ public class HomeFragment extends Fragment {
         loadNotifications();
     }
 
-    /**
-     * Helper function that loads events into their respective lists
-     * <br>
-     * Will automatically account for the FilterDialog availability filter
-     */
     /**
      * loads all visible event sections and only resolves the empty state after all section queries finish
      */
@@ -836,6 +837,11 @@ public class HomeFragment extends Fragment {
         );
     }
 
+    /**
+     * Runs on the user clicking accept in the lottery invite dialog
+     *          removes their entry from the invited subcollection and adds them to the enrolled subcollection
+     *          sets notification as ACCEPTED
+     */
     private void acceptLotteryInvite(int position, NotificationLog notification) {
         String uid = ServiceLocator.uid();
 
@@ -863,6 +869,11 @@ public class HomeFragment extends Fragment {
         );
     }
 
+    /**
+     * Runs on the user clicking accept in the lottery invite dialog
+     *          removes their entry from the invited subcollection and adds them to the enrolled subcollection
+     *          sets notification as
+     */
     private void declineLotteryInvite(int position, NotificationLog notification) {
         String uid = ServiceLocator.uid();
 
