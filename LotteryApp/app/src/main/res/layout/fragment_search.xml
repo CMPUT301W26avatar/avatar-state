@@ -5,10 +5,52 @@
     android:layout_height="match_parent"
     android:background="?attr/colorSurface">
 
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorSurface"
+        app:elevation="0dp">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="8dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="6dp">
+
+            <com.google.android.material.search.SearchBar
+                android:id="@+id/search_bar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:hint="Search events"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/event_filters_button"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/event_filters_button"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:contentDescription="Filters"
+                app:icon="@drawable/ic_sort"
+                app:iconTint="?attr/colorPrimary"
+                app:iconSize="28dp"
+                app:layout_constraintBottom_toBottomOf="@id/search_bar"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toEndOf="@id/search_bar"
+                app:layout_constraintTop_toTopOf="@id/search_bar" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </com.google.android.material.appbar.AppBarLayout>
+
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:layout_behavior="@string/searchbar_scrolling_view_behavior">
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:id="@+id/search_content_layout"
@@ -17,71 +59,13 @@
             android:orientation="vertical"
             android:paddingBottom="80dp">
 
-            <!-- Categories -->
-            <HorizontalScrollView
-                android:id="@+id/categories_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:scrollbars="none"
-                android:paddingHorizontal="16dp"
-                android:layout_marginTop="16dp">
-
-                <com.google.android.material.chip.ChipGroup
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:singleLine="true"
-                    app:singleSelection="true">
-
-                    <com.google.android.material.chip.Chip
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="ALL EVENTS"
-                        app:chipBackgroundColor="?attr/colorSecondaryContainer"
-                        app:chipStrokeWidth="0dp"
-                        app:chipCornerRadius="20dp"
-                        android:textColor="?attr/colorPrimary" />
-
-                    <com.google.android.material.chip.Chip
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="LOCAL"
-                        android:checked="true"
-                        app:chipBackgroundColor="?attr/colorPrimary"
-                        app:chipStrokeWidth="0dp"
-                        app:chipCornerRadius="20dp"
-                        android:textColor="?attr/colorOnPrimary" />
-
-                    <com.google.android.material.chip.Chip
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="TECHNOLOGY"
-                        app:chipBackgroundColor="?attr/colorSecondaryContainer"
-                        app:chipStrokeWidth="0dp"
-                        app:chipCornerRadius="20dp"
-                        android:textColor="?attr/colorPrimary" />
-
-                    <com.google.android.material.chip.Chip
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="SPORTS"
-                        app:chipBackgroundColor="?attr/colorSecondaryContainer"
-                        app:chipStrokeWidth="0dp"
-                        app:chipCornerRadius="20dp"
-                        android:textColor="?attr/colorPrimary" />
-                </com.google.android.material.chip.ChipGroup>
-            </HorizontalScrollView>
-
             <!-- Near You Section -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/near_you_header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingHorizontal="16dp"
-                android:layout_marginTop="24dp">
+                android:layout_marginTop="24dp"
+                android:paddingHorizontal="16dp">
 
                 <com.google.android.material.textview.MaterialTextView
                     android:id="@+id/near_you_title"
@@ -108,9 +92,9 @@
                 android:id="@+id/recycler_view_popular"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingHorizontal="8dp"
                 android:layout_marginTop="8dp"
-                android:nestedScrollingEnabled="false" />
+                android:nestedScrollingEnabled="false"
+                android:paddingHorizontal="8dp" />
 
             <!-- Your Events Section -->
             <com.google.android.material.textview.MaterialTextView
@@ -127,17 +111,17 @@
                 android:id="@+id/recycler_view_suggested"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingHorizontal="16dp"
                 android:layout_marginTop="12dp"
-                android:nestedScrollingEnabled="false" />
+                android:nestedScrollingEnabled="false"
+                android:paddingHorizontal="16dp" />
 
             <!-- Upcoming Section -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/upcoming_header"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:paddingHorizontal="16dp"
-                android:layout_marginTop="24dp">
+                android:layout_marginTop="24dp"
+                android:paddingHorizontal="16dp">
 
                 <com.google.android.material.textview.MaterialTextView
                     android:layout_width="wrap_content"
@@ -163,8 +147,8 @@
                 android:id="@+id/upcoming_content"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:scrollbars="none"
-                android:paddingHorizontal="8dp">
+                android:paddingHorizontal="8dp"
+                android:scrollbars="none">
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -240,13 +224,6 @@
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
-
-    <com.google.android.material.search.SearchBar
-        android:id="@+id/search_bar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:hint="Search events" />
 
     <com.google.android.material.search.SearchView
         android:id="@+id/search_view"

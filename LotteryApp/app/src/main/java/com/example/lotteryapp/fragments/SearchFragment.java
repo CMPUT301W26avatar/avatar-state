@@ -1,9 +1,21 @@
 package com.example.lotteryapp.fragments;
 
+import static android.view.View.GONE;
+import static android.view.View.VISIBLE;
+import static com.example.lotteryapp.dialogs.FilterDialog.FilterType.AVAILABILITY_FILTER;
+import static com.example.lotteryapp.dialogs.FilterDialog.FilterType.FULL_EVENTS_FILTER;
+import static com.example.lotteryapp.dialogs.FilterDialog.FilterType.OPEN_EVENTS_FILTER;
+import static com.example.lotteryapp.dialogs.FilterDialog.FilterType.UPCOMING_EVENTS_FILTER;
+import static com.example.lotteryapp.fragments.ManageFragment.UNLIMITED_WAITLIST_SENTINEL;
+
+import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.util.Log;
+import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -13,13 +25,19 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.lotteryapp.R;
+import com.example.lotteryapp.dialogs.FilterDialog;
 import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventStorage;
+import com.example.lotteryapp.services.storage.UserStorage;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.search.SearchBar;
 import com.google.android.material.search.SearchView;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -44,9 +62,48 @@ import java.util.List;
 public class SearchFragment extends Fragment {
 
     private final EventStorage eventStorage = ServiceLocator.getEventStorage();
+    private final UserStorage userStorage = ServiceLocator.getUserStorage();
+
     private GridEventAdapter suggestedAdapter, popularAdapter;
     private List<HomeFragment.DisplayGridEvent> suggestedEvents, popularEvents;
     private boolean isSearchActive = false;
+
+    private MaterialButton filtersButton;
+    private FilterDialog filterDialog;
+    private List<Long> userAvailability;
+
+    private RecyclerView recyclerViewPopular;
+    private RecyclerView recyclerViewSuggested;
+    private View yourEventsHeader;
+    private View upcomingHeader;
+    private View upcomingContent;
+    private View nearYouHeader;
+
+    Runnable LOAD_EVENTS_ACTION = () -> {
+        if (!filterDialog.isActive(OPEN_EVENTS_FILTER)) {
+            recyclerViewPopular.setVisibility(VISIBLE);
+            loadPopularEvents(popularEvents, popularAdapter, 4);
+        } else {
+            recyclerViewPopular.setVisibility(GONE);
+        }
+
+        if (!filterDialog.isActive(FULL_EVENTS_FILTER)) {
+            recyclerViewSuggested.setVisibility(VISIBLE);
+            if (yourEventsHeader != null) yourEventsHeader.setVisibility(VISIBLE);
+            loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
+        } else {
+            recyclerViewSuggested.setVisibility(GONE);
+            if (yourEventsHeader != null) yourEventsHeader.setVisibility(GONE);
+        }
+
+        if (!filterDialog.isActive(UPCOMING_EVENTS_FILTER)) {
+            if (upcomingHeader != null) upcomingHeader.setVisibility(VISIBLE);
+            if (upcomingContent != null) upcomingContent.setVisibility(VISIBLE);
+        } else {
+            if (upcomingHeader != null) upcomingHeader.setVisibility(GONE);
+            if (upcomingContent != null) upcomingContent.setVisibility(GONE);
+        }
+    };
 
     /**
      * Inflates the HomeFragment layout and initializes UI components.
@@ -59,8 +116,15 @@ public class SearchFragment extends Fragment {
         SearchBar searchBar = view.findViewById(R.id.search_bar);
         SearchView searchView = view.findViewById(R.id.search_view);
 
-        RecyclerView recyclerViewPopular = view.findViewById(R.id.recycler_view_popular);
-        RecyclerView recyclerViewSuggested = view.findViewById(R.id.recycler_view_suggested);
+        filtersButton = view.findViewById(R.id.event_filters_button);
+
+        recyclerViewPopular = view.findViewById(R.id.recycler_view_popular);
+        recyclerViewSuggested = view.findViewById(R.id.recycler_view_suggested);
+
+        nearYouHeader = view.findViewById(R.id.near_you_header);
+        yourEventsHeader = view.findViewById(R.id.your_events_header);
+        upcomingHeader = view.findViewById(R.id.upcoming_header);
+        upcomingContent = view.findViewById(R.id.upcoming_content);
 
         if (recyclerViewPopular != null) {
             recyclerViewPopular.setLayoutManager(new GridLayoutManager(getContext(), 2));
@@ -68,8 +132,6 @@ public class SearchFragment extends Fragment {
             popularEvents = new ArrayList<>();
             popularAdapter = new GridEventAdapter(popularEvents);
             recyclerViewPopular.setAdapter(popularAdapter);
-
-            loadPopularEvents(popularEvents, popularAdapter, 4);
         }
 
         if (recyclerViewSuggested != null) {
@@ -78,9 +140,10 @@ public class SearchFragment extends Fragment {
             suggestedEvents = new ArrayList<>();
             suggestedAdapter = new GridEventAdapter(suggestedEvents);
             recyclerViewSuggested.setAdapter(suggestedAdapter);
-
-            loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
         }
+
+        filterDialog = new FilterDialog(view.getContext());
+        userAvailability = Arrays.asList(1123L, 80L, 67L);
 
         if (searchView != null) {
             searchView.getEditText().setOnEditorActionListener((v, actionId, event) -> {
@@ -94,7 +157,9 @@ public class SearchFragment extends Fragment {
             });
 
             searchView.addTransitionListener((searchView1, previousState, newState) -> {
-                if (newState == SearchView.TransitionState.HIDDEN && searchView1.getEditText().getText().length() == 0 && isSearchActive) {
+                if (newState == SearchView.TransitionState.HIDDEN
+                        && searchView1.getEditText().getText().length() == 0
+                        && isSearchActive) {
                     resetDashboard();
                 }
             });
@@ -119,6 +184,8 @@ public class SearchFragment extends Fragment {
                 unused -> android.util.Log.d("Migration", "All events updated with keywords!"),
                 e -> android.util.Log.e("Migration", "Failed to update events", e)
         );
+        setupFilterDialog(view);
+        loadAllEvents();
     }
 
     /**
@@ -127,14 +194,9 @@ public class SearchFragment extends Fragment {
     private void performSearch(String query) {
         View view = getView();
         if (view != null) {
-            View categories = view.findViewById(R.id.categories_section);
             View nearYouTitle = view.findViewById(R.id.near_you_title);
-            View yourEventsHeader = view.findViewById(R.id.your_events_header);
             View yourEventsRecycler = view.findViewById(R.id.recycler_view_suggested);
-            View upcomingHeader = view.findViewById(R.id.upcoming_header);
-            View upcomingContent = view.findViewById(R.id.upcoming_content);
 
-            if (categories != null) categories.setVisibility(View.GONE);
             if (nearYouTitle instanceof android.widget.TextView) {
                 ((android.widget.TextView) nearYouTitle).setText("Search Results");
             }
@@ -160,24 +222,23 @@ public class SearchFragment extends Fragment {
         isSearchActive = false;
         View view = getView();
         if (view != null) {
-            View categories = view.findViewById(R.id.categories_section);
             View nearYouTitle = view.findViewById(R.id.near_you_title);
-            View yourEventsHeader = view.findViewById(R.id.your_events_header);
-            View yourEventsRecycler = view.findViewById(R.id.recycler_view_suggested);
-            View upcomingHeader = view.findViewById(R.id.upcoming_header);
-            View upcomingContent = view.findViewById(R.id.upcoming_content);
 
-            if (categories != null) categories.setVisibility(View.VISIBLE);
             if (nearYouTitle instanceof android.widget.TextView) {
-                ((android.widget.TextView) nearYouTitle).setText("Near You");
+                ((android.widget.TextView) nearYouTitle).setText("Near you");
             }
             if (yourEventsHeader != null) yourEventsHeader.setVisibility(View.VISIBLE);
-            if (yourEventsRecycler != null) yourEventsRecycler.setVisibility(View.VISIBLE);
-            if (upcomingHeader != null) upcomingHeader.setVisibility(View.VISIBLE);
-            if (upcomingContent != null) upcomingContent.setVisibility(View.VISIBLE);
+
+            if (filterDialog != null) {
+                loadAllEvents();
+            } else {
+                if (recyclerViewSuggested != null) recyclerViewSuggested.setVisibility(View.VISIBLE);
+                if (upcomingHeader != null) upcomingHeader.setVisibility(View.VISIBLE);
+                if (upcomingContent != null) upcomingContent.setVisibility(View.VISIBLE);
+                loadPopularEvents(popularEvents, popularAdapter, 4);
+                loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
+            }
         }
-        loadPopularEvents(popularEvents, popularAdapter, 4);
-        loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
     }
 
     /**
@@ -188,9 +249,84 @@ public class SearchFragment extends Fragment {
     public void onResume() {
         super.onResume();
         if (!isSearchActive) {
-            loadPopularEvents(popularEvents, popularAdapter, 4);
-            loadSuggestedEvents(suggestedEvents, suggestedAdapter, 4);
+            loadAllEvents();
         }
+    }
+
+    /**
+     * Adds an onClickListener to "filtersButton" that
+     * opens up the FilterDialog dialog.
+     * @param filterView the view representing the FilterDialog.
+     * @param filterDialog the FilterDialog obj.
+     */
+    private void setupFilterButton(@NonNull View filterView, @NonNull FilterDialog filterDialog) {
+        filtersButton.setOnClickListener(v -> {
+            filterDialog.show();
+
+            // Positive & Negative Buttons
+            MaterialButton applyButton = filterView.findViewById(R.id.filter_apply_button);
+            applyButton.setOnClickListener(_NA -> {
+                Log.d("SearchFragment", "User clicked on the filter apply button");
+                boolean isValidInput = filterDialog.validateInput(filterView);
+                if (!isValidInput) {
+                    return;
+                }
+
+                loadAllEvents();
+                filterDialog.dismiss();
+            });
+
+            MaterialButton cancelButton = filterView.findViewById(R.id.filter_cancel_button);
+            cancelButton.setOnClickListener(_NA -> {
+                Log.d("SearchFragment", "User clicked on the filter cancel button");
+                filterDialog.cancel();
+            });
+        });
+
+    }
+
+    /**
+     *  Sets up the FilterDialog w/ Listeners and adds an onClickListener to "filtersButton"
+     * @param view The parent view
+     */
+    private void setupFilterDialog(@NonNull View view) {
+        Log.d("SearchFragment", "Hello Filters :)");
+
+        View filterView = LayoutInflater.from(view.getContext()).inflate(R.layout.dialog_filter, null);
+        filterDialog.setupListeners(filterView);
+        filterDialog.setContentView(filterView);
+        setupFilterButton(filterView, filterDialog);
+    }
+
+    /**
+     * Helper function that loads events into their respective lists
+     * <br>
+     * Will automatically account for the FilterDialog availability filter
+     */
+    private void loadAllEvents() {
+        if (filterDialog == null) return;
+
+        if (filterDialog.isActive(AVAILABILITY_FILTER)) {
+            userStorage.getUserAvailabilityDates(
+                    ServiceLocator.uid(),
+                    dates -> {
+                        userAvailability = dates;
+                        Log.d("SearchFragment", userAvailability.toString());
+                        LOAD_EVENTS_ACTION.run();
+                    },
+                    e -> {
+                        Log.e("SearchFragment", "Failed to load user availability", e);
+                        Toast.makeText(
+                                requireContext(),
+                                "Failed to load user availability",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+            );
+            return;
+        }
+
+        LOAD_EVENTS_ACTION.run();
     }
 
     /**
@@ -202,15 +338,7 @@ public class SearchFragment extends Fragment {
      *      notify change in the list of grid events
      */
     private void loadPopularEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
-        eventStorage.getEventsByStatus(-1, -1, Event.EventStatus.REG_OPEN, limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
-            displayGridEvents.clear();
-                for (Event event : fetchedEvents) {
-                    displayGridEvents.add(eventToDisplayEvent(event));
-                }
-                adapter.notifyDataSetChanged();
-            },
-            error -> error.printStackTrace()
-        );
+        loadFilteredEvents(displayGridEvents, adapter, Event.EventStatus.REG_OPEN, limit);
     }
 
     /**
@@ -222,15 +350,65 @@ public class SearchFragment extends Fragment {
      *      notify change in the list of grid events
      */
     private void loadSuggestedEvents(List<HomeFragment.DisplayGridEvent> displayGridEvents, GridEventAdapter adapter, Integer limit) {
-        eventStorage.getEventsByStatus(-1, -1, Event.EventStatus.REG_OPEN, limit, fetchedEvents -> { // replace listOpenEvents with listPopularEvents when implemented
-                displayGridEvents.clear();
-                for (Event event : fetchedEvents) {
-                    displayGridEvents.add(eventToDisplayEvent(event));
-                }
-                adapter.notifyDataSetChanged();
-            },
-                error -> error.printStackTrace()
-        );
+        loadFilteredEvents(displayGridEvents, adapter, Event.EventStatus.REG_OPEN, limit);
+    }
+
+    /**
+     * loads the events tagged with the given status
+     * <br>
+     * will automatically filter out events if the user
+     * turns on the availability filter in the filter dialog
+     */
+    private void loadFilteredEvents(
+            List<HomeFragment.DisplayGridEvent> displayGridEvents,
+            GridEventAdapter adapter,
+            Event.EventStatus status,
+            Integer limit
+    ) {
+        if (eventStorage == null || userStorage == null || adapter == null || displayGridEvents == null) return;
+
+        Pair<Integer, Integer> capFilterVals = filterDialog.getCapacityFilterValues();
+        int minCap = capFilterVals.first;
+        int maxCap = capFilterVals.second;
+
+        @SuppressLint("NotifyDataSetChanged")
+        OnSuccessListener<List<Event>> successListener = fetchedEvents -> {
+            displayGridEvents.clear();
+            for (Event event : fetchedEvents) {
+                displayGridEvents.add(eventToDisplayEvent(event));
+            }
+            adapter.notifyDataSetChanged();
+        };
+
+        OnFailureListener failureListener = e -> {
+            Log.e("SearchFragment", "Failed to load events for status " + status, e);
+            displayGridEvents.clear();
+            adapter.notifyDataSetChanged();
+        };
+
+        if (filterDialog.isActive(AVAILABILITY_FILTER)) {
+            if (userAvailability == null || userAvailability.isEmpty()) {
+                userAvailability = Arrays.asList(67L, 301L);
+            }
+            eventStorage.getEventsByStatus(
+                    minCap,
+                    maxCap,
+                    userAvailability,
+                    status,
+                    limit,
+                    successListener,
+                    failureListener
+            );
+        } else {
+            eventStorage.getEventsByStatus(
+                    minCap,
+                    maxCap,
+                    status,
+                    limit,
+                    successListener,
+                    failureListener
+            );
+        }
     }
 
     /**
@@ -262,7 +440,7 @@ public class SearchFragment extends Fragment {
         StringBuilder sb = new StringBuilder(statusString(status));
 
         Integer waitlistCap = event.getWaitlistCapacity();
-        if (waitlistCap != null && waitlistCap == -1) {
+        if (waitlistCap != null && waitlistCap == UNLIMITED_WAITLIST_SENTINEL) {
             sb.append("\nWaitlist: ")
                     .append(event.getWaitlistCount())
                     .append("/")

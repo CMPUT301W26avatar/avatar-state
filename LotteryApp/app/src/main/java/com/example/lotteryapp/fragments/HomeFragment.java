@@ -2,17 +2,15 @@ package com.example.lotteryapp.fragments;
 
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
-import static com.example.lotteryapp.dialogs.FilterDialog.FilterType.*;
+import static com.example.lotteryapp.fragments.ManageFragment.UNLIMITED_WAITLIST_SENTINEL;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.ACCEPTED;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.DECLINED;
 import static com.example.lotteryapp.models.NotificationLog.NotificationStatus.READ;
 
-import android.annotation.SuppressLint;
-import android.graphics.drawable.GradientDrawable;
 import android.content.Intent;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.util.Log;
-import android.util.Pair;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -32,26 +30,21 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.example.lotteryapp.R;
-import com.example.lotteryapp.dialogs.FilterDialog;
+import com.example.lotteryapp.activities.TermsOfServiceActivity;
 import com.example.lotteryapp.models.Entrant;
+import com.example.lotteryapp.models.Event;
 import com.example.lotteryapp.models.NotificationLog;
+import com.example.lotteryapp.models.User;
+import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.NotificationLogStorage;
-import com.example.lotteryapp.activities.TermsOfServiceActivity;
-import com.example.lotteryapp.models.Event;
-import com.example.lotteryapp.services.ServiceLocator;
 import com.example.lotteryapp.services.storage.UserStorage;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * HomeFragment displays the main event dashboard of the application.
@@ -69,12 +62,8 @@ public class HomeFragment extends Fragment {
     private final EventStorage eventStorage = ServiceLocator.getEventStorage();
     private final EventPoolStorage eventPoolStorage = ServiceLocator.getEventPoolStorage();
     private final UserStorage userStorage = ServiceLocator.getUserStorage();
-    private GridEventAdapter openAdapter;
-    private GridEventAdapter upcomingAdapter;
-    private GridEventAdapter fullAdapter;
-    private List<DisplayGridEvent> displayOpenGridEvents;
-    private List<DisplayGridEvent> displayUpcomingGridEvents;
-    private List<DisplayGridEvent> displayFullGridEvents;
+    private final NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
+
     private boolean isCheckingTOS = false;
     private boolean isTOSActivityOpen = false;
 
@@ -87,67 +76,32 @@ public class HomeFragment extends Fragment {
                     }
             );
 
-
-
     private ViewPager2 notificationsPager;
-    private final NotificationLogStorage notificationLogStorage = ServiceLocator.getNotificationLogStorage();
-
     private NotificationPagerAdapter notificationPagerAdapter;
     private final List<NotificationLog> notifications = new ArrayList<>();
     private View invitationCard;
+    private View notificationsEmptyState;
 
-    private MaterialButton filtersButton;
-
-    private List<Long> userAvailability;
-
-    private MaterialTextView interestText;
-    private RecyclerView recyclerViewOpen;
-    private MaterialTextView upcomingText;
-    private RecyclerView recyclerViewUpcoming;
     private MaterialTextView popularText;
-    private RecyclerView recyclerViewFull;
+    private RecyclerView recyclerViewPopular;
+
+    private MaterialTextView nearbyText;
+    private RecyclerView recyclerViewNearby;
 
     private LinearLayout loadingIndicator;
     private LinearLayout emptyIndicator;
 
-    private Map<GridEventAdapter, RecyclerView> adapterToRecView;
-    private Map<RecyclerView, MaterialTextView> recViewToText;
+    private GridEventAdapter popularAdapter;
+    private List<DisplayGridEvent> displayPopularGridEvents;
 
-    private FilterDialog filterDialog;
+    private GridEventAdapter nearbyAdapter;
+    private List<DisplayGridEvent> displayNearbyGridEvents;
 
-    // tracks how many event status queries are still in flight for the current load cycle
-    private int pendingEventLoads = 0;
+    private boolean popularLoaded = false;
+    private boolean nearbyLoaded = false;
+    private List<DisplayGridEvent> pendingPopularGridEvents = new ArrayList<>();
+    private List<DisplayGridEvent> pendingNearbyGridEvents = new ArrayList<>();
 
-    // prevents stale callbacks from an older load cycle from updating the empty state
-    private int eventLoadGeneration = 0;
-    Runnable LOAD_EVENTS_ACTION = () -> {
-        if (!filterDialog.isActive(UPCOMING_EVENTS_FILTER)) { // Hide upcoming events
-            recyclerViewUpcoming.setVisibility(VISIBLE);
-            upcomingText.setVisibility(VISIBLE);
-            loadEventsByStatus(Event.EventStatus.REG_UPCOMING);
-        } else {
-            recyclerViewUpcoming.setVisibility(GONE);
-            upcomingText.setVisibility(GONE);
-        }
-
-        if (!filterDialog.isActive(OPEN_EVENTS_FILTER)) { // Hide open events
-            recyclerViewOpen.setVisibility(VISIBLE);
-            interestText.setVisibility(VISIBLE);
-            loadEventsByStatus(Event.EventStatus.EVENT_OPEN);
-        } else {
-            recyclerViewOpen.setVisibility(GONE);
-            interestText.setVisibility(GONE);
-        }
-
-        if (!filterDialog.isActive(FULL_EVENTS_FILTER)) { // Hide full events
-            recyclerViewFull.setVisibility(VISIBLE);
-            popularText.setVisibility(VISIBLE);
-            loadEventsByStatus(Event.EventStatus.EVENT_FULL);
-        } else {
-            recyclerViewFull.setVisibility(GONE);
-            popularText.setVisibility(GONE);
-        }
-    };
 
     /**
      * Inflates the HomeFragment layout and initializes UI components.
@@ -159,6 +113,7 @@ public class HomeFragment extends Fragment {
 
         invitationCard = view.findViewById(R.id.invitation_card);
         notificationsPager = view.findViewById(R.id.notifications_pager);
+        notificationsEmptyState = view.findViewById(R.id.notifications_empty_state);
 
         notificationPagerAdapter = new NotificationPagerAdapter(
                 notifications,
@@ -167,198 +122,40 @@ public class HomeFragment extends Fragment {
         );
         notificationsPager.setAdapter(notificationPagerAdapter);
 
-        if (invitationCard != null) {
-            invitationCard.setVisibility(GONE);
-        }
-        notificationsPager.setVisibility(GONE);
-
-        recyclerViewOpen = view.findViewById(R.id.recycler_view_open);
-        recyclerViewOpen.setLayoutManager(new GridLayoutManager(getContext(), 2));
-        recyclerViewUpcoming = view.findViewById(R.id.recycler_view_upcoming);
-        recyclerViewUpcoming.setLayoutManager(new GridLayoutManager(getContext(), 2));
-        recyclerViewFull = view.findViewById(R.id.recycler_view_full);
-        recyclerViewFull.setLayoutManager(new GridLayoutManager(getContext(), 2));
-
-        interestText = view.findViewById(R.id.interest_text);
+        recyclerViewPopular = view.findViewById(R.id.recycler_view_popular);
         popularText = view.findViewById(R.id.popular_text);
-        upcomingText = view.findViewById(R.id.upcoming_text);
 
-        recViewToText = new HashMap<>();
-        recViewToText.put(recyclerViewOpen, interestText);
-        recViewToText.put(recyclerViewFull, popularText);
-        recViewToText.put(recyclerViewUpcoming, upcomingText);
+        recyclerViewNearby = view.findViewById(R.id.recycler_view_nearby);
+        nearbyText = view.findViewById(R.id.nearby_text);
 
-        displayOpenGridEvents = new ArrayList<>();
-        displayUpcomingGridEvents = new ArrayList<>();
-        displayFullGridEvents = new ArrayList<>();
-
-        openAdapter = new GridEventAdapter(displayOpenGridEvents);
-        upcomingAdapter = new GridEventAdapter(displayUpcomingGridEvents);
-        fullAdapter = new GridEventAdapter(displayFullGridEvents);
-
-        recyclerViewOpen.setAdapter(openAdapter);
-        recyclerViewUpcoming.setAdapter(upcomingAdapter);
-        recyclerViewFull.setAdapter(fullAdapter);
-
-        emptyIndicator = view.findViewById(R.id.empty_indicator);
         loadingIndicator = view.findViewById(R.id.loading_indicator);
+        emptyIndicator = view.findViewById(R.id.empty_indicator);
 
-        adapterToRecView = new HashMap<>();
-        adapterToRecView.put(openAdapter, recyclerViewOpen);
-        adapterToRecView.put(upcomingAdapter, recyclerViewUpcoming);
-        adapterToRecView.put(fullAdapter, recyclerViewFull);
+        recyclerViewPopular.setLayoutManager(new GridLayoutManager(getContext(), 2));
+        recyclerViewNearby.setLayoutManager(new GridLayoutManager(getContext(), 2));
 
-        filtersButton = view.findViewById(R.id.event_filters_button);
-        filterDialog = new FilterDialog(view.getContext());
+        displayPopularGridEvents = new ArrayList<>();
+        popularAdapter = new GridEventAdapter(displayPopularGridEvents);
+        recyclerViewPopular.setAdapter(popularAdapter);
 
-        userAvailability = Arrays.asList(1123L, 80L, 67L);
+        displayNearbyGridEvents = new ArrayList<>();
+        nearbyAdapter = new GridEventAdapter(displayNearbyGridEvents);
+        recyclerViewNearby.setAdapter(nearbyAdapter);
 
         return view;
     }
 
     private void toggleLoadingIndicator(boolean isVisible) {
-        if (isVisible) {
-            loadingIndicator.setVisibility(VISIBLE);
-        } else {
-            loadingIndicator.setVisibility(GONE);
-        }
-    }
-
-    /**
-     * Adds an onClickListener to "filtersButton" that
-     * opens up the FilterDialog dialog.
-     * @param filterView the view representing the FilterDialog.
-     * @param filterDialog the FilterDialog obj.
-     */
-    private void setupFilterButton(@NonNull View filterView, @NonNull FilterDialog filterDialog) {
-        filtersButton.setOnClickListener(v -> {
-            filterDialog.show();
-
-            // Positive & Negative Buttons
-            MaterialButton applyButton = filterView.findViewById(R.id.filter_apply_button);
-            applyButton.setOnClickListener(_NA -> {
-                Log.d("HomeFragment", "User clicked on the filter apply button");
-                boolean isValidInput = filterDialog.validateInput(filterView);
-                if (!isValidInput) {
-                    return;
-                }
-
-                loadAllEvents();
-                filterDialog.dismiss();
-            });
-
-            MaterialButton cancelButton = filterView.findViewById(R.id.filter_cancel_button);
-            cancelButton.setOnClickListener(_NA -> {
-                Log.d("HomeFragment", "User clicked on the filter cancel button");
-                filterDialog.cancel();
-            });
-        });
-
-    }
-
-    /**
-     *  Sets up the FilterDialog w/ Listeners and adds an onClickListener to "filtersButton"
-     * @param view The parent view
-     */
-    private void setupFilterDialog(@NonNull View view) {
-        Log.d("HomeFragment", "Hello Filters :)");
-
-        View filterView = LayoutInflater.from(view.getContext()).inflate(R.layout.dialog_filter, null);
-        filterDialog.setupListeners(filterView);
-        filterDialog.setContentView(filterView);
-        setupFilterButton(filterView, filterDialog);
+        if (loadingIndicator == null) return;
+        loadingIndicator.setVisibility(isVisible ? VISIBLE : GONE);
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         checkAndLaunchTOSIfNeeded();
-        setupFilterDialog(view);
-        loadAllEvents();
+        loadHomeSections();
         loadNotifications();
-    }
-
-    /**
-     * Helper function that loads events into their respective lists
-     * <br>
-     * Will automatically account for the FilterDialog availability filter
-     */
-    /**
-     * loads all visible event sections and only resolves the empty state after all section queries finish
-     */
-    private void loadAllEvents() {
-        // start a new load cycle so older callbacks can be ignored
-        eventLoadGeneration++;
-
-        // reset all displayed data before new results arrive
-        displayOpenGridEvents.clear();
-        displayUpcomingGridEvents.clear();
-        displayFullGridEvents.clear();
-
-        if (openAdapter != null) openAdapter.notifyDataSetChanged();
-        if (upcomingAdapter != null) upcomingAdapter.notifyDataSetChanged();
-        if (fullAdapter != null) fullAdapter.notifyDataSetChanged();
-
-        // hide empty state while loading so it does not flash before results resolve
-        emptyIndicator.setVisibility(GONE);
-        toggleLoadingIndicator(true);
-
-        // count how many visible sections will actually be loaded
-        pendingEventLoads = 0;
-        if (!filterDialog.isActive(UPCOMING_EVENTS_FILTER)) pendingEventLoads++;
-        if (!filterDialog.isActive(OPEN_EVENTS_FILTER)) pendingEventLoads++;
-        if (!filterDialog.isActive(FULL_EVENTS_FILTER)) pendingEventLoads++;
-
-        // if every section is hidden by filters there is nothing to load
-        if (pendingEventLoads == 0) {
-            toggleLoadingIndicator(false);
-            emptyIndicator.setVisibility(VISIBLE);
-            return;
-        }
-
-        if (filterDialog.isActive(AVAILABILITY_FILTER)) {
-            userStorage.getUserAvailabilityDates(
-                    ServiceLocator.uid(),
-                    dates -> {
-                        userAvailability = dates;
-                        Log.d("HomeFragment", userAvailability.toString());
-                        LOAD_EVENTS_ACTION.run();
-                    },
-                    e -> {
-                        Log.e("HomeFragment", "Failed to load user availability", e);
-                        toggleLoadingIndicator(false);
-                        emptyIndicator.setVisibility(VISIBLE);
-                    }
-            );
-            return;
-        }
-
-        LOAD_EVENTS_ACTION.run();
-    }
-
-    /**
-     * marks one event section load as complete and updates loading and empty state once all sections resolve
-     */
-    private void finishEventSectionLoad(int generationAtRequestTime) {
-        // ignore stale callbacks from an older load cycle
-        if (generationAtRequestTime != eventLoadGeneration) {
-            return;
-        }
-
-        pendingEventLoads--;
-
-        // only resolve ui once every visible section has responded
-        if (pendingEventLoads <= 0) {
-            toggleLoadingIndicator(false);
-
-            if (!displayFullGridEvents.isEmpty()
-                    || !displayOpenGridEvents.isEmpty()
-                    || !displayUpcomingGridEvents.isEmpty()) {
-                emptyIndicator.setVisibility(GONE);
-            } else {
-                emptyIndicator.setVisibility(VISIBLE);
-            }
-        }
     }
 
     /**
@@ -369,146 +166,153 @@ public class HomeFragment extends Fragment {
     public void onResume() {
         super.onResume();
         checkAndLaunchTOSIfNeeded();
-        loadAllEvents();
+        loadHomeSections();
         loadNotifications();
     }
 
     /**
-     * Returns the associated associated list of DisplayGridEvents
-     * and its GridEventAdapter.
-     * @param status the associated event status
-     * @return a Pair containing a List of DisplayGridEvents and its associated Adapter
+     * loads all visible event sections and only resolves the empty state after all section queries finish
      */
-    private Pair<List<DisplayGridEvent>, GridEventAdapter> getEventAdapterPair(Event.EventStatus status) {
-        List<DisplayGridEvent> events = null;
-        GridEventAdapter eventAdapter = null;
-
-        switch (status) {
-            case EVENT_OPEN:
-                events = displayOpenGridEvents;
-                eventAdapter = openAdapter;
-                break;
-            case REG_UPCOMING:
-                events = displayUpcomingGridEvents;
-                eventAdapter = upcomingAdapter;
-                break;
-            case EVENT_FULL:
-                events = displayFullGridEvents;
-                eventAdapter = fullAdapter;
-                break;
-            default: // Don't care about anything else
-                break;
+    private void loadHomeSections() {
+        if (eventStorage == null) {
+            return;
         }
 
-        return new Pair<>(events, eventAdapter);
+        popularLoaded = false;
+        nearbyLoaded = false;
+
+        pendingPopularGridEvents.clear();
+        pendingNearbyGridEvents.clear();
+
+        displayPopularGridEvents.clear();
+        popularAdapter.notifyDataSetChanged();
+
+        displayNearbyGridEvents.clear();
+        nearbyAdapter.notifyDataSetChanged();
+
+        if (popularText != null) popularText.setVisibility(GONE);
+        if (recyclerViewPopular != null) recyclerViewPopular.setVisibility(GONE);
+
+        if (nearbyText != null) nearbyText.setVisibility(GONE);
+        if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(GONE);
+
+        if (emptyIndicator != null) {
+            emptyIndicator.setVisibility(GONE);
+        }
+
+        toggleLoadingIndicator(true);
+
+        loadPopularEvents();
+        loadNearbyEvents();
     }
 
-    /**
-     * Loads the events tagged with the given status
-     * <br>
-     * Will automatically filter out events if the user
-     * turns on the availability filter in the filter dialog.
-     * @param status the event status to load
-     */
-    /**
-     * loads the events tagged with the given status
-     * <br>
-     * will automatically filter out events if the user
-     * turns on the availability filter in the filter dialog
-     */
-    private void loadEventsByStatus(Event.EventStatus status) {
-        if ((eventStorage == null) || (userStorage == null) || (openAdapter == null)
-                || (upcomingAdapter == null) || (fullAdapter == null)) return;
+    private void resolveHomeEmptyState() {
+        if (!popularLoaded || !nearbyLoaded) {
+            return;
+        }
 
-        Pair<List<DisplayGridEvent>, GridEventAdapter>
-                eventAdapterPair = getEventAdapterPair(status);
+        toggleLoadingIndicator(false);
 
-        // capture current load generation so stale callbacks do not mutate ui
-        int generationAtRequestTime = eventLoadGeneration;
+        displayPopularGridEvents.clear();
+        displayPopularGridEvents.addAll(pendingPopularGridEvents);
+        popularAdapter.notifyDataSetChanged();
 
-        @SuppressLint("NotifyDataSetChanged")
-        OnSuccessListener<List<Event>> successListener =
+        displayNearbyGridEvents.clear();
+        displayNearbyGridEvents.addAll(pendingNearbyGridEvents);
+        nearbyAdapter.notifyDataSetChanged();
+
+        boolean hasPopular = !displayPopularGridEvents.isEmpty();
+        boolean hasNearby = !displayNearbyGridEvents.isEmpty();
+
+        if (popularText != null) popularText.setVisibility(hasPopular ? VISIBLE : GONE);
+        if (recyclerViewPopular != null) recyclerViewPopular.setVisibility(hasPopular ? VISIBLE : GONE);
+
+        if (nearbyText != null) nearbyText.setVisibility(hasNearby ? VISIBLE : GONE);
+        if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(hasNearby ? VISIBLE : GONE);
+
+        if (emptyIndicator != null) {
+            emptyIndicator.setVisibility(hasPopular || hasNearby ? GONE : VISIBLE);
+        }
+    }
+
+    private void loadPopularEvents() {
+        if (eventStorage == null || popularAdapter == null || displayPopularGridEvents == null) {
+            popularLoaded = true;
+            resolveHomeEmptyState();
+            return;
+        }
+
+        eventStorage.listEventsByMostComments(
+                4,
                 fetchedEvents -> {
-                    // ignore stale callbacks from an older load cycle
-                    if (generationAtRequestTime != eventLoadGeneration) {
+                    pendingPopularGridEvents.clear();
+
+                    if (fetchedEvents != null) {
+                        for (Event event : fetchedEvents) {
+                            pendingPopularGridEvents.add(eventToDisplayEvent(event));
+                        }
+                    }
+
+                    popularLoaded = true;
+                    resolveHomeEmptyState();
+                },
+                e -> {
+                    Log.e("HomeFragment", "Failed to load popular events by comments", e);
+                    pendingPopularGridEvents.clear();
+                    popularLoaded = true;
+                    resolveHomeEmptyState();
+                }
+        );
+    }
+
+    private void loadNearbyEvents() {
+        String uid = ServiceLocator.uid();
+        if (uid == null || uid.trim().isEmpty()) {
+            nearbyLoaded = true;
+            resolveHomeEmptyState();
+            return;
+        }
+
+        loadNearbyEventsWithMode(uid, User.UserAddressMode.CURRENT, true);
+    }
+
+    private void loadNearbyEventsWithMode(String uid, User.UserAddressMode mode, boolean allowFallbackToDefault) {
+        eventStorage.listUpcomingEventsNearUser(
+                uid,
+                mode,
+                20,
+                4,
+                fetchedEvents -> {
+                    if ((fetchedEvents == null || fetchedEvents.isEmpty()) && allowFallbackToDefault
+                            && mode == User.UserAddressMode.CURRENT) {
+                        loadNearbyEventsWithMode(uid, User.UserAddressMode.DEFAULT, false);
                         return;
                     }
 
-                    List<DisplayGridEvent> displayGridEvents = eventAdapterPair.first;
-                    GridEventAdapter displayAdapter = eventAdapterPair.second;
+                    pendingNearbyGridEvents.clear();
 
-                    RecyclerView recView = adapterToRecView.get(displayAdapter);
-                    MaterialTextView displayText = recViewToText.get(recView);
-                    if (recView == null || displayText == null) {
-                        throw new RuntimeException("Something went wrong " +
-                                "with retrieving the GridEventRecyclerView and DisplayText!");
-                    }
-
-                    displayGridEvents.clear();
-
-                    if (!fetchedEvents.isEmpty()) {
-                        recView.setVisibility(VISIBLE);
-                        displayText.setVisibility(VISIBLE);
-
-                        for (Event e : fetchedEvents) {
-                            displayGridEvents.add(eventToDisplayEvent(e));
+                    if (fetchedEvents != null) {
+                        for (Event event : fetchedEvents) {
+                            pendingNearbyGridEvents.add(eventToDisplayEvent(event));
                         }
-
-                        displayAdapter.notifyDataSetChanged();
-                    } else {
-                        recView.setVisibility(GONE);
-                        displayText.setVisibility(GONE);
-                        displayAdapter.notifyDataSetChanged();
                     }
 
-                    finishEventSectionLoad(generationAtRequestTime);
-                };
+                    nearbyLoaded = true;
+                    resolveHomeEmptyState();
+                },
+                e -> {
+                    Log.e("HomeFragment", "Failed to load nearby upcoming events for mode " + mode, e);
 
-        OnFailureListener failureListener = e -> {
-            // ignore stale callbacks from an older load cycle
-            if (generationAtRequestTime != eventLoadGeneration) {
-                return;
-            }
+                    if (allowFallbackToDefault && mode == User.UserAddressMode.CURRENT) {
+                        loadNearbyEventsWithMode(uid, User.UserAddressMode.DEFAULT, false);
+                        return;
+                    }
 
-            Log.e("HomeFragment", "Failed to load events for status " + status, e);
-
-            Pair<List<DisplayGridEvent>, GridEventAdapter> pair = getEventAdapterPair(status);
-            RecyclerView recView = adapterToRecView.get(pair.second);
-            MaterialTextView displayText = recViewToText.get(recView);
-
-            if (pair.first != null) {
-                pair.first.clear();
-            }
-            if (pair.second != null) {
-                pair.second.notifyDataSetChanged();
-            }
-            if (recView != null) {
-                recView.setVisibility(GONE);
-            }
-            if (displayText != null) {
-                displayText.setVisibility(GONE);
-            }
-
-            finishEventSectionLoad(generationAtRequestTime);
-        };
-
-        Pair<Integer, Integer> CAP_FILTER_VALS = filterDialog.getCapacityFilterValues();
-        int MIN_CAP = CAP_FILTER_VALS.first;
-        int MAX_CAP = CAP_FILTER_VALS.second;
-
-        if (filterDialog.isActive(AVAILABILITY_FILTER)) {
-            if (userAvailability.isEmpty()) {
-                userAvailability = Arrays.asList(67L, 301L);
-            }
-            eventStorage.getEventsByStatus(
-                    MIN_CAP, MAX_CAP,
-                    userAvailability, status,
-                    4, successListener, failureListener);
-        } else {
-            eventStorage.getEventsByStatus(
-                    MIN_CAP, MAX_CAP, status,
-                    4, successListener, failureListener);
-        }
+                    pendingNearbyGridEvents.clear();
+                    nearbyLoaded = true;
+                    resolveHomeEmptyState();
+                }
+        );
     }
 
     /**
@@ -519,15 +323,13 @@ public class HomeFragment extends Fragment {
     private void loadNotifications() {
         String uid = ServiceLocator.uid();
         if (uid == null || uid.trim().isEmpty()) {
-            if (invitationCard != null) invitationCard.setVisibility(GONE);
-            notificationsPager.setVisibility(GONE);
+            updateNotificationBannerVisibility();
             return;
         }
 
         if (notificationLogStorage == null) {
             Log.e("HomeFragment", "NotificationLogStorage is null");
-            if (invitationCard != null) invitationCard.setVisibility(GONE);
-            notificationsPager.setVisibility(GONE);
+            updateNotificationBannerVisibility();
             return;
         }
 
@@ -540,8 +342,8 @@ public class HomeFragment extends Fragment {
                 },
                 e -> {
                     Log.e("HomeFragment", "Failed to load notifications", e);
-                    if (invitationCard != null) invitationCard.setVisibility(GONE);
-                    notificationsPager.setVisibility(GONE);
+                    notifications.clear();
+                    updateNotificationBannerVisibility();
                 }
         );
     }
@@ -550,16 +352,20 @@ public class HomeFragment extends Fragment {
      * Helper for setting the notification banner to show (has pending noti.s) or hide (no pending)
      */
     private void updateNotificationBannerVisibility() {
+        if (invitationCard != null) invitationCard.setVisibility(VISIBLE);
+
         if (notifications.isEmpty()) {
-            if (invitationCard != null) invitationCard.setVisibility(GONE);
-            notificationsPager.setVisibility(GONE);
+            if (notificationsPager != null) notificationsPager.setVisibility(GONE);
+            if (notificationsEmptyState != null) notificationsEmptyState.setVisibility(VISIBLE);
             return;
         }
 
-        if (invitationCard != null) invitationCard.setVisibility(VISIBLE);
-        notificationsPager.setVisibility(VISIBLE);
-        notificationPagerAdapter.notifyDataSetChanged();
-        notificationsPager.setCurrentItem(0, false);
+        if (notificationsEmptyState != null) notificationsEmptyState.setVisibility(GONE);
+        if (notificationsPager != null) {
+            notificationsPager.setVisibility(VISIBLE);
+            notificationPagerAdapter.notifyDataSetChanged();
+            notificationsPager.setCurrentItem(0, false);
+        }
     }
 
     /**
@@ -578,43 +384,31 @@ public class HomeFragment extends Fragment {
             return;
         }
 
-        if (notification.getType() != NotificationLog.NotificationType.PRIVATE_INVITATION
-                && notification.getType() != NotificationLog.NotificationType.COORGANIZER_INVITATION) {
-            if (notification.getId() == null || notification.getId().trim().isEmpty()) {
-                Toast.makeText(requireContext(), "Missing notification", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            notificationLogStorage.updateNotificationStatus(
-                    notification.getId(),
-                    READ.name(),
-                    unused -> {
-                        notifications.remove(position);
-                        updateNotificationBannerVisibility();
-
-                        if (!notifications.isEmpty()) {
-                            int nextIndex = Math.min(position, notifications.size() - 1);
-                            notificationsPager.setCurrentItem(nextIndex, false);
-                        }
-
-                        Toast.makeText(requireContext(), "Notification dismissed", Toast.LENGTH_SHORT).show();
-                    },
-                    e -> Toast.makeText(
-                            requireContext(),
-                            e.getMessage() == null ? "Failed to dismiss notification" : e.getMessage(),
-                            Toast.LENGTH_SHORT
-                    ).show()
-            );
+        if (notification.getId() == null || notification.getId().trim().isEmpty()) {
+            Toast.makeText(requireContext(), "Missing notification", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        notifications.remove(position);
-        updateNotificationBannerVisibility();
+        notificationLogStorage.updateNotificationStatus(
+                notification.getId(),
+                READ.name(),
+                unused -> {
+                    notifications.remove(position);
+                    updateNotificationBannerVisibility();
 
-        if (!notifications.isEmpty()) {
-            int nextIndex = Math.min(position, notifications.size() - 1);
-            notificationsPager.setCurrentItem(nextIndex, false);
-        }
+                    if (!notifications.isEmpty()) {
+                        int nextIndex = Math.min(position, notifications.size() - 1);
+                        notificationsPager.setCurrentItem(nextIndex, false);
+                    }
+
+                    Toast.makeText(requireContext(), "Notification dismissed", Toast.LENGTH_SHORT).show();
+                },
+                e -> Toast.makeText(
+                        requireContext(),
+                        e.getMessage() == null ? "Failed to dismiss notification" : e.getMessage(),
+                        Toast.LENGTH_SHORT
+                ).show()
+        );
     }
 
     /**
@@ -695,8 +489,6 @@ public class HomeFragment extends Fragment {
                         acceptLotteryInvite(position, notification))
                 .show();
     }
-
-
 
     /**
      * Runs on the user clicking confirm in the private event invite dialog
@@ -920,24 +712,21 @@ public class HomeFragment extends Fragment {
         );
     }
 
-
     /**
      * Notification Pager Adapter for setting actionable notifications (launches dialogs)
      */
     private static final class NotificationPagerAdapter
             extends RecyclerView.Adapter<NotificationPagerAdapter.NotificationViewHolder> {
 
-        // call back interface for when a user clicks the notification dismissal button
         interface OnDismissClickListener {
             void onDismissClicked(int position);
         }
 
-        // callback interface for when a user clicks the item
         interface OnNotificationClickListener {
             void onNotificationClicked(int position);
         }
 
-        private final List<NotificationLog> notifications; // notifications to show
+        private final List<NotificationLog> notifications;
         private final OnDismissClickListener dismissClickListener;
         private final OnNotificationClickListener notificationClickListener;
 
@@ -985,7 +774,6 @@ public class HomeFragment extends Fragment {
             holder.message.setText(message);
             bindDots(holder.dotsInline, position);
 
-            // The root card click is used for actionable notifications (launch dialogs)
             holder.root.setOnClickListener(v -> {
                 if (notificationClickListener != null) {
                     int adapterPosition = holder.getBindingAdapterPosition();
@@ -995,9 +783,6 @@ public class HomeFragment extends Fragment {
                 }
             });
 
-            // dismiss button:
-                // - EVENT_ANNOUNCEMENT notifications are marked ACCEPTED so they do not reappear
-                // - other notifications are only removed from the current in-memory page load
             holder.closeButton.setOnClickListener(v -> {
                 if (dismissClickListener != null) {
                     int adapterPosition = holder.getBindingAdapterPosition();
@@ -1008,7 +793,6 @@ public class HomeFragment extends Fragment {
             });
         }
 
-        // number of notifications
         @Override
         public int getItemCount() {
             return notifications.size();
@@ -1024,7 +808,6 @@ public class HomeFragment extends Fragment {
             MaterialButton closeButton;
             LinearLayout dotsInline;
 
-            // creates a view holder and binds all child views
             NotificationViewHolder(@NonNull View itemView) {
                 super(itemView);
                 root = itemView.findViewById(R.id.notification_root);
@@ -1041,34 +824,28 @@ public class HomeFragment extends Fragment {
         private void bindDots(LinearLayout container, int selectedIndex) {
             container.removeAllViews();
 
-            // do pending notifications exist for this user?
             if (container.getContext() == null || notifications.size() <= 1) {
                 container.setVisibility(GONE);
                 return;
             }
 
-            // notifications exist, so the pager indicator should be visible
             container.setVisibility(VISIBLE);
 
-            // one dot per notification currently shown in the banner list
             int sizePx = dpToPx(container, 8);
             int marginPx = dpToPx(container, 3);
 
             for (int i = 0; i < notifications.size(); i++) {
                 View dot = new View(container.getContext());
 
-                // set a fixed circular size for each dot
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(sizePx, sizePx);
                 params.setMargins(marginPx, 0, marginPx, 0);
                 dot.setLayoutParams(params);
 
-                // gradient drawable so each entry appears as a dot
                 GradientDrawable drawable = new GradientDrawable();
                 drawable.setShape(GradientDrawable.OVAL);
                 drawable.setColor(resolveDotColor(container));
                 dot.setBackground(drawable);
 
-                // highlight selected dot, dim not-selected dots
                 dot.setAlpha(i == selectedIndex ? 1f : 0.35f);
 
                 container.addView(dot);
@@ -1176,7 +953,7 @@ public class HomeFragment extends Fragment {
         StringBuilder sb = new StringBuilder(statusString(status));
 
         Integer waitlistCap = event.getWaitlistCapacity();
-        if (waitlistCap != null && waitlistCap == -1) {
+        if (waitlistCap != null && waitlistCap == UNLIMITED_WAITLIST_SENTINEL) {
             sb.append("\nWaitlist: ")
                     .append(event.getWaitlistCount())
                     .append("/")

@@ -1,6 +1,7 @@
 package com.example.lotteryapp.services.storage;
 
 import android.util.Log;
+import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -43,6 +44,7 @@ public class EventStorage {
     public EventStorage(FirebaseFirestore db) {
         this.db = db;
     }
+
 
     /** firebase retrieval
      * returns an Event document by the primary key eventId
@@ -1078,6 +1080,83 @@ public class EventStorage {
     }
 
     /**
+     * Retrieves events ordered by number of comments in descending order
+     */
+    public void listEventsByMostComments(
+            int limit,
+            OnSuccessListener<List<Event>> ok,
+            OnFailureListener fail
+    ) {
+        db.collection("events")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    List<Event> allEvents = new ArrayList<>();
+                    List<Pair<Event, Integer>> rankedEvents = new ArrayList<>();
+
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        Event event = doc.toObject(Event.class);
+                        if (event != null) {
+                            allEvents.add(event);
+                        }
+                    }
+
+                    if (allEvents.isEmpty()) {
+                        ok.onSuccess(new ArrayList<>());
+                        return;
+                    }
+
+                    final int[] remaining = {allEvents.size()};
+
+                    for (Event event : allEvents) {
+                        eventCommentsCollection(event.getEventId())
+                                .get()
+                                .addOnSuccessListener(commentsSnapshot -> {
+                                    int count = commentsSnapshot.size();
+
+                                    // 🔥 Filter here
+                                    if (count >= 5) {
+                                        rankedEvents.add(new Pair<>(event, count));
+                                    }
+
+                                    remaining[0]--;
+
+                                    if (remaining[0] == 0) {
+                                        finalizeResults(rankedEvents, limit, ok);
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    remaining[0]--;
+
+                                    if (remaining[0] == 0) {
+                                        finalizeResults(rankedEvents, limit, ok);
+                                    }
+                                });
+                    }
+                })
+                .addOnFailureListener(fail);
+    }
+
+    /**
+     * Sorts and trims the ranked events list, then returns results.
+     */
+    private void finalizeResults(
+            List<Pair<Event, Integer>> rankedEvents,
+            int limit,
+            OnSuccessListener<List<Event>> ok
+    ) {
+        rankedEvents.sort((a, b) -> Integer.compare(b.second, a.second));
+
+        List<Event> result = new ArrayList<>();
+        int max = Math.min(limit, rankedEvents.size());
+
+        for (int i = 0; i < max; i++) {
+            result.add(rankedEvents.get(i).first);
+        }
+
+        ok.onSuccess(result);
+    }
+
+    /**
      * Get all of the events within (parameter: radiusKm) of a user
      *      treats the user as the origin and scans for all events whos address is within a circle of radius  int radiusKm to the user
      * Asynchronous: requires onSuccess listeners
@@ -1129,6 +1208,60 @@ public class EventStorage {
                 })
                 .addOnFailureListener(onFailure);
     }
+
+    /**
+     * Returns nearby public events within the supplied radius, ordered by event date ascending.
+     * Only future events are included.
+     */
+    public void listUpcomingEventsNearUser(
+            @NonNull String uid,
+            @NonNull User.UserAddressMode userAddressMode,
+            int radiusKm,
+            int limit,
+            OnSuccessListener<List<Event>> onSuccess,
+            OnFailureListener onFailure
+    ) {
+        getEventsNearUser(
+                uid,
+                userAddressMode,
+                radiusKm,
+                events -> {
+                    long now = System.currentTimeMillis();
+                    List<Event> upcomingEvents = new ArrayList<>();
+
+                    for (Event event : events) {
+                        if (event == null) {
+                            continue;
+                        }
+
+                        Long eventDateMs = event.getEventDateMs();
+                        if (eventDateMs == null || eventDateMs < now) {
+                            continue;
+                        }
+
+                        upcomingEvents.add(event);
+                    }
+
+                    upcomingEvents.sort((a, b) -> {
+                        Long aDate = a.getEventDateMs();
+                        Long bDate = b.getEventDateMs();
+
+                        if (aDate == null && bDate == null) return 0;
+                        if (aDate == null) return 1;
+                        if (bDate == null) return -1;
+                        return Long.compare(aDate, bDate);
+                    });
+
+                    if (limit > 0 && upcomingEvents.size() > limit) {
+                        upcomingEvents = new ArrayList<>(upcomingEvents.subList(0, limit));
+                    }
+
+                    onSuccess.onSuccess(upcomingEvents);
+                },
+                onFailure
+        );
+    }
+
 
     /**
      * Filters a list of events to only those within the given radius of the user.
