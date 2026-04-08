@@ -57,7 +57,8 @@
                 android:id="@+id/layout_upcoming_event_item"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"/>
+                android:orientation="vertical"
+                android:animateLayoutChanges="true" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

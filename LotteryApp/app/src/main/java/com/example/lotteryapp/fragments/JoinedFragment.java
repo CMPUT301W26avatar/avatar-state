@@ -28,6 +28,7 @@ import com.example.lotteryapp.services.TicketService;
 import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.NotificationLogStorage;
+import com.example.lotteryapp.utils.DepthPageTransformer;
 import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
@@ -103,6 +104,7 @@ public class JoinedFragment extends Fragment {
         // attach adapter backed by enrolled events list
         pagerAdapter = new JoinedEventPagerAdapter(enrolledEvents);
         joinedEventsPager.setAdapter(pagerAdapter);
+        joinedEventsPager.setPageTransformer(new DepthPageTransformer());
 
         // keep pager dots in sync with the currently visible enrolled event card
         joinedEventsPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
@@ -123,6 +125,7 @@ public class JoinedFragment extends Fragment {
         // attach adapter backed by the currently selected extra events category
         extraPagerAdapter = new JoinedEventPagerAdapter(extraEvents);
         extraEventsPager.setAdapter(extraPagerAdapter);
+        extraEventsPager.setPageTransformer(new DepthPageTransformer());
 
         // keep extra section dots in sync with the visible extra event card
         extraEventsPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {

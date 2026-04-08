@@ -13,7 +13,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="16dp"
+            android:animateLayoutChanges="true">
 
             <LinearLayout
                 android:id="@+id/home_header_row"
@@ -38,6 +39,9 @@
                     android:layout_height="24dp"
                     android:contentDescription="Location status"
                     android:src="@drawable/ic_nearmeoff"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackgroundBorderless"
                     app:tint="?attr/colorOnSurface" />
             </LinearLayout>
 
@@ -185,6 +189,7 @@
                 android:id="@+id/recycler_view_popular"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layoutAnimation="@anim/layout_animation_fall_down"
                 android:nestedScrollingEnabled="false"
                 android:visibility="gone" />
 
@@ -214,6 +219,7 @@
                     android:contentDescription="Widen nearby search radius"
                     android:focusable="true"
                     android:src="@drawable/ic_nearme"
+                    android:background="?attr/selectableItemBackgroundBorderless"
                     app:tint="?attr/colorOnSurfaceVariant" />
             </LinearLayout>
 
@@ -326,6 +332,7 @@
                 android:id="@+id/recycler_view_nearby"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layoutAnimation="@anim/layout_animation_fall_down"
                 android:layout_marginBottom="24dp"
                 android:nestedScrollingEnabled="false"
                 android:visibility="gone" />

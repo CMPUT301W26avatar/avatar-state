@@ -44,6 +44,7 @@ import com.example.lotteryapp.services.storage.EventPoolStorage;
 import com.example.lotteryapp.services.storage.EventStorage;
 import com.example.lotteryapp.services.storage.NotificationLogStorage;
 import com.example.lotteryapp.services.storage.UserStorage;
+import com.example.lotteryapp.utils.DepthPageTransformer;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textview.MaterialTextView;
 
@@ -160,6 +161,7 @@ public class HomeFragment extends Fragment {
                 this::handleNotificationClicked
         );
         notificationsPager.setAdapter(notificationPagerAdapter);
+        notificationsPager.setPageTransformer(new DepthPageTransformer());
 
         recyclerViewPopular = view.findViewById(R.id.recycler_view_popular);
         popularText = view.findViewById(R.id.popular_text);
@@ -349,14 +351,20 @@ public class HomeFragment extends Fragment {
         boolean hasNearby = !displayNearbyGridEvents.isEmpty();
 
         if (popularText != null) popularText.setVisibility(hasPopular ? VISIBLE : GONE);
-        if (recyclerViewPopular != null) recyclerViewPopular.setVisibility(hasPopular ? VISIBLE : GONE);
+        if (recyclerViewPopular != null) {
+            recyclerViewPopular.setVisibility(hasPopular ? VISIBLE : GONE);
+            if (hasPopular) recyclerViewPopular.scheduleLayoutAnimation();
+        }
 
         if (hasResolvedNearbyLocation) {
             if (nearbyHeaderRow != null) nearbyHeaderRow.setVisibility(VISIBLE);
             if (nearbyLocationYield != null) nearbyLocationYield.setVisibility(GONE);
 
             if (hasNearby) {
-                if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(VISIBLE);
+                if (recyclerViewNearby != null) {
+                    recyclerViewNearby.setVisibility(VISIBLE);
+                    recyclerViewNearby.scheduleLayoutAnimation();
+                }
                 if (nearbyEmptyRadiusYield != null) nearbyEmptyRadiusYield.setVisibility(GONE);
             } else {
                 if (recyclerViewNearby != null) recyclerViewNearby.setVisibility(GONE);

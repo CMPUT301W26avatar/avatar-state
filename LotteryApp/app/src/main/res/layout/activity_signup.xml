@@ -126,7 +126,6 @@
                 android:id="@+id/tv_terms_link"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="I've read and agree with the Terms and Conditions and the Privacy Policy."
                 android:textAppearance="?attr/textAppearanceBodySmall" />
         </LinearLayout>
 

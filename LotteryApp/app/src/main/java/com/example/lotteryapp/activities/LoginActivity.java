@@ -2,7 +2,9 @@ package com.example.lotteryapp.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.animation.AnimationUtils;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -34,6 +36,14 @@ public class LoginActivity extends AppCompatActivity {
             gotoMain();
         }
 
+        animateIn();
+    }
+
+    private void animateIn() {
+        LinearLayout root = findViewById(R.id.login_root);
+        if (root != null) {
+            root.startAnimation(AnimationUtils.loadAnimation(this, R.anim.slide_up_fade));
+        }
     }
 
     /**
@@ -104,6 +114,7 @@ public class LoginActivity extends AppCompatActivity {
      */
     private void gotoMain() {
         startActivity(new Intent(LoginActivity.this, MainActivity.class));
+        overridePendingTransition(R.anim.fade_in, android.R.anim.fade_out);
         finish();
     }
 }
