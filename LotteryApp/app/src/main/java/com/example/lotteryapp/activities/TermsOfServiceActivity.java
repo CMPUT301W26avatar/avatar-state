@@ -24,11 +24,14 @@ import com.google.android.material.textview.MaterialTextView;
  */
 public class TermsOfServiceActivity extends AppCompatActivity {
 
+    public static final String EXTRA_READ_ONLY = "extra_read_only";
+
     private UserStorage ustore;
     private MaterialToolbar toolbar;
     private MaterialTextView tvTermsBody;
     private MaterialButton btnDecline;
     private MaterialButton btnAccept;
+    private boolean isReadOnly = false;
 
     /**
      * Intitializes UI components for this activity.
@@ -41,51 +44,58 @@ public class TermsOfServiceActivity extends AppCompatActivity {
         setContentView(R.layout.activity_terms_of_service);
         NestedScrollView scrollView = findViewById(R.id.scroll_terms);
 
+        isReadOnly = getIntent().getBooleanExtra(EXTRA_READ_ONLY, false);
+
         ustore = ServiceLocator.getUserStorage();
 
         toolbar = findViewById(R.id.toolbar_tos);
         tvTermsBody = findViewById(R.id.tv_terms_body);
         btnDecline = findViewById(R.id.btn_decline_tos);
-
         btnAccept = findViewById(R.id.btn_accept_tos);
-        btnAccept.setEnabled(false);
-        btnAccept.animate()
-                .alpha(1f)
-                .setDuration(200)
-                .start();
 
+        if (isReadOnly) {
+            btnAccept.setVisibility(View.GONE);
+            btnDecline.setVisibility(View.GONE);
+            toolbar.setNavigationOnClickListener(v -> finish());
+        } else {
+            btnAccept.setEnabled(false);
+            btnAccept.animate()
+                    .alpha(1f)
+                    .setDuration(200)
+                    .start();
 
-        toolbar.setNavigationOnClickListener(v -> {
-            // Do nothing so users must explicitly accept or decline.
-        });
+            toolbar.setNavigationOnClickListener(v -> {
+                // Do nothing so users must explicitly accept or decline.
+            });
 
-        scrollView.getViewTreeObserver().addOnScrollChangedListener(() -> {
-            View content = scrollView.getChildAt(0);
-            if (content == null) return;
+            scrollView.getViewTreeObserver().addOnScrollChangedListener(() -> {
+                View content = scrollView.getChildAt(0);
+                if (content == null) return;
 
-            int diff = content.getBottom() - (scrollView.getHeight() + scrollView.getScrollY());
+                int diff = content.getBottom() - (scrollView.getHeight() + scrollView.getScrollY());
 
-            // enable the accept button only if the user has reached the bottom of the scroll View
-            if (diff <= 0) {
-                // Reached bottom
-                if (!btnAccept.isEnabled()) {
-                    btnAccept.setEnabled(true);
-                    btnAccept.setAlpha(1f);
+                // enable the accept button only if the user has reached the bottom of the scroll View
+                if (diff <= 0) {
+                    // Reached bottom
+                    if (!btnAccept.isEnabled()) {
+                        btnAccept.setEnabled(true);
+                        btnAccept.setAlpha(1f);
+                    }
                 }
-            }
-        });
+            });
+
+            btnDecline.setOnClickListener(v -> {
+                Toast.makeText(this, "You must accept the Terms of Service to continue.", Toast.LENGTH_LONG).show();
+
+                Intent intent = new Intent(this, LoginActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+            });
+
+            btnAccept.setOnClickListener(v -> acceptTermsOfService());
+        }
 
         tvTermsBody.setText(buildTermsOfServiceText());
-
-        btnDecline.setOnClickListener(v -> {
-            Toast.makeText(this, "You must accept the Terms of Service to continue.", Toast.LENGTH_LONG).show();
-
-            Intent intent = new Intent(this, LoginActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-        });
-
-        btnAccept.setOnClickListener(v -> acceptTermsOfService());
     }
 
     /**
@@ -175,7 +185,6 @@ public class TermsOfServiceActivity extends AppCompatActivity {
                 "The platform is not responsible for event cancellations, delays, organizer " +
                 "conduct, participant behavior, injuries, damages, losses, disputes, or the " +
                 "outcome of lotteries or raffles. Participation is at the user's own risk.\n\n" +
-
                 "10. Account and Access\n" +
                 "The platform may suspend or terminate accounts, remove content, or restrict " +
                 "access at any time for misuse or violation of these Terms.\n\n" +
