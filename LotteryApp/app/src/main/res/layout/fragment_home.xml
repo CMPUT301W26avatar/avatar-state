@@ -53,7 +53,7 @@
                 android:layout_marginBottom="24dp"
                 android:minHeight="86dp"
                 android:visibility="visible"
-                app:cardBackgroundColor="?attr/colorTertiaryContainer"
+                app:cardBackgroundColor="#FF2C87A8"
                 app:strokeWidth="0dp">
 
                 <androidx.constraintlayout.widget.ConstraintLayout
@@ -108,6 +108,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="You're all caught up"
                                 android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+                                android:textColor="@android:color/white"
                                 android:textStyle="bold" />
 
                             <com.google.android.material.textview.MaterialTextView
@@ -115,7 +116,9 @@
                                 android:layout_height="wrap_content"
                                 android:alpha="0.8"
                                 android:text="No new notifications right now"
+                                android:textColor="@android:color/white"
                                 android:textAppearance="@style/TextAppearance.Material3.BodyMedium" />
+
                         </LinearLayout>
 
                     </LinearLayout>
