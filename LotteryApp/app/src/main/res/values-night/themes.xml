@@ -1,7 +1,23 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Base application theme (dark). -->
     <style name="Base.Theme.LotteryApp" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <item name="colorPrimary">@color/blue_accent_light</item>
+        <item name="colorOnPrimary">@color/charcoal_dark</item>
+        <item name="colorPrimaryContainer">@color/blue_accent_dark</item>
+        <item name="colorOnPrimaryContainer">@color/blue_accent_light</item>
+        <item name="colorSecondary">@color/blue_accent_light</item>
+        <item name="colorOnSecondary">@color/charcoal_dark</item>
+        <item name="colorSecondaryContainer">@color/charcoal</item>
+        <item name="colorOnSecondaryContainer">@color/blue_accent_light</item>
+        <item name="colorTertiary">@color/blue_accent</item>
+        <item name="colorOnTertiary">@color/on_blue</item>
+        <item name="colorTertiaryContainer">@color/charcoal_dark</item>
+        <item name="colorOnTertiaryContainer">@color/surface_variant_light</item>
+        <item name="colorSurface">@color/charcoal_dark</item>
+        <item name="colorOnSurface">#FFE0E0E0</item>
+        <item name="colorSurfaceVariant">@color/charcoal</item>
+        <item name="colorOnSurfaceVariant">#FFB0B3B8</item>
+        <item name="colorOutline">#FF6B6F77</item>
+        <item name="colorOutlineVariant">@color/charcoal_light</item>
     </style>
 </resources>

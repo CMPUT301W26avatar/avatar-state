@@ -251,7 +251,7 @@
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_view_event_map"
                         style="@style/Widget.AppCompat.Button"
-                        app:backgroundTint="@color/material_dynamic_primary70"
+                        app:backgroundTint="@color/blue_accent_light"
                         android:layout_width="80dp"
                         android:layout_height="wrap_content"
                         app:cornerRadius="12dp"
@@ -293,7 +293,7 @@
                     android:id="@+id/btn_invite_coorganizers"
                     style="@style/Widget.AppCompat.Button"
                     android:layout_marginTop="24dp"
-                    app:backgroundTint="@color/material_dynamic_primary40"
+                    app:backgroundTint="@color/blue_accent"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     app:cornerRadius="8dp"
