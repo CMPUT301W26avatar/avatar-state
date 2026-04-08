@@ -1,8 +1,24 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Base.Theme.LotteryApp" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="colorPrimary">@color/charcoal</item>
+        <item name="colorOnPrimary">@color/on_charcoal</item>
+        <item name="colorPrimaryContainer">@color/blue_accent</item>
+        <item name="colorOnPrimaryContainer">@color/on_blue</item>
+        <item name="colorSecondary">@color/blue_accent</item>
+        <item name="colorOnSecondary">@color/on_blue</item>
+        <item name="colorSecondaryContainer">@color/blue_accent_light</item>
+        <item name="colorOnSecondaryContainer">@color/on_blue</item>
+        <item name="colorTertiary">@color/blue_accent</item>
+        <item name="colorOnTertiary">@color/on_blue</item>
+        <item name="colorTertiaryContainer">@color/charcoal_light</item>
+        <item name="colorOnTertiaryContainer">@color/on_charcoal</item>
+        <item name="colorSurface">@color/surface_light</item>
+        <item name="colorOnSurface">@color/on_surface_light</item>
+        <item name="colorSurfaceVariant">@color/surface_variant_light</item>
+        <item name="colorOnSurfaceVariant">@color/on_surface_variant_light</item>
+        <item name="colorOutline">@color/outline_light</item>
+        <item name="colorOutlineVariant">@color/outline_variant_light</item>
     </style>
 
     <style name="Theme.LotteryApp" parent="Base.Theme.LotteryApp" />
