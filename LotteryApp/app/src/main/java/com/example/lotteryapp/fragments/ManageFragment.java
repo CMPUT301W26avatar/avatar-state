@@ -66,6 +66,7 @@ public class ManageFragment extends Fragment {
     // Image picking state
     private Uri selectedImageUri;
     private ImageView currentPreviewImage;
+    private ImageView currentPlaceholderIcon;
     private View currentRemovePosterButton;
 
     private final ActivityResultLauncher<PickVisualMediaRequest> pickMedia =
@@ -76,6 +77,10 @@ public class ManageFragment extends Fragment {
                         currentPreviewImage.setImageURI(uri);
                         currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
                         currentPreviewImage.setImageTintList(null); // Clear placeholder tint
+                        currentPreviewImage.setVisibility(View.VISIBLE);
+                    }
+                    if (currentPlaceholderIcon != null) {
+                        currentPlaceholderIcon.setVisibility(View.GONE);
                     }
                     if (currentRemovePosterButton != null) {
                         currentRemovePosterButton.setVisibility(View.VISIBLE);
@@ -171,6 +176,8 @@ public class ManageFragment extends Fragment {
 
             TextView tvTitle = row.findViewById(R.id.tv_event_title);
             TextView tvSubtitle = row.findViewById(R.id.tv_event_subtitle);
+            ImageView ivPoster = row.findViewById(R.id.img_event_poster);
+            ImageView ivPlaceholder = row.findViewById(R.id.img_event_placeholder);
             View btnDetails = row.findViewById(R.id.btn_event_details);
             View btnEdit = row.findViewById(R.id.btn_edit_event);
             View btnEnrolled = row.findViewById(R.id.btn_view_enrolled);
@@ -179,6 +186,19 @@ public class ManageFragment extends Fragment {
             String title = event.getTitle();
             tvTitle.setText(title != null && !title.trim().isEmpty() ? title : event.getEventId());
             tvSubtitle.setText(buildSubtitle(event));
+
+            if (event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
+                ivPoster.setVisibility(View.VISIBLE);
+                ivPlaceholder.setVisibility(View.GONE);
+                Glide.with(this)
+                        .load(event.getPosterUrl())
+                        .placeholder(R.drawable.ic_image_placeholder)
+                        .centerCrop()
+                        .into(ivPoster);
+            } else {
+                ivPoster.setVisibility(View.GONE);
+                ivPlaceholder.setVisibility(View.VISIBLE);
+            }
 
             btnDetails.setOnClickListener(v -> openEventDetails(event));
             btnEdit.setOnClickListener(v ->
@@ -415,6 +435,7 @@ public class ManageFragment extends Fragment {
         // Poster handling
         View cardAddMedia = view.findViewById(R.id.card_add_media);
         currentPreviewImage = view.findViewById(R.id.iv_event_poster_preview);
+        currentPlaceholderIcon = view.findViewById(R.id.iv_placeholder_icon);
         currentRemovePosterButton = view.findViewById(R.id.btn_remove_poster);
         selectedImageUri = null; // Reset for new dialog
 
@@ -424,8 +445,8 @@ public class ManageFragment extends Fragment {
 
         currentRemovePosterButton.setOnClickListener(v -> {
             selectedImageUri = null;
-            currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
-            currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+            currentPreviewImage.setVisibility(View.GONE);
+            currentPlaceholderIcon.setVisibility(View.VISIBLE);
             currentRemovePosterButton.setVisibility(View.GONE);
         });
 
@@ -572,8 +593,8 @@ public class ManageFragment extends Fragment {
                 localEndDateMs[0] = null;
 
                 selectedImageUri = null;
-                currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
-                currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+                currentPreviewImage.setVisibility(View.GONE);
+                currentPlaceholderIcon.setVisibility(View.VISIBLE);
                 currentRemovePosterButton.setVisibility(View.GONE);
 
 //                EditText organizers = view.findViewById(R.id.et_organizers);
@@ -866,12 +887,15 @@ public class ManageFragment extends Fragment {
         // Poster handling
         View cardAddMedia = view.findViewById(R.id.card_add_media);
         currentPreviewImage = view.findViewById(R.id.iv_event_poster_preview);
+        currentPlaceholderIcon = view.findViewById(R.id.iv_placeholder_icon);
         currentRemovePosterButton = view.findViewById(R.id.btn_remove_poster);
         selectedImageUri = null;
 
         final boolean[] removePoster = {false};
 
         if (event.getPosterUrl() != null && !event.getPosterUrl().isEmpty()) {
+            currentPreviewImage.setVisibility(View.VISIBLE);
+            currentPlaceholderIcon.setVisibility(View.GONE);
             Glide.with(this)
                     .load(event.getPosterUrl())
                     .placeholder(R.drawable.ic_image_placeholder)
@@ -884,8 +908,8 @@ public class ManageFragment extends Fragment {
         currentRemovePosterButton.setOnClickListener(v -> {
             removePoster[0] = true;
             selectedImageUri = null;
-            currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
-            currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+            currentPreviewImage.setVisibility(View.GONE);
+            currentPlaceholderIcon.setVisibility(View.VISIBLE);
             currentRemovePosterButton.setVisibility(View.GONE);
         });
 
@@ -1105,8 +1129,8 @@ public class ManageFragment extends Fragment {
                 localEndDateMs[0] = null;
 
                 selectedImageUri = null;
-                currentPreviewImage.setImageResource(R.drawable.ic_image_placeholder);
-                currentPreviewImage.setScaleType(ImageView.ScaleType.CENTER);
+                currentPreviewImage.setVisibility(View.GONE);
+                currentPlaceholderIcon.setVisibility(View.VISIBLE);
                 removePoster[0] = true;
                 currentRemovePosterButton.setVisibility(View.GONE);
             });
