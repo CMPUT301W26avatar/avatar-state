@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /** Database storage and retrieval layer with respect to Users
  * Users have their own firebase collection "users"
@@ -33,7 +34,6 @@ import java.util.Map;
  */
 public class UserStorage {
     private final FirebaseFirestore db;
-
     public UserStorage(FirebaseFirestore db) {
         this.db = db;
     }

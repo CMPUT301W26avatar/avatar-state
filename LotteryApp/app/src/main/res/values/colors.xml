@@ -7,5 +7,19 @@
     <color name="tag_public">#3300FF00</color>
     <color name="tag_private">#33FF0000</color>
 
-
+    <!-- Charcoal Grey + Blue Accent  -->
+    <color name="charcoal">#FF2F3640</color>
+    <color name="charcoal_light">#FF565656</color>
+    <color name="charcoal_dark">#FF1E252B</color>
+    <color name="blue_accent">#FF2C87A8</color>
+    <color name="blue_accent_light">#FF4BA8C9</color>
+    <color name="blue_accent_dark">#FF1D6A87</color>
+    <color name="on_charcoal">#FFFFFFFF</color>
+    <color name="on_blue">#FFFFFFFF</color>
+    <color name="surface_light">#FFF5F6F7</color>
+    <color name="surface_variant_light">#FFE8EAED</color>
+    <color name="on_surface_light">#FF1A1C1E</color>
+    <color name="on_surface_variant_light">#FF44474E</color>
+    <color name="outline_light">#FF74777F</color>
+    <color name="outline_variant_light">#FFC4C6CF</color>
 </resources>
