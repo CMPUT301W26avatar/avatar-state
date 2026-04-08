@@ -34,7 +34,8 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:padding="16dp"
-            android:paddingBottom="24dp" />
+            android:paddingBottom="24dp"
+            android:animateLayoutChanges="true" />
 
     </androidx.core.widget.NestedScrollView>
 

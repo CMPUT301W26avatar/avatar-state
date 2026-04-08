@@ -57,7 +57,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingBottom="80dp">
+            android:paddingBottom="80dp"
+            android:animateLayoutChanges="true">
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/open_header"
@@ -75,7 +76,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:nestedScrollingEnabled="false"
-                android:paddingHorizontal="12dp" />
+                android:paddingHorizontal="12dp"
+                android:layoutAnimation="@anim/layout_animation_fall_down" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/upcoming_header"
@@ -93,7 +95,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:nestedScrollingEnabled="false"
-                android:paddingHorizontal="12dp" />
+                android:paddingHorizontal="12dp"
+                android:layoutAnimation="@anim/layout_animation_fall_down" />
 
             <com.google.android.material.textview.MaterialTextView
                 android:id="@+id/full_header"
@@ -111,7 +114,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:nestedScrollingEnabled="false"
-                android:paddingHorizontal="12dp" />
+                android:paddingHorizontal="12dp"
+                android:layoutAnimation="@anim/layout_animation_fall_down" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

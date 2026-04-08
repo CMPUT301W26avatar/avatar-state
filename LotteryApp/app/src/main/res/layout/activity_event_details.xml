@@ -15,7 +15,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:animateLayoutChanges="true">
 
             <!-- Image Section -->
             <androidx.constraintlayout.widget.ConstraintLayout
@@ -183,7 +184,8 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:paddingHorizontal="24dp"
-                android:paddingBottom="24dp">
+                android:paddingBottom="24dp"
+                android:animateLayoutChanges="true">
 
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
@@ -432,9 +434,9 @@
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:padding="16dp"
-            android:id="@+id/frame_layout_events">
+            android:id="@+id/frame_layout_events"
+            android:animateLayoutChanges="true">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_remove_event"
@@ -470,7 +472,8 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:animateLayoutChanges="true">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_begin_lottery_selection"
@@ -520,7 +523,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:visibility="gone">
+                android:visibility="gone"
+                android:animateLayoutChanges="true">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_accept_invitation"

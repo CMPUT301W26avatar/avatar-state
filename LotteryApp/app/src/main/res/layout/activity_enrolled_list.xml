@@ -37,6 +37,7 @@
         android:layout_height="0dp"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
+        android:layoutAnimation="@anim/layout_animation_fall_down"
         app:layout_constraintBottom_toTopOf="@+id/ll_enrolled_actions"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

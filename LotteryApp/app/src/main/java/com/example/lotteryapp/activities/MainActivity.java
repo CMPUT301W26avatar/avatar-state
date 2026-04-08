@@ -13,6 +13,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.example.lotteryapp.R;
 import com.example.lotteryapp.fragments.HomeFragment;
@@ -70,6 +71,12 @@ public class MainActivity extends AppCompatActivity {
 
             if (selectedFragment != null) {
                 getSupportFragmentManager().beginTransaction()
+                        .setCustomAnimations(
+                                R.anim.fade_in,
+                                android.R.anim.fade_out,
+                                R.anim.fade_in,
+                                android.R.anim.fade_out
+                        )
                         .replace(R.id.fragment_container, selectedFragment)
                         .commit();
                 return true;

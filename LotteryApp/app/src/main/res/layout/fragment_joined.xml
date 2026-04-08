@@ -58,7 +58,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="16dp"
+            android:animateLayoutChanges="true">
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/joined_event_card"
@@ -73,7 +74,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:minHeight="280dp"
-                    android:padding="0dp">
+                    android:padding="0dp"
+                    android:animateLayoutChanges="true">
 
                     <androidx.viewpager2.widget.ViewPager2
                         android:id="@+id/joined_events_pager"
@@ -129,7 +131,8 @@
 
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="wrap_content"
+                    android:animateLayoutChanges="true">
 
                     <com.google.android.material.textview.MaterialTextView
                         android:id="@+id/tv_extra_section_title"

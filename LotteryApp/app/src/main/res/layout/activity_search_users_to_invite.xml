@@ -27,9 +27,10 @@
                 android:layout_width="30dp"
                 android:layout_height="30dp"
                 android:layout_marginStart="8dp"
-                android:background="@drawable/ic_close"
+                android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Close"
                 android:padding="8dp"
+                android:src="@drawable/ic_close"
                 app:tint="?attr/colorOnSurface" />
 
             <com.google.android.material.search.SearchBar
@@ -48,6 +49,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:padding="8dp"
+        android:layoutAnimation="@anim/layout_animation_fall_down"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
