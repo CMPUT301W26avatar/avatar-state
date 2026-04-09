@@ -1126,7 +1126,7 @@ public class HomeFragment extends Fragment {
 
             String typeText = (title == null || title.trim().isEmpty())
                     ? "Notification"
-                    : "Notification: " + title.trim();
+                    : title.trim();
 
             String message = (messageText == null || messageText.trim().isEmpty())
                     ? "You have a new notification."

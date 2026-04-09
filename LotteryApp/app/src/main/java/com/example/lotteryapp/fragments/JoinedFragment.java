@@ -102,7 +102,7 @@ public class JoinedFragment extends Fragment {
         tvJoinedEmpty = view.findViewById(R.id.tv_joined_empty);
 
         // attach adapter backed by enrolled events list
-        pagerAdapter = new JoinedEventPagerAdapter(enrolledEvents);
+        pagerAdapter = new JoinedEventPagerAdapter(enrolledEvents, true);
         joinedEventsPager.setAdapter(pagerAdapter);
         joinedEventsPager.setPageTransformer(new DepthPageTransformer());
 
@@ -123,7 +123,7 @@ public class JoinedFragment extends Fragment {
         extraEventDots = view.findViewById(R.id.extra_event_dots);
 
         // attach adapter backed by the currently selected extra events category
-        extraPagerAdapter = new JoinedEventPagerAdapter(extraEvents);
+        extraPagerAdapter = new JoinedEventPagerAdapter(extraEvents, false);
         extraEventsPager.setAdapter(extraPagerAdapter);
         extraEventsPager.setPageTransformer(new DepthPageTransformer());
 
@@ -791,9 +791,11 @@ public class JoinedFragment extends Fragment {
             extends RecyclerView.Adapter<JoinedEventPagerAdapter.JoinedEventViewHolder> {
 
         private final List<Event> events;
+        private final boolean showConfirmationTicketButton;
 
-        JoinedEventPagerAdapter(List<Event> events) {
+        JoinedEventPagerAdapter(List<Event> events, boolean showConfirmationTicketButton) {
             this.events = events;
+            this.showConfirmationTicketButton = showConfirmationTicketButton;
         }
 
         @NonNull
@@ -812,7 +814,13 @@ public class JoinedFragment extends Fragment {
             holder.title.setText(title != null && !title.trim().isEmpty() ? title : event.getEventId());
             holder.subtitle.setText(buildJoinedSubtitle(event));
 
-            holder.btnTicket.setOnClickListener(v -> openConfirmationTicket(event));
+            if (showConfirmationTicketButton) {
+                holder.btnTicket.setVisibility(View.VISIBLE);
+                holder.btnTicket.setOnClickListener(v -> openConfirmationTicket(event));
+            } else {
+                holder.btnTicket.setVisibility(View.GONE);
+            }
+
             holder.btnDetails.setOnClickListener(v -> openEventDetails(event));
         }
 
