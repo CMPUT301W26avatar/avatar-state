@@ -188,11 +188,9 @@ public class EventMapActivity extends AppCompatActivity {
         if (currentEvent.hasGeoConstraint()
                 && eventAddress.getRadiusKm() != null
                 && eventAddress.getRadiusKm() > 0) {
-            details.append("\nWaitlist Radius: ")
+            details.append("\n Waitlist Radius: ")
                     .append(eventAddress.getRadiusKm())
                     .append(" km");
-        } else {
-            details.append("\nNo geo constraint");
         }
 
         eventMarker.setSubDescription(details.toString());

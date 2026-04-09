@@ -109,7 +109,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="8dp"
-                android:text="Invited"
+                android:text="Waitlist"
                 android:textAllCaps="false"
                 android:textSize="12sp" />
 

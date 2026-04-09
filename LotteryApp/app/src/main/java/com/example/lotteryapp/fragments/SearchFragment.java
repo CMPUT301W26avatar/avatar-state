@@ -354,7 +354,7 @@ public class SearchFragment extends Fragment {
             List<HomeFragment.DisplayGridEvent> searchResults = new ArrayList<>();
 
             for (Event event : fetchedEvents) {
-                if (!passesSearchFilters(event)) {
+                if (!passesSearchFilters(event) && !event.isPrivateEvent()) {
                     continue;
                 }
                 searchResults.add(eventToDisplayEvent(event));
@@ -458,7 +458,10 @@ public class SearchFragment extends Fragment {
         OnSuccessListener<List<Event>> successListener = fetchedEvents -> {
             targetList.clear(); // clear previous results before populating
             for (Event event : fetchedEvents) {
-                targetList.add(eventToDisplayEvent(event));
+                if (!event.isPrivateEvent()) {
+                    targetList.add(eventToDisplayEvent(event));
+
+                }
             }
             adapter.notifyDataSetChanged();
 

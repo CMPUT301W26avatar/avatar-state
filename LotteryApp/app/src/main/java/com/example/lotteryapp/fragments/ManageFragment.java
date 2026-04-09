@@ -1660,7 +1660,7 @@ public class ManageFragment extends Fragment {
         }
 
         if (event != null && event.getStatus() != null) {
-            subtitle.append(event.getStatus().name());
+            subtitle.append(statusString(event.getStatus()));
         }
 
         if (!event.hasDrawnLottery) {
@@ -1670,19 +1670,22 @@ public class ManageFragment extends Fragment {
                 subtitle.append("\nWaitlist: ")
                         .append(event.getWaitlistCount())
                         .append("/")
-                        .append("∞");
+                        .append("∞")
+                        .append(" ");
 
             } else if (waitlistCap > 0) {
                 subtitle.append("\nWaitlist: ")
                         .append(event.getWaitlistCount())
                         .append("/")
-                        .append(waitlistCap);
+                        .append(waitlistCap)
+                        .append(" ");
             }
         } else {
             subtitle.append("\nEnrolled:")
                     .append(event.getEnrolledCount())
                     .append("/")
-                    .append(event.getEventCapacity());
+                    .append(event.getEventCapacity())
+                    .append(" ");
         }
 
         if (event != null && event.getEventDateMs() != null) {
@@ -1692,4 +1695,24 @@ public class ManageFragment extends Fragment {
         return subtitle.length() == 0 ? "Event" : subtitle.toString();
     }
 
+    private String statusString(Event.EventStatus status) {
+        if (status == null) return "Unknown";
+        switch (status) {
+            case REG_OPEN:
+                return "Open for registration";
+            case REG_CLOSED:
+                return "Closed for registration";
+            case REG_FULL:
+                return "Waitlist full";
+            case REG_UPCOMING:
+                return "Register soon";
+            case EVENT_CLOSED:
+                return "Event date passed";
+            case EVENT_OPEN:
+                return "Invitations Sent";
+            case EVENT_FULL:
+                return "Event is full";
+        }
+        return "Unknown";
+    }
 }
