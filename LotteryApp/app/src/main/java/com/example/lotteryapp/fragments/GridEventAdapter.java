@@ -61,7 +61,6 @@ public class GridEventAdapter extends RecyclerView.Adapter<GridEventAdapter.Even
         holder.tvTitle.setText(event.title);
         holder.tvSubtitle.setText(event.subtitle);
         holder.tvDesc.setText(event.description);
-        holder.tvTag.setText(event.tag);
 
         if (event.posterUrl != null && !event.posterUrl.trim().isEmpty()) {
             holder.ivPoster.setVisibility(View.VISIBLE);
@@ -103,7 +102,6 @@ public class GridEventAdapter extends RecyclerView.Adapter<GridEventAdapter.Even
             tvTitle = itemView.findViewById(R.id.tv_title);
             tvSubtitle = itemView.findViewById(R.id.tv_subtitle);
             tvDesc = itemView.findViewById(R.id.tv_desc);
-            tvTag = itemView.findViewById(R.id.tv_tag);
             ivPoster = itemView.findViewById(R.id.iv_event_poster);
             ivPlaceholderIcon = itemView.findViewById(R.id.iv_placeholder_icon);
         }
