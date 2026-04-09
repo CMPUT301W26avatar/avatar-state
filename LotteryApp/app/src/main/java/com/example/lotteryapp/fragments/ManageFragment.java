@@ -44,6 +44,7 @@ import com.google.firebase.storage.StorageReference;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -1527,33 +1528,45 @@ public class ManageFragment extends Fragment {
      */
     @NonNull
     private String buildResolvedAddress(@NonNull Address address, @NonNull String fallback) {
+        List<String> parts = new ArrayList<>();
+
+        addIfUnique(parts, address.getFeatureName());
+        addIfUnique(parts, address.getThoroughfare());
+        addIfUnique(parts, address.getLocality());
+        addIfUnique(parts, address.getAdminArea());
+        addIfUnique(parts, address.getCountryName());
+
+        if (parts.isEmpty()) {
+            return fallback;
+        }
+
         StringBuilder resolved = new StringBuilder();
+        for (int i = 0; i < parts.size(); i++) {
+            if (i > 0) {
+                resolved.append(", ");
+            }
+            resolved.append(parts.get(i));
+        }
+        return resolved.toString();
+    }
 
-        // Depending on precise the geocoder match was,
-        //  some fields may be null, or we may get some unneeded fields
-        //  build a nice display string from only what matters from the geocoder callback
-
-        if (address.getFeatureName() != null && !address.getFeatureName().isEmpty()) {
-            resolved.append(address.getFeatureName());
-        }
-        if (address.getThoroughfare() != null && !address.getThoroughfare().isEmpty()) {
-            if (resolved.length() > 0) resolved.append(", ");
-            resolved.append(address.getThoroughfare());
-        }
-        if (address.getLocality() != null && !address.getLocality().isEmpty()) {
-            if (resolved.length() > 0) resolved.append(", ");
-            resolved.append(address.getLocality());
-        }
-        if (address.getAdminArea() != null && !address.getAdminArea().isEmpty()) {
-            if (resolved.length() > 0) resolved.append(", ");
-            resolved.append(address.getAdminArea());
-        }
-        if (address.getCountryName() != null && !address.getCountryName().isEmpty()) {
-            if (resolved.length() > 0) resolved.append(", ");
-            resolved.append(address.getCountryName());
+    private void addIfUnique(@NonNull List<String> parts, @Nullable String value) {
+        if (value == null) {
+            return;
         }
 
-        return resolved.length() > 0 ? resolved.toString() : fallback;
+        String cleaned = value.trim();
+        if (cleaned.isEmpty()) {
+            return;
+        }
+
+        for (String existing : parts) {
+            if (existing.equalsIgnoreCase(cleaned)) {
+                return;
+            }
+        }
+
+        parts.add(cleaned);
     }
 
     /**
