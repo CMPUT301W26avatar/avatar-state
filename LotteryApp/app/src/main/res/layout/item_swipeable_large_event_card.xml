@@ -68,6 +68,7 @@
                     android:minHeight="48dp"
                     android:text="Download Ticket"
                     android:textAllCaps="false"
+                    android:visibility="gone"
                     android:textSize="13sp" />
 
                 <com.google.android.material.button.MaterialButton
