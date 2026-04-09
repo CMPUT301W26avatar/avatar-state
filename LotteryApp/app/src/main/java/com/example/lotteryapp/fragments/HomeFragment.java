@@ -402,7 +402,10 @@ public class HomeFragment extends Fragment {
 
                     if (fetchedEvents != null) {
                         for (Event event : fetchedEvents) {
-                            pendingPopularGridEvents.add(eventToDisplayEvent(event));
+                            if (!event.isPrivateEvent()) {
+                                pendingPopularGridEvents.add(eventToDisplayEvent(event));
+
+                            }
                         }
                     }
 
@@ -610,7 +613,9 @@ public class HomeFragment extends Fragment {
 
                     if (fetchedEvents != null) {
                         for (Event event : fetchedEvents) {
-                            pendingNearbyGridEvents.add(eventToDisplayEvent(event));
+                            if (!event.isPrivateEvent()) {
+                                pendingNearbyGridEvents.add(eventToDisplayEvent(event));
+                            }
                         }
                     }
 
